@@ -10,12 +10,12 @@ Use `.copilot-reference/kos-docs/doc/source` as a local reference for kOS docume
 
 `kos-language-server` is installed as a dev dependency and can be used to validate `.ks` files without running the game.
 
-After editing any `.ks` file, run:
+After editing any `.ks` file, you **must** run:
 
 ```sh
-npm run lint
+npm run lint -- --strict
 ```
 
-This performs syntax validation and static analysis (undeclared symbols, unused variables) across all `.ks` files in the repo. Fix any **errors** before committing; **warnings** are informational.
+This performs syntax validation and static analysis (undeclared symbols, unused variables) across all `.ks` files in the repo. **Do not commit unless this command exits 0.** Both errors and warnings are treated as failures in strict mode — do not introduce new ones.
 
-The script communicates with the language server over LSP stdio — it exits 0 on clean/warnings-only, 1 on errors, 2 on timeout.
+The script communicates with the language server over LSP stdio — it exits 0 on clean, 1 on errors or warnings, 2 on timeout.

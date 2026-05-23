@@ -27,6 +27,7 @@ function encode(msg) {
 }
 
 function main() {
+  const strict = process.argv.includes('--strict');
   const root = process.cwd();
   const files = findKsFiles(root);
 
@@ -71,6 +72,7 @@ function main() {
         console.log(`${filePath}:${line}:${col}: ${level}: ${d.message}`);
       }
       if (errors.length > 0) hasErrors = true;
+      if (strict && warnings.length > 0) hasErrors = true;
     }
 
     if (!hasErrors) {
