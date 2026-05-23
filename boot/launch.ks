@@ -113,7 +113,7 @@ IF SHIP:AVAILABLETHRUST <= 0 {
         LOCAL eta_now IS ETA:APOAPSIS.
         IF eta_now > (last_apoapsis_eta + apoapsis_wrap_tolerance) {
             PRINT "Missed apoapsis window. Coasting to next pass.".
-            SET THROTTLE TO 0.
+            LOCK THROTTLE TO 0.
             WAIT UNTIL ETA:APOAPSIS < circularize_window_eta.
             SET last_apoapsis_eta TO ETA:APOAPSIS.
             CONTINUE.
@@ -122,7 +122,7 @@ IF SHIP:AVAILABLETHRUST <= 0 {
 
         LOCAL periapsis_error IS MAX(0, target_periapsis - SHIP:PERIAPSIS).
         LOCAL throttle_frac IS MIN(1.0, periapsis_error / circularize_throttle_scale).
-        SET THROTTLE TO throttle_frac.
+        LOCK THROTTLE TO throttle_frac.
         WAIT 0.
     }
 }
