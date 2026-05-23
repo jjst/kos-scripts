@@ -108,8 +108,16 @@ IF SHIP:AVAILABLETHRUST <= 0 {
         }
 
         LOCAL periapsis_error IS MAX(0, target_periapsis - SHIP:PERIAPSIS).
-        LOCAL throttle_frac IS MIN(1.0, periapsis_error / circularize_throttle_scale).
-        LOCK THROTTLE TO throttle_frac.
+        LOCAL max_thrust IS SHIP:AVAILABLETHRUST.
+        LOCAL weight IS SHIP:MASS * SHIP:BODY:MU /
+                        (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
+        LOCAL effective_max_twr IS max_twr.
+        IF SHIP:PERIAPSIS > (target_periapsis * 0.9) {
+            SET effective_max_twr TO max_twr * 0.5.
+        }
+        LOCAL twr_throttle IS (effective_max_twr * weight) / max_thrust.
+        LOCAL periapsis_throttle IS MIN(1.0, periapsis_error / circularize_throttle_scale).
+        LOCK THROTTLE TO MIN(twr_throttle, periapsis_throttle).
         WAIT 0.
     }
 }
