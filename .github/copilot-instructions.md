@@ -6,6 +6,39 @@ As part of this repository's `copilot-setup-steps` workflow, the kOS upstream do
 
 Use `.copilot-reference/kos-docs/doc/source` as a local reference for kOS documentation when working on scripts in this repository.
 
+When implementing any common or recurring KSP logic, you **must** check the local kOS documentation first and use it as the authoritative reference.
+
+### Local kOS documentation index
+
+Docs root: `.copilot-reference/kos-docs/doc/source`
+
+- Main entry: `index.rst`
+- Full table of contents: `contents.rst`
+- Top-level guides:
+  - `tutorials.rst`
+  - `general.rst`
+  - `language.rst`
+  - `math.rst`
+  - `commands.rst`
+  - `structures.rst`
+  - `addons.rst`
+- Section directories:
+  - `tutorials/`
+  - `general/`
+  - `language/`
+  - `math/`
+  - `commands/`
+  - `structures/`
+  - `addons/`
+- Supporting references:
+  - `library.rst`
+  - `bindings.rst`
+  - `changes.rst`
+  - `getting_help.rst`
+  - `downloads_links.rst`
+  - `about.rst`
+  - `contribute.rst`
+
 ## Linting
 
 `kos-language-server` is installed as a dev dependency and can be used to validate `.ks` files without running the game.
