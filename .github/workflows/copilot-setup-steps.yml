@@ -2,6 +2,8 @@ name: Copilot Setup Steps
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1"
   push:
     paths:
       - .github/workflows/copilot-setup-steps.yml
@@ -15,10 +17,13 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
       - name: Clone kOS repository docs
         run: |
           set -euo pipefail
-          DEST_DIR="/tmp/kos-docs"
+          DEST_DIR="$GITHUB_WORKSPACE/.copilot-reference/kos-docs"
           rm -rf "$DEST_DIR"
           git clone --depth 1 --branch develop https://github.com/KSP-KOS/KOS.git "$DEST_DIR"
           test -d "$DEST_DIR/doc/source"
