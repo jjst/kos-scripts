@@ -39,13 +39,12 @@ FUNCTION prompt_number_or_default {
     IF raw_value:LENGTH = 0 {
         RETURN default_value.
     }
-    LOCAL parse_sentinel IS 9.87654321e307.
-    LOCAL parsed_value IS raw_value:TONUMBER(parse_sentinel).
-    IF parsed_value = parse_sentinel {
+    LOCAL normalized_value IS raw_value:REPLACE("_", "").
+    IF NOT normalized_value:MATCHESPATTERN("^[-+]?((\\d+\\.?\\d*)|(\\.\\d+))([eE][-+]?\\d+)?$") {
         PRINT "Invalid input '" + raw_value + "' - using default " + default_value + ".".
         RETURN default_value.
     }
-    RETURN parsed_value.
+    RETURN normalized_value:TONUMBER().
 }
 
 SET launch_azimuth TO prompt_number_or_default("Launch heading (deg)", launch_azimuth).
