@@ -49,10 +49,10 @@ WAIT UNTIL SHIP:ALTITUDE > turn_start_alt.
 PRINT "Beginning gravity turn.".
 UNTIL SHIP:APOAPSIS >= target_apoapsis {
 
-    IF STAGE:LIQUIDFUEL < 0.1 {
+    IF STAGE:LIQUIDFUEL < 0.1 AND STAGE:READY {
         PRINT "Staging!".
         STAGE.
-        WAIT 1.
+        WAIT UNTIL STAGE:READY.
     }
 
     LOCK STEERING TO HEADING(launch_azimuth, ascent_pitch()).
