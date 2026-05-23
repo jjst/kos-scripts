@@ -61,7 +61,7 @@ UNTIL SHIP:APOAPSIS >= target_apoapsis {
     // Also back off when closing in on target Ap
     LOCAL ap_throttle IS 1.0.
     IF SHIP:APOAPSIS > (target_apoapsis * 0.9) {
-        SET ap_throttle TO 0.25.
+        SET ap_throttle TO 0.5.
     }
 
     LOCK THROTTLE TO MIN(twr_throttle, ap_throttle).
