@@ -95,9 +95,26 @@ WAIT UNTIL ETA:APOAPSIS < 15.
 PRINT "Circularisation burn.".
 LOCK STEERING TO PROGRADE.
 
-UNTIL SHIP:OBT:ECCENTRICITY < 0.002 {
-    LOCAL throttle_frac IS MIN(1.0, SHIP:OBT:ECCENTRICITY * 100).
-    LOCK THROTTLE TO MAX(0.05, throttle_frac).
+SET last_eta TO ETA:APOAPSIS.
+UNTIL SHIP:PERIAPSIS >= target_periapsis OR SHIP:OBT:ECCENTRICITY < 0.002 {
+    IF SHIP:AVAILABLETHRUST <= 0 {
+        PRINT "Circularisation ended early: no thrust available.".
+        BREAK.
+    }
+
+    LOCAL eta_now IS ETA:APOAPSIS.
+    IF eta_now > (last_eta + 1) {
+        PRINT "Missed apoapsis window. Coasting to next pass.".
+        LOCK THROTTLE TO 0.
+        WAIT UNTIL ETA:APOAPSIS < 15.
+        SET last_eta TO ETA:APOAPSIS.
+        CONTINUE.
+    }
+    SET last_eta TO eta_now.
+
+    LOCAL periapsis_error IS MAX(0, target_periapsis - SHIP:PERIAPSIS).
+    LOCAL throttle_frac IS MIN(1.0, periapsis_error / 15000).
+    LOCK THROTTLE TO throttle_frac.
     WAIT 0.
 }
 
