@@ -114,19 +114,9 @@ IF SHIP:AVAILABLETHRUST <= 0 {
 } ELSE {
     UNLOCK THROTTLE.
     LOCAL prev_ecc IS SHIP:OBT:ECCENTRICITY.
-    UNTIL FALSE {
-        IF SHIP:AVAILABLETHRUST <= 0 {
-            PRINT "Circularisation ended early: no thrust available.".
-            BREAK.
-        }
-
-        LOCAL cur_ecc IS SHIP:OBT:ECCENTRICITY.
-        IF cur_ecc > prev_ecc {
-            PRINT "Circularisation stopped: eccentricity diverging (ecc=" + ROUND(cur_ecc, 4) + ").".
-            BREAK.
-        }
+    LOCAL cur_ecc  IS prev_ecc.
+    UNTIL SHIP:AVAILABLETHRUST <= 0 OR cur_ecc > prev_ecc {
         SET prev_ecc TO cur_ecc.
-
         LOCAL max_thrust IS SHIP:AVAILABLETHRUST.
         LOCAL weight IS SHIP:MASS * SHIP:BODY:MU /
                         (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
@@ -134,6 +124,10 @@ IF SHIP:AVAILABLETHRUST <= 0 {
         LOCAL ecc_throttle IS MIN(1.0, cur_ecc / circularize_ecc_throttle_scale).
         LOCK THROTTLE TO MIN(twr_throttle, ecc_throttle).
         WAIT 0.
+        SET cur_ecc TO SHIP:OBT:ECCENTRICITY.
+    }
+    IF SHIP:AVAILABLETHRUST <= 0 {
+        PRINT "Circularisation ended early: no thrust available.".
     }
 }
 
