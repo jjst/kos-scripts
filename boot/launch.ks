@@ -88,8 +88,7 @@ LOCK STEERING TO PROGRADE.
 // Estimate circularisation burn duration so we can ignite half a burn-time before Ap.
 LOCAL mu_body  IS SHIP:BODY:MU.
 LOCAL r_ap     IS SHIP:BODY:RADIUS + SHIP:APOAPSIS.
-LOCAL r_pe     IS SHIP:BODY:RADIUS + SHIP:PERIAPSIS.
-LOCAL a_cur    IS (r_ap + r_pe) / 2.
+LOCAL a_cur    IS SHIP:OBT:SEMIMAJORAXIS.
 LOCAL v_at_ap  IS SQRT(mu_body * (2 / r_ap - 1 / a_cur)).
 LOCAL v_circ   IS SQRT(mu_body / r_ap).
 LOCAL circ_dv  IS MAX(0, v_circ - v_at_ap).
