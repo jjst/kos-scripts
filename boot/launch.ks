@@ -37,7 +37,13 @@ FUNCTION print_stage {
 }
 
 FUNCTION print_flight_snapshot {
-    PRINT "   Alt: " + ROUND(SHIP:ALTITUDE / 1000, 1) + " km | Ap: " + ROUND(SHIP:APOAPSIS / 1000, 1) + " km | Pe: " + ROUND(SHIP:PERIAPSIS / 1000, 1) + " km".
+    LOCAL pe_text IS "".
+    IF SHIP:PERIAPSIS < 0 {
+        SET pe_text TO "suborbital".
+    } ELSE {
+        SET pe_text TO ROUND(SHIP:PERIAPSIS / 1000, 1) + " km".
+    }
+    PRINT "   Alt: " + ROUND(SHIP:ALTITUDE / 1000, 1) + " km | Ap: " + ROUND(SHIP:APOAPSIS / 1000, 1) + " km | Pe: " + pe_text.
 }
 
 // Steering helper: pitch = gravity turn interpolation
@@ -54,7 +60,7 @@ print_stage("PHASE 1 — COUNTDOWN", "Azimuth " + launch_azimuth + " deg | Targe
 PRINT "Launch sequence initiated. Vehicle configured for ascent.".
 PRINT "Gravity turn window: " + ROUND(turn_start_alt, 0) + " m -> " + ROUND(turn_end_alt / 1000, 0) + " km.".
 FROM {LOCAL i IS 5.} UNTIL i = 0 STEP {SET i TO i - 1.} DO {
-    PRINT "T-" + i + "s".
+    PRINT "T-" + i + " s".
     WAIT 1.
 }
 PRINT "Ignition!".
@@ -73,7 +79,7 @@ LOCAL next_ascent_report_ap IS 10000.
 UNTIL SHIP:APOAPSIS >= target_apoapsis {
 
     IF stage_armed AND STAGE:LIQUIDFUEL < stage_fuel_min {
-        PRINT "Stage fuel low (" + ROUND(STAGE:LIQUIDFUEL * 100, 1) + "%). Staging now.".
+        PRINT "Stage fuel low (" + ROUND(STAGE:LIQUIDFUEL, 2) + " u). Staging now.".
         STAGE.
         SET stage_armed TO FALSE.
         WAIT 1.
