@@ -20,7 +20,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
+      - name: Restore cached kOS docs
+        id: cache-kos-docs
+        uses: actions/cache@v5
+        with:
+          path: ${{ github.workspace }}/.copilot-reference/kos-docs
+          key: kos-docs-${{ runner.os }}-develop-v1
+
       - name: Clone kOS repository docs
+        if: steps.cache-kos-docs.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
           DEST_DIR="$GITHUB_WORKSPACE/.copilot-reference/kos-docs"
