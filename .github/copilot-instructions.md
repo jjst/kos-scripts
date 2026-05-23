@@ -8,41 +8,6 @@ Use `.copilot-reference/kos-docs/doc/source` as a local reference for kOS docume
 
 When implementing any common or recurring KSP logic, you **must** check the local kOS documentation first and use it as the authoritative reference.
 
-### Local kOS documentation index
-
-Docs root: `.copilot-reference/kos-docs/doc/source`
-
-- Main entry: `index.rst`
-- Full table of contents: `contents.rst`
-- Top-level guides:
-  - `tutorials.rst`
-  - `general.rst`
-  - `language.rst`
-  - `math.rst`
-  - `commands.rst`
-  - `structures.rst`
-  - `addons.rst`
-- Section directories:
-  - `tutorials/`
-  - `general/`
-  - `language/`
-  - `math/`
-  - `commands/`
-  - `structures/`
-  - `addons/`
-- Supporting references:
-  - `library.rst`
-  - `bindings.rst`
-  - `changes.rst`
-  - `getting_help.rst`
-  - `downloads_links.rst`
-  - `about.rst`
-  - `contribute.rst`
-
-### Actually useful files for implementing KSP scripts
-
-Use these first when writing or changing kOS automation logic:
-
 | File | What it contains | Why it is useful |
 | --- | --- | --- |
 | `tutorials/quickstart.rst` | End-to-end beginner workflow (terminal, editor, run flow, script file basics). | Fast sanity check for canonical script workflow and command formatting in examples. |
