@@ -24,6 +24,22 @@ RCS OFF.
 GEAR OFF.
 LOCK THROTTLE TO 0.
 
+FUNCTION print_stage {
+    PARAMETER title.
+    PARAMETER detail IS "".
+    PRINT "".
+    PRINT "============================================================".
+    PRINT ">> " + title.
+    IF detail <> "" {
+        PRINT "   " + detail.
+    }
+    PRINT "============================================================".
+}
+
+FUNCTION print_flight_snapshot {
+    PRINT "   Alt: " + ROUND(SHIP:ALTITUDE / 1000, 1) + " km | Ap: " + ROUND(SHIP:APOAPSIS / 1000, 1) + " km | Pe: " + ROUND(SHIP:PERIAPSIS / 1000, 1) + " km".
+}
+
 // Steering helper: pitch = gravity turn interpolation
 FUNCTION ascent_pitch {
     LOCAL frac IS (SHIP:ALTITUDE - turn_start_alt) /
@@ -34,9 +50,11 @@ FUNCTION ascent_pitch {
 
 // Phase 1 — Countdown
 LOCK STEERING TO HEADING(launch_azimuth, 90).
-PRINT "Launch sequence initiated.".
+print_stage("PHASE 1 — COUNTDOWN", "Azimuth " + launch_azimuth + " deg | Target Ap " + ROUND(target_apoapsis / 1000, 0) + " km").
+PRINT "Launch sequence initiated. Vehicle configured for ascent.".
+PRINT "Gravity turn window: " + ROUND(turn_start_alt, 0) + " m -> " + ROUND(turn_end_alt / 1000, 0) + " km.".
 FROM {LOCAL i IS 5.} UNTIL i = 0 STEP {SET i TO i - 1.} DO {
-    PRINT "T-" + i + "...".
+    PRINT "T-" + i + "s".
     WAIT 1.
 }
 PRINT "Ignition!".
@@ -44,16 +62,18 @@ LOCK THROTTLE TO 1.0.
 STAGE.
 
 // Phase 2 — Hold vertical until turn_start_alt
-PRINT "Launch — holding vertical.".
+print_stage("PHASE 2 — INITIAL ASCENT", "Holding vertical until " + ROUND(turn_start_alt, 0) + " m.").
 WAIT UNTIL SHIP:ALTITUDE > turn_start_alt.
+PRINT "Vertical climb complete; beginning pitch program.".
 
 // Phase 3 — Gravity turn loop
-PRINT "Beginning gravity turn.".
+print_stage("PHASE 3 — GRAVITY TURN", "Ramping pitch while building apoapsis to " + ROUND(target_apoapsis / 1000, 0) + " km.").
 SET stage_armed TO TRUE.
+LOCAL next_ascent_report_ap IS 10000.
 UNTIL SHIP:APOAPSIS >= target_apoapsis {
 
     IF stage_armed AND STAGE:LIQUIDFUEL < stage_fuel_min {
-        PRINT "Staging!".
+        PRINT "Stage fuel low (" + ROUND(STAGE:LIQUIDFUEL * 100, 1) + "%). Staging now.".
         STAGE.
         SET stage_armed TO FALSE.
         WAIT 1.
@@ -77,12 +97,19 @@ UNTIL SHIP:APOAPSIS >= target_apoapsis {
 
     LOCK THROTTLE TO MIN(1.0, twr_throttle).
 
+    IF SHIP:APOAPSIS >= next_ascent_report_ap {
+        PRINT "Ascent update: pitch " + ROUND(ascent_pitch(), 1) + " deg | throttle " + ROUND(MIN(1.0, twr_throttle) * 100, 0) + "%".
+        print_flight_snapshot().
+        SET next_ascent_report_ap TO next_ascent_report_ap + 10000.
+    }
+
     WAIT 0.
 }
 
 // Phase 4 — Cut engines, coast to apoapsis
 LOCK THROTTLE TO 0.
-PRINT "Target Ap reached. Coasting to apoapsis.".
+print_stage("PHASE 4 — COAST TO APOAPSIS", "Target apoapsis reached; preparing circularisation burn.").
+PRINT "Estimated time to apoapsis: " + ROUND(ETA:APOAPSIS, 1) + " s.".
 LOCK STEERING TO PROGRADE.
 
 // Estimate circularisation burn duration so we can ignite half a burn-time before Ap.
@@ -104,15 +131,17 @@ UNTIL ETA:APOAPSIS < burn_start_eta + 60 {
     WAIT 1.
 }
 SET WARP TO 0.
+PRINT "Warp complete. Burn start in ~" + ROUND(MAX(0, ETA:APOAPSIS - burn_start_eta), 1) + " s.".
 WAIT UNTIL ETA:APOAPSIS < burn_start_eta.
 
 // Phase 5 — Circularisation burn at apoapsis
-PRINT "Circularisation burn.".
+print_stage("PHASE 5 — CIRCULARISATION", "Executing prograde burn to reduce eccentricity.").
 LOCK STEERING TO PROGRADE.
 
 IF SHIP:AVAILABLETHRUST <= 0 {
     PRINT "Circularisation ended early: no thrust available.".
 } ELSE {
+    LOCAL next_circularize_report_ecc IS MAX(0, SHIP:OBT:ECCENTRICITY - 0.02).
     UNLOCK THROTTLE.
     UNTIL SHIP:OBT:ECCENTRICITY < circularize_ecc_tol {
         IF SHIP:AVAILABLETHRUST <= 0 {
@@ -126,6 +155,12 @@ IF SHIP:AVAILABLETHRUST <= 0 {
         LOCAL twr_throttle IS (max_twr * weight) / max_thrust.
         LOCAL ecc_throttle IS MIN(1.0, SHIP:OBT:ECCENTRICITY / circularize_ecc_throttle_scale).
         LOCK THROTTLE TO MIN(twr_throttle, ecc_throttle).
+
+        IF SHIP:OBT:ECCENTRICITY <= next_circularize_report_ecc {
+            PRINT "Circularisation update: ecc " + ROUND(SHIP:OBT:ECCENTRICITY, 4) + " | throttle " + ROUND(MIN(twr_throttle, ecc_throttle) * 100, 0) + "%".
+            print_flight_snapshot().
+            SET next_circularize_report_ecc TO MAX(0, next_circularize_report_ecc - 0.02).
+        }
         WAIT 0.
     }
 }
@@ -135,6 +170,7 @@ LOCK THROTTLE TO 0.
 // Done
 UNLOCK STEERING.
 SAS ON.
-PRINT "Orbit achieved!".
+print_stage("LAUNCH COMPLETE", "Orbit achieved and guidance handed back to SAS.").
 PRINT "  Ap: " + ROUND(SHIP:APOAPSIS/1000, 1) + " km".
 PRINT "  Pe: " + ROUND(SHIP:PERIAPSIS/1000, 1) + " km".
+PRINT "  Eccentricity: " + ROUND(SHIP:OBT:ECCENTRICITY, 4).
