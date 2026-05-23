@@ -52,19 +52,17 @@ UNTIL SHIP:APOAPSIS >= target_apoapsis {
 
     LOCK STEERING TO HEADING(launch_azimuth, ascent_pitch()).
 
-    // TWR-limited throttle
-    LOCAL max_thrust   IS SHIP:AVAILABLETHRUST.
-    LOCAL weight       IS SHIP:MASS * SHIP:BODY:MU /
-                          (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
-    LOCAL twr_throttle IS (max_twr * weight) / max_thrust.
-
-    // Also back off when closing in on target Ap
-    LOCAL ap_throttle IS 1.0.
+    // TWR-limited throttle, halved when closing in on target Ap
+    LOCAL max_thrust        IS SHIP:AVAILABLETHRUST.
+    LOCAL weight            IS SHIP:MASS * SHIP:BODY:MU /
+                              (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
+    LOCAL effective_max_twr IS max_twr.
     IF SHIP:APOAPSIS > (target_apoapsis * 0.9) {
-        SET ap_throttle TO 0.5.
+        SET effective_max_twr TO max_twr * 0.5.
     }
+    LOCAL twr_throttle IS (effective_max_twr * weight) / max_thrust.
 
-    LOCK THROTTLE TO MIN(twr_throttle, ap_throttle).
+    LOCK THROTTLE TO MIN(1.0, twr_throttle).
 
     WAIT 0.
 }
