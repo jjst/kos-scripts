@@ -1,0 +1,44 @@
+name: Copilot Setup Steps
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1"
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+
+jobs:
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Restore cached kOS docs
+        id: cache-kos-docs
+        uses: actions/cache/restore@v5
+        with:
+          path: ${{ github.workspace }}/.copilot-reference/kos-docs
+          key: kos-docs-${{ runner.os }}-develop-v1
+
+      - name: Clone kOS repository docs
+        if: steps.cache-kos-docs.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          DEST_DIR="$GITHUB_WORKSPACE/.copilot-reference/kos-docs"
+          rm -rf "$DEST_DIR"
+          git clone --depth 1 --branch develop https://github.com/KSP-KOS/KOS.git "$DEST_DIR"
+          test -d "$DEST_DIR/doc/source"
+
+      - name: Save kOS docs cache
+        if: steps.cache-kos-docs.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: ${{ github.workspace }}/.copilot-reference/kos-docs
+          key: ${{ steps.cache-kos-docs.outputs.cache-primary-key }}
