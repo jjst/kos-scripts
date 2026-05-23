@@ -1,0 +1,7 @@
+{
+  "archive": ".",
+  "linting": {
+    "symbols-declaration": "error",
+    "unused-variables": "warning"
+  }
+}
