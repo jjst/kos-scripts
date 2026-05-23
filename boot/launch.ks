@@ -10,6 +10,7 @@ SET turn_start_alt   TO 100.
 SET turn_end_alt     TO 50000.
 SET launch_azimuth   TO 90.
 SET max_twr          TO 2.5.
+SET stage_fuel_min   TO 0.1.
 // ------------------------------------------------------------
 
 CLEARSCREEN.
@@ -47,12 +48,18 @@ WAIT UNTIL SHIP:ALTITUDE > turn_start_alt.
 
 // Phase 3 — Gravity turn loop
 PRINT "Beginning gravity turn.".
+SET stage_armed TO TRUE.
 UNTIL SHIP:APOAPSIS >= target_apoapsis {
 
-    IF STAGE:LIQUIDFUEL < 0.1 {
+    IF stage_armed AND STAGE:LIQUIDFUEL < stage_fuel_min {
         PRINT "Staging!".
         STAGE.
+        SET stage_armed TO FALSE.
         WAIT 1.
+    }
+
+    IF STAGE:LIQUIDFUEL >= stage_fuel_min {
+        SET stage_armed TO TRUE.
     }
 
     LOCK STEERING TO HEADING(launch_azimuth, ascent_pitch()).
