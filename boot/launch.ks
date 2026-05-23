@@ -17,12 +17,12 @@ TERMINAL:INPUT:CLEAR().
 
 FUNCTION read_line {
     LOCAL buffer IS "".
-    UNTIL FALSE {
+    LOCAL done IS FALSE.
+    UNTIL done {
         LOCAL ch IS TERMINAL:INPUT:GETCHAR().
         IF ch = TERMINAL:INPUT:RETURN {
-            RETURN buffer.
-        }
-        IF ch = TERMINAL:INPUT:BACKSPACE {
+            SET done TO TRUE.
+        } ELSE IF ch = TERMINAL:INPUT:BACKSPACE {
             IF buffer:LENGTH > 0 {
                 SET buffer TO buffer:SUBSTRING(0, buffer:LENGTH - 1).
             }
@@ -30,6 +30,7 @@ FUNCTION read_line {
             SET buffer TO buffer + ch.
         }
     }
+    RETURN buffer.
 }
 
 FUNCTION prompt_number_or_default {
@@ -40,7 +41,8 @@ FUNCTION prompt_number_or_default {
         RETURN default_value.
     }
     LOCAL normalized_value IS raw_value:REPLACE("_", "").
-    IF NOT normalized_value:MATCHESPATTERN("^[-+]?((\\d+\\.?\\d*)|(\\.\\d+))([eE][-+]?\\d+)?$") {
+    LOCAL number_pattern IS "^[-+]?((\\d+\\.?\\d*)|(\\.\\d+))([eE][-+]?\\d+)?$".
+    IF NOT normalized_value:MATCHESPATTERN(number_pattern) {
         PRINT "Invalid input '" + raw_value + "' - using default " + default_value + ".".
         RETURN default_value.
     }
