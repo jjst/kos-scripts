@@ -45,12 +45,15 @@ function main() {
   const allDiagnostics = new Map();
   let settleTimer = null;
   let msgId = 0;
+  let finished = false;
 
   function send(msg) {
     server.stdin.write(encode(msg));
   }
 
   function finish() {
+    if (finished) return;
+    finished = true;
     clearTimeout(settleTimer);
     server.kill();
 
@@ -80,7 +83,7 @@ function main() {
   function scheduleSettle() {
     clearTimeout(settleTimer);
     // Wait for any follow-up diagnostics before declaring done
-    settleTimer = setTimeout(finish, 1500);
+    settleTimer = setTimeout(finish, 500);
   }
 
   let buf = Buffer.alloc(0);
