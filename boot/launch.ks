@@ -5,14 +5,13 @@
 
 // --- CONFIG (edit these) ------------------------------------
 SET target_apoapsis  TO 100000.
-SET target_periapsis TO 100000.
 SET turn_start_alt   TO 100.
 SET turn_end_alt     TO 50000.
 SET launch_azimuth   TO 90.
 SET max_twr          TO 2.5.
 SET stage_fuel_min   TO 0.1.
-SET circularize_ecc_tol        TO 0.002.
-SET circularize_throttle_scale TO 15000.
+SET circularize_ecc_tol           TO 0.002.
+SET circularize_ecc_throttle_scale TO 0.05.
 // ------------------------------------------------------------
 
 CLEARSCREEN.
@@ -86,12 +85,27 @@ LOCK THROTTLE TO 0.
 PRINT "Target Ap reached. Coasting to apoapsis.".
 LOCK STEERING TO PROGRADE.
 
-UNTIL ETA:APOAPSIS < 45 {
+// Estimate circularisation burn duration so we can ignite half a burn-time before Ap.
+LOCAL mu_body  IS SHIP:BODY:MU.
+LOCAL r_ap     IS SHIP:BODY:RADIUS + SHIP:APOAPSIS.
+LOCAL r_pe     IS SHIP:BODY:RADIUS + SHIP:PERIAPSIS.
+LOCAL a_cur    IS (r_ap + r_pe) / 2.
+LOCAL v_at_ap  IS SQRT(mu_body * (2 / r_ap - 1 / a_cur)).
+LOCAL v_circ   IS SQRT(mu_body / r_ap).
+LOCAL circ_dv  IS MAX(0, v_circ - v_at_ap).
+LOCAL burn_duration IS 0.
+IF SHIP:AVAILABLETHRUST > 0 {
+    SET burn_duration TO (circ_dv * SHIP:MASS) / SHIP:AVAILABLETHRUST.
+}
+PRINT "Estimated circularisation burn: " + ROUND(burn_duration, 1) + " s  (dv=" + ROUND(circ_dv, 1) + " m/s)".
+
+LOCAL burn_start_eta IS burn_duration / 2.
+UNTIL ETA:APOAPSIS < burn_start_eta + 60 {
     SET WARP TO 3.
     WAIT 1.
 }
 SET WARP TO 0.
-WAIT UNTIL ETA:APOAPSIS < 15.
+WAIT UNTIL ETA:APOAPSIS < burn_start_eta.
 
 // Phase 5 — Circularisation burn at apoapsis
 PRINT "Circularisation burn.".
@@ -101,23 +115,18 @@ IF SHIP:AVAILABLETHRUST <= 0 {
     PRINT "Circularisation ended early: no thrust available.".
 } ELSE {
     UNLOCK THROTTLE.
-    UNTIL SHIP:PERIAPSIS >= target_periapsis OR SHIP:OBT:ECCENTRICITY < circularize_ecc_tol {
+    UNTIL SHIP:OBT:ECCENTRICITY < circularize_ecc_tol {
         IF SHIP:AVAILABLETHRUST <= 0 {
             PRINT "Circularisation ended early: no thrust available.".
             BREAK.
         }
 
-        LOCAL periapsis_error IS MAX(0, target_periapsis - SHIP:PERIAPSIS).
         LOCAL max_thrust IS SHIP:AVAILABLETHRUST.
         LOCAL weight IS SHIP:MASS * SHIP:BODY:MU /
                         (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
-        LOCAL effective_max_twr IS max_twr.
-        IF SHIP:PERIAPSIS > (target_periapsis * 0.9) {
-            SET effective_max_twr TO max_twr * 0.5.
-        }
-        LOCAL twr_throttle IS (effective_max_twr * weight) / max_thrust.
-        LOCAL periapsis_throttle IS MIN(1.0, periapsis_error / circularize_throttle_scale).
-        LOCK THROTTLE TO MIN(twr_throttle, periapsis_throttle).
+        LOCAL twr_throttle IS (max_twr * weight) / max_thrust.
+        LOCAL ecc_throttle IS MIN(1.0, SHIP:OBT:ECCENTRICITY / circularize_ecc_throttle_scale).
+        LOCK THROTTLE TO MIN(twr_throttle, ecc_throttle).
         WAIT 0.
     }
 }
