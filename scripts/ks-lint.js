@@ -4,7 +4,7 @@
 const { spawn } = require('child_process');
 const { readFileSync, readdirSync, statSync } = require('fs');
 const { resolve, join, extname } = require('path');
-const { pathToFileURL } = require('url');
+const { pathToFileURL, fileURLToPath } = require('url');
 
 function findKsFiles(dir) {
   const results = [];
@@ -38,13 +38,14 @@ function main() {
 
   console.log(`Checking ${files.length} file(s)...`);
 
-  const klsBin = resolve(__dirname, '../node_modules/.bin/kls');
+  const klsBin = resolve(__dirname, `../node_modules/.bin/${process.platform === 'win32' ? 'kls.cmd' : 'kls'}`);
   const server = spawn(klsBin, ['--stdio'], { stdio: ['pipe', 'pipe', 'inherit'] });
 
   const fileUris = new Set(files.map(f => pathToFileURL(f).href));
   const seen = new Set();
   const allDiagnostics = new Map();
   let settleTimer = null;
+  let initializeId = null;
   let msgId = 0;
   let finished = false;
 
@@ -59,12 +60,14 @@ function main() {
     server.kill();
 
     let hasErrors = false;
+    let hasDiagnostics = false;
     for (const [uri, diags] of allDiagnostics) {
       const errors = diags.filter(d => d.severity === 1);
       const warnings = diags.filter(d => d.severity === 2);
       if (errors.length === 0 && warnings.length === 0) continue;
 
-      const filePath = new URL(uri).pathname;
+      hasDiagnostics = true;
+      const filePath = fileURLToPath(uri);
       for (const d of [...errors, ...warnings]) {
         const level = d.severity === 1 ? 'error' : 'warning';
         const line = d.range.start.line + 1;
@@ -75,8 +78,8 @@ function main() {
       if (strict && warnings.length > 0) hasErrors = true;
     }
 
-    if (!hasErrors) {
-      console.log('No errors found.');
+    if (!hasDiagnostics) {
+      console.log('No errors or warnings found.');
     }
 
     process.exit(hasErrors ? 1 : 0);
@@ -110,7 +113,7 @@ function main() {
       let msg;
       try { msg = JSON.parse(body); } catch { continue; }
 
-      if (msg.id === 1 && msg.result) {
+      if (msg.id === initializeId && msg.result) {
         send({ jsonrpc: '2.0', method: 'initialized', params: {} });
         for (const f of files) {
           send({
@@ -146,15 +149,23 @@ function main() {
     process.exit(2);
   });
 
+  server.on('close', (code) => {
+    if (!finished) {
+      console.error(`kls exited unexpectedly with code ${code}`);
+      process.exit(2);
+    }
+  });
+
   setTimeout(() => {
     console.error('Timeout: diagnostics not received within 30s');
     server.kill();
     process.exit(2);
   }, 30000);
 
+  initializeId = ++msgId;
   send({
     jsonrpc: '2.0',
-    id: ++msgId,
+    id: initializeId,
     method: 'initialize',
     params: {
       processId: process.pid,

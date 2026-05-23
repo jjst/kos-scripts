@@ -18,4 +18,4 @@ npm run lint -- --strict
 
 This performs syntax validation and static analysis (undeclared symbols, unused variables) across all `.ks` files in the repo. **Do not commit unless this command exits 0.** Both errors and warnings are treated as failures in strict mode — do not introduce new ones.
 
-The script communicates with the language server over LSP stdio — it exits 0 on clean, 1 on errors or warnings, 2 on timeout.
+The script communicates with the language server over LSP stdio — it exits 0 on clean, 1 on errors (or warnings in strict mode), 2 on timeout.

@@ -6,12 +6,14 @@ on:
       - "**/*.ks"
       - ksconfig.json
       - package.json
+      - package-lock.json
       - scripts/ks-lint.js
   pull_request:
     paths:
       - "**/*.ks"
       - ksconfig.json
       - package.json
+      - package-lock.json
       - scripts/ks-lint.js
 
 jobs:
