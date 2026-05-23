@@ -12,8 +12,6 @@ SET launch_azimuth   TO 90.
 SET max_twr          TO 2.5.
 SET stage_fuel_min   TO 0.1.
 SET circularize_ecc_tol        TO 0.002.
-SET apoapsis_wrap_tolerance    TO 1.
-SET circularize_window_eta     TO 15.
 SET circularize_throttle_scale TO 15000.
 // ------------------------------------------------------------
 
@@ -103,27 +101,24 @@ IF SHIP:AVAILABLETHRUST <= 0 {
     PRINT "Circularisation ended early: no thrust available.".
 } ELSE {
     UNLOCK THROTTLE.
-    SET last_apoapsis_eta TO ETA:APOAPSIS.
     UNTIL SHIP:PERIAPSIS >= target_periapsis OR SHIP:OBT:ECCENTRICITY < circularize_ecc_tol {
         IF SHIP:AVAILABLETHRUST <= 0 {
             PRINT "Circularisation ended early: no thrust available.".
             BREAK.
         }
 
-        LOCAL eta_now IS ETA:APOAPSIS.
-        IF eta_now > (last_apoapsis_eta + apoapsis_wrap_tolerance) {
-            PRINT "Missed apoapsis window. Coasting to next pass.".
-            LOCK THROTTLE TO 0.
-            WAIT UNTIL ETA:APOAPSIS < circularize_window_eta.
-            SET last_apoapsis_eta TO ETA:APOAPSIS.
-        } ELSE {
-            SET last_apoapsis_eta TO eta_now.
-
-            LOCAL periapsis_error IS MAX(0, target_periapsis - SHIP:PERIAPSIS).
-            LOCAL throttle_frac IS MIN(1.0, periapsis_error / circularize_throttle_scale).
-            LOCK THROTTLE TO throttle_frac.
-            WAIT 0.
+        LOCAL periapsis_error IS MAX(0, target_periapsis - SHIP:PERIAPSIS).
+        LOCAL max_thrust IS SHIP:AVAILABLETHRUST.
+        LOCAL weight IS SHIP:MASS * SHIP:BODY:MU /
+                        (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
+        LOCAL effective_max_twr IS max_twr.
+        IF SHIP:PERIAPSIS > (target_periapsis * 0.9) {
+            SET effective_max_twr TO max_twr * 0.5.
         }
+        LOCAL twr_throttle IS (effective_max_twr * weight) / max_thrust.
+        LOCAL periapsis_throttle IS MIN(1.0, periapsis_error / circularize_throttle_scale).
+        LOCK THROTTLE TO MIN(twr_throttle, periapsis_throttle).
+        WAIT 0.
     }
 }
 
