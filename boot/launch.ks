@@ -60,7 +60,7 @@ print_stage("PHASE 1 — COUNTDOWN", "Azimuth " + launch_azimuth + " deg | Targe
 PRINT "Launch sequence initiated. Vehicle configured for ascent.".
 PRINT "Gravity turn window: " + ROUND(turn_start_alt, 0) + " m -> " + ROUND(turn_end_alt / 1000, 0) + " km.".
 FROM {LOCAL i IS 5.} UNTIL i = 0 STEP {SET i TO i - 1.} DO {
-    PRINT "T-" + i + " s".
+    PRINT "T-" + i + "s".
     WAIT 1.
 }
 PRINT "Ignition!".
@@ -79,7 +79,7 @@ LOCAL next_ascent_report_ap IS 10000.
 UNTIL SHIP:APOAPSIS >= target_apoapsis {
 
     IF stage_armed AND STAGE:LIQUIDFUEL < stage_fuel_min {
-        PRINT "Stage fuel low (" + ROUND(STAGE:LIQUIDFUEL, 2) + " units). Staging now.".
+        PRINT "Stage fuel below threshold (" + ROUND(STAGE:LIQUIDFUEL, 2) + " < " + ROUND(stage_fuel_min, 2) + " units). Staging now.".
         STAGE.
         SET stage_armed TO FALSE.
         WAIT 1.
@@ -105,7 +105,8 @@ UNTIL SHIP:APOAPSIS >= target_apoapsis {
     LOCK THROTTLE TO ascent_throttle.
 
     IF SHIP:APOAPSIS >= next_ascent_report_ap {
-        PRINT "Ascent update: pitch " + ROUND(ascent_pitch(), 1) + " deg | throttle " + ROUND(ascent_throttle * 100, 0) + "%".
+        LOCAL current_pitch IS ascent_pitch().
+        PRINT "Ascent update: pitch " + ROUND(current_pitch, 1) + " deg | throttle " + ROUND(ascent_throttle * 100, 0) + "%".
         print_flight_snapshot().
         SET next_ascent_report_ap TO next_ascent_report_ap + 10000.
     }
