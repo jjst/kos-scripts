@@ -113,17 +113,15 @@ LOCK STEERING TO PROGRADE.
 IF SHIP:AVAILABLETHRUST <= 0 {
     PRINT "Circularisation ended early: no thrust available.".
 } ELSE {
-    // Safety timeout: if we drift past Ap the eccentricity may never converge.
-    LOCAL burn_start   IS TIME:SECONDS.
-    LOCAL burn_timeout IS MAX(burn_duration * 3, 60).
     UNLOCK THROTTLE.
     UNTIL SHIP:OBT:ECCENTRICITY < circularize_ecc_tol {
         IF SHIP:AVAILABLETHRUST <= 0 {
             PRINT "Circularisation ended early: no thrust available.".
             BREAK.
         }
-        IF TIME:SECONDS - burn_start > burn_timeout {
-            PRINT "Circularisation timed out (ecc=" + ROUND(SHIP:OBT:ECCENTRICITY, 4) + ").".
+        // Past apoapsis: prograde thrust raises Ap, not Pe — eccentricity won't converge.
+        IF ETA:APOAPSIS > SHIP:OBT:PERIOD / 2 {
+            PRINT "Circularisation ended early: past apoapsis (ecc=" + ROUND(SHIP:OBT:ECCENTRICITY, 4) + ").".
             BREAK.
         }
 
