@@ -1,0 +1,101 @@
+// ============================================================
+//  launch.ks — Gravity-turn ascent to circular orbit
+//  Target: 100 km circular orbit, 90° azimuth (equatorial)
+// ============================================================
+
+// --- CONFIG (edit these) ------------------------------------
+SET target_apoapsis  TO 100000.
+SET target_periapsis TO 100000.
+SET turn_start_alt   TO 100.
+SET turn_end_alt     TO 50000.
+SET launch_azimuth   TO 90.
+SET max_twr          TO 2.5.
+// ------------------------------------------------------------
+
+SAS OFF.
+RCS OFF.
+GEAR OFF.
+LOCK THROTTLE TO 0.
+
+// Steering helper: pitch = gravity turn interpolation
+FUNCTION ascent_pitch {
+    LOCAL frac IS (SHIP:ALTITUDE - turn_start_alt) /
+                  (turn_end_alt  - turn_start_alt).
+    SET frac TO MAX(0, MIN(1, frac)).
+    RETURN 90 - (90 * frac).
+}
+
+// Phase 1 — Countdown
+LOCK STEERING TO HEADING(launch_azimuth, 90).
+PRINT "Launch sequence initiated.".
+FROM {LOCAL i IS 5.} UNTIL i = 0 STEP {SET i TO i - 1.} DO {
+    PRINT "T-" + i + "...".
+    WAIT 1.
+}
+PRINT "Ignition!".
+LOCK THROTTLE TO 1.0.
+STAGE.
+
+// Phase 2 — Hold vertical until turn_start_alt
+PRINT "Launch — holding vertical.".
+WAIT UNTIL SHIP:ALTITUDE > turn_start_alt.
+
+// Phase 3 — Gravity turn loop
+PRINT "Beginning gravity turn.".
+UNTIL SHIP:APOAPSIS >= target_apoapsis {
+
+    IF STAGE:LIQUIDFUEL < 0.1 {
+        PRINT "Staging!".
+        STAGE.
+        WAIT 1.
+    }
+
+    LOCK STEERING TO HEADING(launch_azimuth, ascent_pitch()).
+
+    // TWR-limited throttle
+    LOCAL max_thrust   IS SHIP:AVAILABLETHRUST.
+    LOCAL weight       IS SHIP:MASS * SHIP:BODY:MU /
+                          (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
+    LOCAL twr_throttle IS (max_twr * weight) / max_thrust.
+
+    // Also back off when closing in on target Ap
+    LOCAL ap_throttle IS 1.0.
+    IF SHIP:APOAPSIS > (target_apoapsis * 0.9) {
+        SET ap_throttle TO 0.25.
+    }
+
+    LOCK THROTTLE TO MIN(twr_throttle, ap_throttle).
+
+    WAIT 0.
+}
+
+// Phase 4 — Cut engines, coast to apoapsis
+LOCK THROTTLE TO 0.
+PRINT "Target Ap reached. Coasting to apoapsis.".
+LOCK STEERING TO PROGRADE.
+
+UNTIL ETA:APOAPSIS < 45 {
+    SET WARP TO 3.
+    WAIT 1.
+}
+SET WARP TO 0.
+WAIT UNTIL ETA:APOAPSIS < 15.
+
+// Phase 5 — Circularisation burn at apoapsis
+PRINT "Circularisation burn.".
+LOCK STEERING TO PROGRADE.
+
+UNTIL SHIP:OBT:ECCENTRICITY < 0.005 {
+    LOCAL throttle_frac IS MIN(1.0, SHIP:OBT:ECCENTRICITY * 100).
+    LOCK THROTTLE TO MAX(0.05, throttle_frac).
+    WAIT 0.
+}
+
+LOCK THROTTLE TO 0.
+
+// Done
+UNLOCK STEERING.
+SAS ON.
+PRINT "Orbit achieved!".
+PRINT "  Ap: " + ROUND(SHIP:APOAPSIS/1000, 1) + " km".
+PRINT "  Pe: " + ROUND(SHIP:PERIAPSIS/1000, 1) + " km".
