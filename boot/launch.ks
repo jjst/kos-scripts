@@ -114,22 +114,25 @@ IF SHIP:AVAILABLETHRUST <= 0 {
     PRINT "Circularisation ended early: no thrust available.".
 } ELSE {
     UNLOCK THROTTLE.
+    LOCAL prev_ecc IS SHIP:OBT:ECCENTRICITY.
     UNTIL SHIP:OBT:ECCENTRICITY < circularize_ecc_tol {
         IF SHIP:AVAILABLETHRUST <= 0 {
             PRINT "Circularisation ended early: no thrust available.".
             BREAK.
         }
-        // Past apoapsis: prograde thrust raises Ap, not Pe — eccentricity won't converge.
-        IF ETA:APOAPSIS > SHIP:OBT:PERIOD / 2 {
-            PRINT "Circularisation ended early: past apoapsis (ecc=" + ROUND(SHIP:OBT:ECCENTRICITY, 4) + ").".
+
+        LOCAL cur_ecc IS SHIP:OBT:ECCENTRICITY.
+        IF cur_ecc > prev_ecc {
+            PRINT "Circularisation stopped: eccentricity diverging (ecc=" + ROUND(cur_ecc, 4) + ").".
             BREAK.
         }
+        SET prev_ecc TO cur_ecc.
 
         LOCAL max_thrust IS SHIP:AVAILABLETHRUST.
         LOCAL weight IS SHIP:MASS * SHIP:BODY:MU /
                         (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
         LOCAL twr_throttle IS (max_twr * weight) / max_thrust.
-        LOCAL ecc_throttle IS MIN(1.0, SHIP:OBT:ECCENTRICITY / circularize_ecc_throttle_scale).
+        LOCAL ecc_throttle IS MIN(1.0, cur_ecc / circularize_ecc_throttle_scale).
         LOCK THROTTLE TO MIN(twr_throttle, ecc_throttle).
         WAIT 0.
     }
