@@ -1,0 +1,8 @@
+{
+  "scripts": {
+    "lint": "node scripts/ks-lint.js"
+  },
+  "devDependencies": {
+    "kos-language-server": "^1.1.5"
+  }
+}
