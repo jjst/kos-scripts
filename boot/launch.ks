@@ -10,7 +10,6 @@ SET turn_end_alt     TO 50000.
 SET launch_azimuth   TO 90.
 SET max_twr          TO 2.5.
 SET stage_fuel_min   TO 0.1.
-SET circularize_ecc_tol           TO 0.002.
 SET circularize_ecc_throttle_scale TO 0.05.
 // ------------------------------------------------------------
 
@@ -115,7 +114,7 @@ IF SHIP:AVAILABLETHRUST <= 0 {
 } ELSE {
     UNLOCK THROTTLE.
     LOCAL prev_ecc IS SHIP:OBT:ECCENTRICITY.
-    UNTIL SHIP:OBT:ECCENTRICITY < circularize_ecc_tol {
+    UNTIL FALSE {
         IF SHIP:AVAILABLETHRUST <= 0 {
             PRINT "Circularisation ended early: no thrust available.".
             BREAK.
