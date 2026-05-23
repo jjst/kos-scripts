@@ -22,7 +22,13 @@ FUNCTION read_line {
         IF ch = TERMINAL:INPUT:RETURN {
             RETURN buffer.
         }
-        SET buffer TO buffer + ch.
+        IF ch = TERMINAL:INPUT:BACKSPACE {
+            IF buffer:LENGTH > 0 {
+                SET buffer TO buffer:SUBSTRING(0, buffer:LENGTH - 1).
+            }
+        } ELSE {
+            SET buffer TO buffer + ch.
+        }
     }
 }
 
@@ -33,7 +39,13 @@ FUNCTION prompt_number_or_default {
     IF raw_value:LENGTH = 0 {
         RETURN default_value.
     }
-    RETURN raw_value:TONUMBER(default_value).
+    LOCAL parse_sentinel IS 9.87654321e307.
+    LOCAL parsed_value IS raw_value:TONUMBER(parse_sentinel).
+    IF parsed_value = parse_sentinel {
+        PRINT "Invalid input '" + raw_value + "' - using default " + default_value + ".".
+        RETURN default_value.
+    }
+    RETURN parsed_value.
 }
 
 SET launch_azimuth TO prompt_number_or_default("Launch heading (deg)", launch_azimuth).
