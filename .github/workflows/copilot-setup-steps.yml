@@ -22,7 +22,7 @@ jobs:
 
       - name: Restore cached kOS docs
         id: cache-kos-docs
-        uses: actions/cache@v5
+        uses: actions/cache/restore@v5
         with:
           path: ${{ github.workspace }}/.copilot-reference/kos-docs
           key: kos-docs-${{ runner.os }}-develop-v1
@@ -35,3 +35,10 @@ jobs:
           rm -rf "$DEST_DIR"
           git clone --depth 1 --branch develop https://github.com/KSP-KOS/KOS.git "$DEST_DIR"
           test -d "$DEST_DIR/doc/source"
+
+      - name: Save kOS docs cache
+        if: steps.cache-kos-docs.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: ${{ github.workspace }}/.copilot-reference/kos-docs
+          key: ${{ steps.cache-kos-docs.outputs.cache-primary-key }}
