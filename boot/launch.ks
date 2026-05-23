@@ -12,6 +12,11 @@ SET launch_azimuth   TO 90.
 SET max_twr          TO 2.5.
 // ------------------------------------------------------------
 
+CLEARSCREEN.
+PRINT "Boot script loaded. Press ENTER to begin launch sequence.".
+WAIT UNTIL TERMINAL:INPUT:HASCHAR.
+TERMINAL:INPUT:GETCHAR().
+
 SAS OFF.
 RCS OFF.
 GEAR OFF.
