@@ -40,13 +40,12 @@ FUNCTION prompt_number_or_default {
     IF raw_value:LENGTH = 0 {
         RETURN default_value.
     }
-    LOCAL normalized_value IS raw_value:REPLACE("_", "").
-    LOCAL number_pattern IS "^[-+]?((\\d+\\.?\\d*)|(\\.\\d+))([eE][-+]?\\d+)?$".
-    IF NOT normalized_value:MATCHESPATTERN(number_pattern) {
+    LOCAL number_pattern IS "^[-+]?(([0-9]+[.]?[0-9]*)|([.][0-9]+))([eE][-+]?[0-9]+)?$".
+    IF NOT raw_value:MATCHESPATTERN(number_pattern) {
         PRINT "Invalid input '" + raw_value + "' - using default " + default_value + ".".
         RETURN default_value.
     }
-    RETURN normalized_value:TONUMBER().
+    RETURN raw_value:TONUMBER().
 }
 
 PRINT "Press Return to keep each default value.".
