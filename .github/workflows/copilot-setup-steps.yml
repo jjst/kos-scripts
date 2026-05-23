@@ -1,0 +1,24 @@
+name: Copilot Setup Steps
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+
+jobs:
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Clone kOS repository docs
+        run: |
+          set -euo pipefail
+          DEST_DIR="/tmp/kos-docs"
+          rm -rf "$DEST_DIR"
+          git clone --depth 1 --branch develop https://github.com/KSP-KOS/KOS.git "$DEST_DIR"
+          test -d "$DEST_DIR/doc/source"
