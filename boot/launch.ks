@@ -79,7 +79,7 @@ LOCAL next_ascent_report_ap IS 10000.
 UNTIL SHIP:APOAPSIS >= target_apoapsis {
 
     IF stage_armed AND STAGE:LIQUIDFUEL < stage_fuel_min {
-        PRINT "Stage fuel low (" + ROUND(STAGE:LIQUIDFUEL, 2) + " u). Staging now.".
+        PRINT "Stage fuel low (" + ROUND(STAGE:LIQUIDFUEL, 2) + " units). Staging now.".
         STAGE.
         SET stage_armed TO FALSE.
         WAIT 1.
@@ -100,11 +100,12 @@ UNTIL SHIP:APOAPSIS >= target_apoapsis {
         SET effective_max_twr TO max_twr * 0.5.
     }
     LOCAL twr_throttle IS (effective_max_twr * weight) / max_thrust.
+    LOCAL ascent_throttle IS MIN(1.0, twr_throttle).
 
-    LOCK THROTTLE TO MIN(1.0, twr_throttle).
+    LOCK THROTTLE TO ascent_throttle.
 
     IF SHIP:APOAPSIS >= next_ascent_report_ap {
-        PRINT "Ascent update: pitch " + ROUND(ascent_pitch(), 1) + " deg | throttle " + ROUND(MIN(1.0, twr_throttle) * 100, 0) + "%".
+        PRINT "Ascent update: pitch " + ROUND(ascent_pitch(), 1) + " deg | throttle " + ROUND(ascent_throttle * 100, 0) + "%".
         print_flight_snapshot().
         SET next_ascent_report_ap TO next_ascent_report_ap + 10000.
     }
@@ -160,10 +161,11 @@ IF SHIP:AVAILABLETHRUST <= 0 {
                         (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
         LOCAL twr_throttle IS (max_twr * weight) / max_thrust.
         LOCAL ecc_throttle IS MIN(1.0, SHIP:OBT:ECCENTRICITY / circularize_ecc_throttle_scale).
-        LOCK THROTTLE TO MIN(twr_throttle, ecc_throttle).
+        LOCAL circ_throttle IS MIN(twr_throttle, ecc_throttle).
+        LOCK THROTTLE TO circ_throttle.
 
         IF SHIP:OBT:ECCENTRICITY <= next_circularize_report_ecc {
-            PRINT "Circularisation update: ecc " + ROUND(SHIP:OBT:ECCENTRICITY, 4) + " | throttle " + ROUND(MIN(twr_throttle, ecc_throttle) * 100, 0) + "%".
+            PRINT "Circularisation update: ecc " + ROUND(SHIP:OBT:ECCENTRICITY, 4) + " | throttle " + ROUND(circ_throttle * 100, 0) + "%".
             print_flight_snapshot().
             SET next_circularize_report_ecc TO MAX(0, next_circularize_report_ecc - 0.02).
         }
