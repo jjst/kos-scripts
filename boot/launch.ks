@@ -35,7 +35,7 @@ FUNCTION read_line {
 
 FUNCTION prompt_number_or_default {
     PARAMETER prompt_label, default_value.
-    PRINT prompt_label + " [" + default_value + "]:".
+    PRINT prompt_label + " (default " + default_value + "):".
     LOCAL raw_value IS read_line():TRIM.
     IF raw_value:LENGTH = 0 {
         RETURN default_value.
@@ -49,6 +49,7 @@ FUNCTION prompt_number_or_default {
     RETURN normalized_value:TONUMBER().
 }
 
+PRINT "Press Return to keep each default value.".
 SET launch_azimuth TO prompt_number_or_default("Launch heading (deg)", launch_azimuth).
 LOCAL target_altitude_km IS prompt_number_or_default("Target orbit altitude (km)", target_apoapsis / 1000).
 SET target_apoapsis TO target_altitude_km * 1000.
