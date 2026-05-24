@@ -88,7 +88,7 @@ function main() {
   function scheduleSettle() {
     clearTimeout(settleTimer);
     // Wait for any follow-up diagnostics before declaring done
-    settleTimer = setTimeout(finish, 500);
+    settleTimer = setTimeout(finish, 1500);
   }
 
   let buf = Buffer.alloc(0);
@@ -115,6 +115,24 @@ function main() {
 
       if (msg.id === initializeId && msg.result) {
         send({ jsonrpc: '2.0', method: 'initialized', params: {} });
+        // Open ksconfig.json first so the LSP applies linting rules before
+        // diagnosing .ks files, avoiding a stale-config race condition.
+        const ksconfigPath = resolve(root, 'ksconfig.json');
+        const { existsSync } = require('fs');
+        if (existsSync(ksconfigPath)) {
+          send({
+            jsonrpc: '2.0',
+            method: 'textDocument/didOpen',
+            params: {
+              textDocument: {
+                uri: pathToFileURL(ksconfigPath).href,
+                languageId: 'json',
+                version: 1,
+                text: readFileSync(ksconfigPath, 'utf8'),
+              },
+            },
+          });
+        }
         for (const f of files) {
           send({
             jsonrpc: '2.0',

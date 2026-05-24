@@ -2,6 +2,8 @@
   "archive": ".",
   "linting": {
     "symbols-declaration": "error",
-    "unused-variables": "warning"
+    "unused-variables": "warning",
+    "file-loading": "off",
+    "symbol-may-not-exist": "off"
   }
 }
