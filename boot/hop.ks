@@ -5,9 +5,9 @@
 //  descent with a gradual vertical-speed target down to ~3 m/s.
 
 // --- CONFIG (edit these) ------------------------------------
-SET hop_altitude      TO 5000.
+SET hop_altitude      TO 10000.
 SET max_twr           TO 2.5.
-SET burn_safety       TO 1.3.
+SET burn_safety       TO 1.0.
 SET gear_deploy_alt   TO 200.
 // Keep a small non-zero touchdown rate to avoid over-braking hover oscillation.
 SET touchdown_speed   TO 3.
@@ -18,7 +18,7 @@ SET descent_ki        TO 0.004.
 SET descent_kd        TO 0.02.
 // Fastest commanded descent rate at high altitude (m/s, negative = downward).
 SET descent_min_rate  TO -35.
-SET descent_profile_high_alt TO 800.
+SET descent_profile_high_alt TO 400.
 SET descent_profile_mid_alt  TO 200.
 SET descent_profile_low_alt  TO 50.
 SET descent_profile_flare_alt TO 10.
@@ -127,6 +127,7 @@ UNTIL SHIP:VERTICALSPEED < 0 {
 // Phase 4 — Descending: wait for suicide burn trigger
 LOCK STEERING TO SRFRETROGRADE.
 PRINT "--- Phase 4: Descending ---".
+WAIT 3.
 RCS ON.
 BRAKES ON.
 LOCAL gear_deployed IS FALSE.
@@ -170,8 +171,8 @@ UNTIL burn_ready {
 
 // Phase 5 — Powered descent and landing
 PRINT "--- Phase 5: Powered descent ---".
-BRAKES OFF.
-LOCK STEERING TO UP.
+BRAKES ON.
+LOCK STEERING TO SRFRETROGRADE.
 SET descent_pid TO PIDLOOP(
     descent_kp,
     descent_ki,
