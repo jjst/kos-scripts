@@ -17,6 +17,12 @@ SET descent_ki        TO 0.004.
 SET descent_kd        TO 0.02.
 // Fastest commanded descent rate at high altitude (m/s, negative = downward).
 SET descent_min_rate  TO -35.
+SET descent_profile_high_alt TO 800.
+SET descent_profile_mid_alt  TO 200.
+SET descent_profile_low_alt  TO 50.
+SET descent_profile_flare_alt TO 10.
+SET descent_profile_mid_rate TO -12.
+SET descent_profile_low_rate TO -6.
 SET descent_pid_min_output TO -0.6.
 SET descent_pid_max_output TO 0.6.
 // PID error deadband (m/s) to reduce tiny throttle chatter.
@@ -36,21 +42,24 @@ FUNCTION lerp {
 FUNCTION target_descent_rate {
     PARAMETER alt_agl.
     // Altitude-rate profile:
-    // >800m: -35, 200m: -12, 50m: -6, 10m+: blend to touchdown target (-3 by default).
-    IF alt_agl > 800 {
+    // >high_alt: min_rate, mid_alt: mid_rate, low_alt: low_rate, flare_alt+: blend to touchdown target.
+    IF alt_agl > descent_profile_high_alt {
         RETURN descent_min_rate.
     }
-    IF alt_agl > 200 {
-        LOCAL t1 IS (alt_agl - 200) / 600.
-        RETURN lerp(-12, descent_min_rate, t1).
+    IF alt_agl > descent_profile_mid_alt {
+        LOCAL t1 IS (alt_agl - descent_profile_mid_alt) /
+                    (descent_profile_high_alt - descent_profile_mid_alt).
+        RETURN lerp(descent_profile_mid_rate, descent_min_rate, t1).
     }
-    IF alt_agl > 50 {
-        LOCAL t2 IS (alt_agl - 50) / 150.
-        RETURN lerp(-6, -12, t2).
+    IF alt_agl > descent_profile_low_alt {
+        LOCAL t2 IS (alt_agl - descent_profile_low_alt) /
+                    (descent_profile_mid_alt - descent_profile_low_alt).
+        RETURN lerp(descent_profile_low_rate, descent_profile_mid_rate, t2).
     }
-    IF alt_agl > 10 {
-        LOCAL t3 IS (alt_agl - 10) / 40.
-        RETURN lerp(-touchdown_speed, -6, t3).
+    IF alt_agl > descent_profile_flare_alt {
+        LOCAL t3 IS (alt_agl - descent_profile_flare_alt) /
+                    (descent_profile_low_alt - descent_profile_flare_alt).
+        RETURN lerp(-touchdown_speed, descent_profile_low_rate, t3).
     }
     RETURN -touchdown_speed.
 }
@@ -174,6 +183,7 @@ UNTIL SHIP:STATUS = "LANDED" {
     LOCAL g_land IS SHIP:BODY:MU / (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
     LOCAL thrust_available IS SHIP:AVAILABLETHRUST.
     IF thrust_available <= 0 {
+        PRINT "  FATAL: no thrust during powered descent.".
         SET thrott_cmd TO 0.
         BREAK.
     }
