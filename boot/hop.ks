@@ -10,12 +10,16 @@ SET max_twr           TO 2.5.
 SET burn_safety       TO 1.3.
 SET gear_deploy_alt   TO 200.
 SET touchdown_speed   TO 3.
+// PID gains for powered descent vertical-speed control.
+// Increase Kp for faster response, Ki to reduce steady-state bias, Kd for damping.
 SET descent_kp        TO 0.035.
 SET descent_ki        TO 0.004.
 SET descent_kd        TO 0.02.
+// Fastest commanded descent rate at high altitude (m/s, negative = downward).
 SET descent_min_rate  TO -35.
 SET descent_pid_min_output TO -0.6.
 SET descent_pid_max_output TO 0.6.
+// PID error deadband (m/s) to reduce tiny throttle chatter.
 SET descent_pid_epsilon TO 0.15.
 // ------------------------------------------------------------
 
@@ -31,6 +35,8 @@ FUNCTION lerp {
 
 FUNCTION target_descent_rate {
     PARAMETER alt_agl.
+    // Altitude-rate profile:
+    // >800m: -35, 200m: -12, 50m: -6, 10m+: blend to touchdown target (-3 by default).
     IF alt_agl > 800 {
         RETURN descent_min_rate.
     }
