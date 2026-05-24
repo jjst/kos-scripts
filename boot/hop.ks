@@ -179,6 +179,7 @@ SET descent_pid TO PIDLOOP(
     descent_pid_epsilon
 ).
 SET thrott_cmd TO 0.
+SET descent_aborted TO FALSE.
 LOCK THROTTLE TO thrott_cmd.
 SET next_print TO TIME:SECONDS.
 UNTIL SHIP:STATUS = "LANDED" {
@@ -186,6 +187,7 @@ UNTIL SHIP:STATUS = "LANDED" {
     LOCAL thrust_available IS SHIP:AVAILABLETHRUST.
     IF thrust_available <= 0 {
         PRINT "  FATAL: no thrust during powered descent  |  status: " + SHIP:STATUS + "  |  alt: " + ROUND(ALT:RADAR) + " m  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s".
+        SET descent_aborted TO TRUE.
         SET thrott_cmd TO 0.
         BREAK.
     }
@@ -207,5 +209,10 @@ UNLOCK THROTTLE.
 UNLOCK STEERING.
 RCS OFF.
 SAS ON.
-PRINT "--- Landed! ---".
-PRINT "  Final vs: " + ROUND(SHIP:VERTICALSPEED, 2) + " m/s  |  status: " + SHIP:STATUS.
+IF descent_aborted {
+    PRINT "--- Descent aborted ---".
+    PRINT "  Final vs: " + ROUND(SHIP:VERTICALSPEED, 2) + " m/s  |  status: " + SHIP:STATUS.
+} ELSE {
+    PRINT "--- Landed! ---".
+    PRINT "  Final vs: " + ROUND(SHIP:VERTICALSPEED, 2) + " m/s  |  status: " + SHIP:STATUS.
+}
