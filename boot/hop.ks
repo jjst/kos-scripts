@@ -76,7 +76,7 @@ FUNCTION descent_steering_target {
     IF pad_target:DISTANCE > launchpad_aim_min_distance {
         RETURN pad_target:POSITION.
     }
-    RETURN SRFRETROGRADE.
+    RETURN SRFRETROGRADE:VECTOR.
 }
 
 CLEARSCREEN.
@@ -84,6 +84,7 @@ PRINT "=== hop.ks ===".
 PRINT "Hop altitude : " + ROUND(hop_altitude/1000, 1) + " km  |  max TWR: " + max_twr.
 PRINT "Burn safety  : " + burn_safety + "  |  gear at: " + gear_deploy_alt + " m AGL".
 PRINT " ".
+// Capture starting surface position as the landing target (launchpad).
 SET launchpad_target TO SHIP:GEOPOSITION.
 PRINT "Launchpad target: lat " + ROUND(launchpad_target:LAT, 5) + "  lng " + ROUND(launchpad_target:LNG, 5).
 PRINT " ".
