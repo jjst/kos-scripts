@@ -1,14 +1,74 @@
 // ============================================================
-//  hop.ks — Suborbital vertical hop with propulsive landing
+//  hop.ks — VTVL proof-of-concept vertical hop and landing
 // ============================================================
+//  Flies a straight-up hop, then performs a PID-guided powered
+//  descent with a gradual vertical-speed target down to ~3 m/s.
 
 // --- CONFIG (edit these) ------------------------------------
-SET hop_altitude      TO 5000.
+SET hop_altitude      TO 10000.
 SET max_twr           TO 2.5.
-SET burn_safety       TO 1.3.
+SET burn_safety       TO 1.0.
 SET gear_deploy_alt   TO 200.
-SET touchdown_speed   TO 2.
+// Keep a small non-zero touchdown rate to avoid over-braking hover oscillation.
+SET touchdown_speed   TO 3.
+// PID gains for powered descent vertical-speed control.
+// Increase Kp for faster response, Ki to reduce steady-state bias, Kd for damping.
+SET descent_kp        TO 0.035.
+SET descent_ki        TO 0.004.
+SET descent_kd        TO 0.02.
+// Fastest commanded descent rate at high altitude (m/s, negative = downward).
+SET descent_min_rate  TO -35.
+SET descent_profile_high_alt TO 400.
+SET descent_profile_mid_alt  TO 200.
+SET descent_profile_low_alt  TO 50.
+SET descent_profile_flare_alt TO 10.
+SET descent_profile_mid_rate TO -12.
+SET descent_profile_low_rate TO -6.
+SET descent_pid_min_output TO -0.6.
+SET descent_pid_max_output TO 0.6.
+// Limit steering aggressiveness to reduce rapid self-spin during descent.
+SET descent_max_stopping_time TO 3.5.
+// PID error deadband (m/s) to reduce tiny throttle chatter.
+SET descent_pid_epsilon TO 0.15.
 // ------------------------------------------------------------
+
+FUNCTION clamp {
+    PARAMETER value, min_value, max_value.
+    RETURN MIN(max_value, MAX(min_value, value)).
+}
+
+FUNCTION lerp {
+    PARAMETER a, b, t.
+    RETURN a + (b - a) * t.
+}
+
+FUNCTION target_descent_rate {
+    PARAMETER alt_agl.
+    // Altitude-rate profile:
+    // >descent_profile_high_alt: descent_min_rate,
+    // descent_profile_mid_alt: descent_profile_mid_rate,
+    // descent_profile_low_alt: descent_profile_low_rate,
+    // descent_profile_flare_alt+: blend to touchdown target.
+    IF alt_agl > descent_profile_high_alt {
+        RETURN descent_min_rate.
+    }
+    IF alt_agl > descent_profile_mid_alt {
+        LOCAL t1 IS (alt_agl - descent_profile_mid_alt) /
+                    (descent_profile_high_alt - descent_profile_mid_alt).
+        RETURN lerp(descent_profile_mid_rate, descent_min_rate, t1).
+    }
+    IF alt_agl > descent_profile_low_alt {
+        LOCAL t2 IS (alt_agl - descent_profile_low_alt) /
+                    (descent_profile_mid_alt - descent_profile_low_alt).
+        RETURN lerp(descent_profile_low_rate, descent_profile_mid_rate, t2).
+    }
+    IF alt_agl > descent_profile_flare_alt {
+        LOCAL t3 IS (alt_agl - descent_profile_flare_alt) /
+                    (descent_profile_low_alt - descent_profile_flare_alt).
+        RETURN lerp(-touchdown_speed, descent_profile_low_rate, t3).
+    }
+    RETURN -touchdown_speed.
+}
 
 CLEARSCREEN.
 PRINT "=== hop.ks ===".
@@ -67,8 +127,11 @@ UNTIL SHIP:VERTICALSPEED < 0 {
 }
 
 // Phase 4 — Descending: wait for suicide burn trigger
+LOCAL original_max_stopping_time IS STEERINGMANAGER:MAXSTOPPINGTIME.
+SET STEERINGMANAGER:MAXSTOPPINGTIME TO descent_max_stopping_time.
 LOCK STEERING TO SRFRETROGRADE.
 PRINT "--- Phase 4: Descending ---".
+WAIT 3.
 RCS ON.
 BRAKES ON.
 LOCAL gear_deployed IS FALSE.
@@ -112,25 +175,57 @@ UNTIL burn_ready {
 
 // Phase 5 — Powered descent and landing
 PRINT "--- Phase 5: Powered descent ---".
-BRAKES OFF.
+BRAKES ON.
+LOCK STEERING TO SRFRETROGRADE.
+SET descent_pid TO PIDLOOP(
+    descent_kp,
+    descent_ki,
+    descent_kd,
+    descent_pid_min_output,
+    descent_pid_max_output,
+    descent_pid_epsilon // PID epsilon deadband to reduce throttle chatter.
+).
+SET thrott_cmd TO 0.
+SET descent_aborted TO FALSE.
+LOCK THROTTLE TO thrott_cmd.
 SET next_print TO TIME:SECONDS.
 UNTIL SHIP:STATUS = "LANDED" {
     LOCAL g_land IS SHIP:BODY:MU / (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
-    LOCAL hover IS (SHIP:MASS * g_land) / SHIP:AVAILABLETHRUST.
-    LOCAL error IS SHIP:VERTICALSPEED + touchdown_speed.
-    LOCAL thr IS MAX(0, MIN(1, hover - error * 0.05)).
-    LOCK THROTTLE TO thr.
+    LOCAL alt_agl IS ALT:RADAR.
+    IF NOT gear_deployed AND alt_agl < gear_deploy_alt {
+        GEAR ON.
+        SET gear_deployed TO TRUE.
+        PRINT "  Gear down (powered)  |  alt: " + ROUND(alt_agl) + " m AGL".
+    }
+    LOCAL thrust_available IS SHIP:AVAILABLETHRUST.
+    IF thrust_available <= 0 {
+        PRINT "  FATAL: no thrust during powered descent  |  status: " + SHIP:STATUS + "  |  alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s".
+        SET descent_aborted TO TRUE.
+        SET thrott_cmd TO 0.
+        BREAK.
+    }
+    LOCAL target_vs IS target_descent_rate(alt_agl).
+    SET descent_pid:SETPOINT TO target_vs.
+    LOCAL hover IS (SHIP:MASS * g_land) / thrust_available.
+    LOCAL pid_correction IS descent_pid:UPDATE(TIME:SECONDS, SHIP:VERTICALSPEED).
+    SET thrott_cmd TO clamp(hover + pid_correction, 0, 1).
     IF TIME:SECONDS >= next_print {
-        PRINT "  Alt: " + ROUND(ALT:RADAR) + " m  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s  |  thr: " + ROUND(thr, 2).
+        PRINT "  Alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s  |  tgt: " + ROUND(target_vs, 1) + " m/s  |  thr: " + ROUND(thrott_cmd, 2).
         SET next_print TO TIME:SECONDS + 1.
     }
     WAIT 0.
 }
 
-LOCK THROTTLE TO 0.
+SET thrott_cmd TO 0.
+SET STEERINGMANAGER:MAXSTOPPINGTIME TO original_max_stopping_time.
 UNLOCK THROTTLE.
 UNLOCK STEERING.
 RCS OFF.
 SAS ON.
-PRINT "--- Landed! ---".
-PRINT "  Final vs: " + ROUND(SHIP:VERTICALSPEED, 2) + " m/s  |  status: " + SHIP:STATUS.
+IF descent_aborted {
+    PRINT "--- Descent aborted ---".
+    PRINT "  Final vs: " + ROUND(SHIP:VERTICALSPEED, 2) + " m/s  |  status: " + SHIP:STATUS.
+} ELSE {
+    PRINT "--- Landed! ---".
+    PRINT "  Final vs: " + ROUND(SHIP:VERTICALSPEED, 2) + " m/s  |  status: " + SHIP:STATUS.
+}
