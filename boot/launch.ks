@@ -49,8 +49,11 @@ FUNCTION ap_error_factor {
 }
 
 FUNCTION sensors_available {
-    // Gravioli detector provides a non-zero GRAV vector; absent means zero vector.
-    RETURN SHIP:SENSORS:GRAV:MAG > (local_g() * 0.5).
+    // Sensor-based TWR control requires both the gravioli detector and accelerometer.
+    // Absent sensors report zero vectors, so require plausible non-zero readings.
+    LOCAL gravity_mag IS SHIP:SENSORS:GRAV:MAG.
+    LOCAL accel_mag   IS SHIP:SENSORS:ACC:MAG.
+    RETURN gravity_mag > (local_g() * 0.5) AND accel_mag > 0.
 }
 
 // ------------------------------------------------------------
