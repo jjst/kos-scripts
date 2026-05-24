@@ -127,6 +127,7 @@ UNTIL SHIP:VERTICALSPEED < 0 {
 }
 
 // Phase 4 — Descending: wait for suicide burn trigger
+LOCAL original_max_stopping_time IS STEERINGMANAGER:MAXSTOPPINGTIME.
 SET STEERINGMANAGER:MAXSTOPPINGTIME TO descent_max_stopping_time.
 LOCK STEERING TO SRFRETROGRADE.
 PRINT "--- Phase 4: Descending ---".
@@ -216,6 +217,7 @@ UNTIL SHIP:STATUS = "LANDED" {
 }
 
 SET thrott_cmd TO 0.
+SET STEERINGMANAGER:MAXSTOPPINGTIME TO original_max_stopping_time.
 UNLOCK THROTTLE.
 UNLOCK STEERING.
 RCS OFF.
