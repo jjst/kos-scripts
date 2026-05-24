@@ -31,7 +31,7 @@ SET launchpad_aim_min_distance_m TO 150.
 // In seconds: hold surface-retrograde first to stabilize descent attitude.
 SET launchpad_aim_delay_s TO 20.
 // Dimensionless blend weight for lateral launchpad correction after stabilization.
-SET launchpad_aim_lateral_weight_ratio TO 0.35.
+SET launchpad_aim_lateral_blend_weight TO 0.35.
 // Limit steering aggressiveness to reduce rapid self-spin during descent.
 SET descent_max_stopping_time TO 3.5.
 // PID error deadband (m/s) to reduce tiny throttle chatter.
@@ -83,19 +83,19 @@ FUNCTION target_descent_rate {
 // - Near target: point surface-retrograde to reduce aggressive lateral steering.
 FUNCTION descent_steering_target {
     PARAMETER pad_target.
-    LOCAL retrograde_vector IS SRFRETROGRADE:FOREVECTOR.
+    LOCAL retrograde_unit_vector IS SRFRETROGRADE:FOREVECTOR.
     LOCAL descent_elapsed_s IS TIME:SECONDS - descent_phase_start_time_s.
     IF descent_elapsed_s < launchpad_aim_delay_s {
-        RETURN retrograde_vector.
+        RETURN retrograde_unit_vector.
     }
-    LOCAL pad_vector IS pad_target:POSITION.
-    IF pad_vector:MAG > launchpad_aim_min_distance_m {
-        LOCAL pad_lateral_vector IS VXCL(retrograde_vector, pad_vector).
-        IF pad_lateral_vector:MAG > 0 {
-            RETURN (retrograde_vector + pad_lateral_vector:NORMALIZED * launchpad_aim_lateral_weight_ratio):NORMALIZED.
+    LOCAL pad_vector_m IS pad_target:POSITION.
+    IF pad_vector_m:MAG > launchpad_aim_min_distance_m {
+        LOCAL pad_lateral_vector_m IS VXCL(retrograde_unit_vector, pad_vector_m).
+        IF pad_lateral_vector_m:MAG > 0 {
+            RETURN (retrograde_unit_vector + pad_lateral_vector_m:NORMALIZED * launchpad_aim_lateral_blend_weight):NORMALIZED.
         }
     }
-    RETURN retrograde_vector.
+    RETURN retrograde_unit_vector.
 }
 
 CLEARSCREEN.
