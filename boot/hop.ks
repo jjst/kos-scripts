@@ -34,6 +34,7 @@ SET launchpad_aim_delay_s TO 4.
 SET descent_max_stopping_time TO 3.5.
 // PID error deadband (m/s) to reduce tiny throttle chatter.
 SET descent_pid_epsilon TO 0.15.
+// Epoch seconds at phase-4 entry; 0 means "not started yet".
 SET descent_phase_start_time_s TO 0.
 // ------------------------------------------------------------
 
