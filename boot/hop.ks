@@ -8,7 +8,7 @@
 SET hop_altitude      TO 5000.
 SET max_twr           TO 2.5.
 SET burn_safety       TO 1.3.
-SET gear_deploy_alt   TO 200.
+SET gear_deploy_alt   TO 100.
 // Keep a small non-zero touchdown rate to avoid over-braking hover oscillation.
 SET touchdown_speed   TO 3.
 // PID gains for powered descent vertical-speed control.
