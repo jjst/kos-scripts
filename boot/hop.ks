@@ -118,7 +118,7 @@ UNTIL burn_ready {
 PRINT "--- Phase 5: Powered descent ---".
 BRAKES OFF.
 SET next_print TO TIME:SECONDS.
-UNTIL (SHIP:VERTICALSPEED > -touchdown_speed AND ALT:RADAR < 10) OR SHIP:STATUS = "LANDED" {
+UNTIL SHIP:STATUS = "LANDED" {
     LOCAL g_land IS SHIP:BODY:MU / (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
     LOCAL hover IS (SHIP:MASS * g_land) / SHIP:AVAILABLETHRUST.
     LOCAL error IS SHIP:VERTICALSPEED + touchdown_speed.
