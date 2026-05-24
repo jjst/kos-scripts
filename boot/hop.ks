@@ -6,7 +6,6 @@
 SET hop_altitude      TO 5000.
 SET max_twr           TO 2.5.
 SET burn_safety       TO 1.3.
-SET brakes_deploy_alt TO 3000.
 SET gear_deploy_alt   TO 200.
 SET touchdown_speed   TO 2.
 // ------------------------------------------------------------
@@ -57,6 +56,8 @@ UNTIL SHIP:APOAPSIS >= hop_altitude {
 // Phase 3 — Cutoff and coast
 LOCK THROTTLE TO 0.
 RCS ON.
+BRAKES ON.
+AG1 OFF.
 PRINT "--- Phase 3: Coasting ---".
 PRINT "  Cutoff  |  Ap: " + ROUND(SHIP:APOAPSIS/1000, 1) + " km  |  Pe: " + ROUND(SHIP:PERIAPSIS/1000, 1) + " km".
 SET next_print TO TIME:SECONDS.
@@ -71,7 +72,6 @@ UNTIL SHIP:VERTICALSPEED < 0 {
 // Phase 4 — Descending: wait for suicide burn trigger
 LOCK STEERING TO SRFRETROGRADE.
 PRINT "--- Phase 4: Descending ---".
-LOCAL brakes_deployed IS FALSE.
 LOCAL gear_deployed IS FALSE.
 LOCAL burn_ready IS FALSE.
 SET next_print TO TIME:SECONDS.
@@ -80,11 +80,6 @@ UNTIL burn_ready {
     LOCAL vs IS ABS(SHIP:VERTICALSPEED).
     LOCAL g IS SHIP:BODY:MU / (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
 
-    IF NOT brakes_deployed AND alt_agl < brakes_deploy_alt {
-        BRAKES ON.
-        SET brakes_deployed TO TRUE.
-        PRINT "  Airbrakes  |  alt: " + ROUND(alt_agl) + " m AGL".
-    }
     IF NOT gear_deployed AND alt_agl < gear_deploy_alt {
         GEAR ON.
         SET gear_deployed TO TRUE.
