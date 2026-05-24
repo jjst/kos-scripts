@@ -26,6 +26,8 @@ SET descent_profile_mid_rate TO -12.
 SET descent_profile_low_rate TO -6.
 SET descent_pid_min_output TO -0.6.
 SET descent_pid_max_output TO 0.6.
+// Increase to cap angular turn rate (helps avoid rapid self-spin during descent).
+SET descent_max_stopping_time TO 3.5.
 // PID error deadband (m/s) to reduce tiny throttle chatter.
 SET descent_pid_epsilon TO 0.15.
 // ------------------------------------------------------------
@@ -125,6 +127,7 @@ UNTIL SHIP:VERTICALSPEED < 0 {
 }
 
 // Phase 4 — Descending: wait for suicide burn trigger
+SET STEERINGMANAGER:MAXSTOPPINGTIME TO descent_max_stopping_time.
 LOCK STEERING TO SRFRETROGRADE.
 PRINT "--- Phase 4: Descending ---".
 WAIT 3.
