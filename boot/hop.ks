@@ -9,6 +9,7 @@ SET hop_altitude      TO 5000.
 SET max_twr           TO 2.5.
 SET burn_safety       TO 1.3.
 SET gear_deploy_alt   TO 200.
+// Keep a small non-zero touchdown rate to avoid over-braking hover oscillation.
 SET touchdown_speed   TO 3.
 // PID gains for powered descent vertical-speed control.
 // Increase Kp for faster response, Ki to reduce steady-state bias, Kd for damping.
@@ -167,6 +168,7 @@ UNTIL burn_ready {
 // Phase 5 — Powered descent and landing
 PRINT "--- Phase 5: Powered descent ---".
 BRAKES OFF.
+UNLOCK STEERING.
 LOCK STEERING TO UP.
 SET descent_pid TO PIDLOOP(
     descent_kp,
@@ -183,7 +185,7 @@ UNTIL SHIP:STATUS = "LANDED" {
     LOCAL g_land IS SHIP:BODY:MU / (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
     LOCAL thrust_available IS SHIP:AVAILABLETHRUST.
     IF thrust_available <= 0 {
-        PRINT "  FATAL: no thrust during powered descent.".
+        PRINT "  FATAL: no thrust during powered descent  |  status: " + SHIP:STATUS + "  |  alt: " + ROUND(ALT:RADAR) + " m  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s".
         SET thrott_cmd TO 0.
         BREAK.
     }
