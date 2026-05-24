@@ -5,7 +5,7 @@
 //  descent with a gradual vertical-speed target down to ~3 m/s.
 
 // --- CONFIG (edit these) ------------------------------------
-SET hop_altitude      TO 10000.
+SET hop_altitude      TO 20000.
 SET max_twr           TO 2.5.
 SET burn_safety       TO 1.0.
 SET gear_deploy_alt   TO 200.
@@ -27,7 +27,7 @@ SET descent_profile_low_rate TO -6.
 SET descent_pid_min_output TO -0.6.
 SET descent_pid_max_output TO 0.6.
 // In meters: below this pad distance, switch to retrograde for stable final touchdown.
-SET launchpad_aim_min_distance_m TO 15.
+SET launchpad_aim_min_distance_m TO 150.
 // Limit steering aggressiveness to reduce rapid self-spin during descent.
 SET descent_max_stopping_time TO 3.5.
 // PID error deadband (m/s) to reduce tiny throttle chatter.
@@ -137,11 +137,16 @@ LOCK THROTTLE TO 0.
 PRINT "--- Phase 3: Coasting ---".
 PRINT "  Cutoff  |  Ap: " + ROUND(SHIP:APOAPSIS/1000, 1) + " km  |  Pe: " + ROUND(SHIP:PERIAPSIS/1000, 1) + " km".
 SET next_print TO TIME:SECONDS.
-UNTIL SHIP:VERTICALSPEED < 0 {
+UNTIL SHIP:VERTICALSPEED < 100 {
     IF TIME:SECONDS >= next_print {
         PRINT "  Alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s".
         SET next_print TO TIME:SECONDS + 2.
     }
+    WAIT 0.
+}
+BRAKES ON.
+STAGE.
+UNTIL SHIP:VERTICALSPEED <= 0 {
     WAIT 0.
 }
 
@@ -152,7 +157,6 @@ LOCK STEERING TO descent_steering_target(launchpad_target).
 PRINT "--- Phase 4: Descending ---".
 WAIT 3.
 RCS ON.
-BRAKES ON.
 LOCAL gear_deployed IS FALSE.
 LOCAL burn_ready IS FALSE.
 SET next_print TO TIME:SECONDS.
