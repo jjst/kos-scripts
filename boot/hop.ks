@@ -28,10 +28,13 @@ SET descent_pid_min_output TO -0.6.
 SET descent_pid_max_output TO 0.6.
 // In meters: below this pad distance, switch to retrograde for stable final touchdown.
 SET launchpad_aim_min_distance_m TO 150.
+// In seconds: hold surface-retrograde first to stabilize descent attitude.
+SET launchpad_aim_delay_s TO 4.
 // Limit steering aggressiveness to reduce rapid self-spin during descent.
 SET descent_max_stopping_time TO 3.5.
 // PID error deadband (m/s) to reduce tiny throttle chatter.
 SET descent_pid_epsilon TO 0.15.
+SET descent_phase_start_time_s TO 0.
 // ------------------------------------------------------------
 
 FUNCTION clamp {
@@ -77,6 +80,10 @@ FUNCTION target_descent_rate {
 // - Near target: point surface-retrograde to reduce aggressive lateral steering.
 FUNCTION descent_steering_target {
     PARAMETER pad_target.
+    LOCAL descent_elapsed_s IS TIME:SECONDS - descent_phase_start_time_s.
+    IF descent_elapsed_s < launchpad_aim_delay_s {
+        RETURN SRFRETROGRADE:VECTOR.
+    }
     LOCAL pad_vector IS pad_target:POSITION.
     IF pad_vector:MAG > launchpad_aim_min_distance_m {
         RETURN pad_vector.
@@ -153,6 +160,7 @@ UNTIL SHIP:VERTICALSPEED <= 0 {
 // Phase 4 — Descending: wait for suicide burn trigger
 LOCAL original_max_stopping_time IS STEERINGMANAGER:MAXSTOPPINGTIME.
 SET STEERINGMANAGER:MAXSTOPPINGTIME TO descent_max_stopping_time.
+SET descent_phase_start_time_s TO TIME:SECONDS.
 LOCK STEERING TO descent_steering_target(launchpad_target).
 PRINT "--- Phase 4: Descending ---".
 WAIT 3.
