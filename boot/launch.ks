@@ -10,12 +10,70 @@ SET launch_azimuth   TO 90.
 SET max_twr          TO 2.5.
 SET stage_fuel_min   TO 0.1.
 SET circularize_ecc_throttle_scale TO 0.05.
+// PID gains for sensor-based TWR control — tune for your rocket
+SET twr_kp TO 0.05.
+SET twr_ki TO 0.006.
+SET twr_kd TO 0.001.
+// ------------------------------------------------------------
+
+// ---- FUNCTIONS ---------------------------------------------
+
+FUNCTION ascent_pitch {
+    LOCAL frac IS (SHIP:ALTITUDE - turn_start_alt) /
+                  (turn_end_alt  - turn_start_alt).
+    SET frac TO MAX(0, MIN(1, frac)).
+    RETURN 90 - (90 * frac).
+}
+
+FUNCTION local_g {
+    RETURN SHIP:BODY:MU / (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
+}
+
+FUNCTION calc_twr_throttle {
+    // Direct physics calculation: throttle needed to achieve target TWR.
+    PARAMETER target_twr.
+    LOCAL max_thrust IS SHIP:AVAILABLETHRUST.
+    IF max_thrust <= 0 { RETURN 0. }
+    RETURN MIN(1.0, (target_twr * SHIP:MASS * local_g()) / max_thrust).
+}
+
+FUNCTION measure_gforce {
+    // Net thrust acceleration in g's (requires accelerometer + gravioli detector).
+    RETURN (SHIP:SENSORS:ACC - SHIP:SENSORS:GRAV):MAG / local_g().
+}
+
+FUNCTION ap_error_factor {
+    // Returns [0,1]: smooth throttle ramp-down over the final 10% of apoapsis climb.
+    // 1.0 = far from target (full authority), 0.0 = target reached (cut thrust).
+    RETURN MAX(0, MIN(1, (target_apoapsis - SHIP:APOAPSIS) / (target_apoapsis * 0.1))).
+}
+
+FUNCTION sensors_available {
+    // Gravioli detector provides a non-zero GRAV vector; absent means zero vector.
+    RETURN SHIP:SENSORS:GRAV:MAG > (local_g() * 0.5).
+}
+
 // ------------------------------------------------------------
 
 CLEARSCREEN.
 PRINT "=== launch.ks ===".
 PRINT "Target orbit : " + ROUND(target_apoapsis/1000, 0) + " km  |  azimuth: " + launch_azimuth + " deg".
 PRINT "Max TWR      : " + max_twr + "  |  gravity turn: " + ROUND(turn_start_alt) + " m -> " + ROUND(turn_end_alt/1000, 0) + " km".
+PRINT " ".
+
+// Phase 0 — Sensor validation
+PRINT "--- Phase 0: Sensor check ---".
+LOCAL use_pid IS sensors_available().
+SET twr_pid TO PIDLOOP(twr_kp, twr_ki, twr_kd).
+SET twr_pid:MAXOUTPUT TO 0.5.
+SET twr_pid:MINOUTPUT TO -0.5.
+IF use_pid {
+    PRINT "  [OK] Sensors detected — PID throttle control active.".
+    PRINT "       Kp=" + twr_kp + "  Ki=" + twr_ki + "  Kd=" + twr_kd.
+} ELSE {
+    PRINT "  [WARN] No gravioli/accelerometer detected.".
+    PRINT "         Using calculated TWR throttle (fallback).".
+}
 PRINT " ".
 PRINT "Press ENTER to begin launch sequence.".
 WAIT UNTIL TERMINAL:INPUT:HASCHAR.
@@ -25,13 +83,6 @@ SAS OFF.
 RCS OFF.
 GEAR OFF.
 LOCK THROTTLE TO 0.
-
-FUNCTION ascent_pitch {
-    LOCAL frac IS (SHIP:ALTITUDE - turn_start_alt) /
-                  (turn_end_alt  - turn_start_alt).
-    SET frac TO MAX(0, MIN(1, frac)).
-    RETURN 90 - (90 * frac).
-}
 
 // Phase 1 — Countdown
 LOCK STEERING TO HEADING(launch_azimuth, 90).
@@ -59,7 +110,9 @@ UNTIL SHIP:ALTITUDE > turn_start_alt {
 PRINT "--- Phase 3: Gravity turn ---".
 SET stage_armed TO TRUE.
 SET next_print TO TIME:SECONDS.
-LOCAL throttle_reduced IS FALSE.
+LOCAL thrott IS 1.0.
+LOCK THROTTLE TO thrott.
+
 UNTIL SHIP:APOAPSIS >= target_apoapsis {
 
     IF stage_armed AND STAGE:LIQUIDFUEL < stage_fuel_min {
@@ -77,23 +130,19 @@ UNTIL SHIP:APOAPSIS >= target_apoapsis {
     LOCAL pitch IS ascent_pitch().
     LOCK STEERING TO HEADING(launch_azimuth, pitch).
 
-    LOCAL max_thrust IS SHIP:AVAILABLETHRUST.
-    LOCAL weight IS SHIP:MASS * SHIP:BODY:MU /
-                    (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
-    LOCAL effective_max_twr IS max_twr.
-    IF SHIP:APOAPSIS > (target_apoapsis * 0.9) {
-        IF NOT throttle_reduced {
-            PRINT "  Ap > 90% of target — reducing max TWR to " + (max_twr * 0.5) + ".".
-            SET throttle_reduced TO TRUE.
-        }
-        SET effective_max_twr TO max_twr * 0.5.
+    LOCAL ap_fac IS ap_error_factor().
+    IF use_pid {
+        // Reduce setpoint as Ap approaches target so PID naturally backs off thrust.
+        SET twr_pid:SETPOINT TO max_twr * ap_fac.
+        SET thrott TO MIN(1.0, MAX(0.0, thrott + twr_pid:UPDATE(TIME:SECONDS, measure_gforce()))).
+    } ELSE {
+        SET thrott TO MIN(calc_twr_throttle(max_twr), ap_fac).
     }
-    LOCAL twr_throttle IS (effective_max_twr * weight) / max_thrust.
-    LOCAL actual_throttle IS MIN(1.0, twr_throttle).
-    LOCK THROTTLE TO actual_throttle.
 
     IF TIME:SECONDS >= next_print {
-        PRINT "  Alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  Ap: " + ROUND(SHIP:APOAPSIS/1000, 1) + " km  |  pitch: " + ROUND(pitch) + " deg  |  thr: " + ROUND(actual_throttle, 2).
+        LOCAL mode IS "pid".
+        IF NOT use_pid { SET mode TO "calc". }
+        PRINT "  Alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  Ap: " + ROUND(SHIP:APOAPSIS/1000, 1) + " km  |  pitch: " + ROUND(pitch) + " deg  |  thr: " + ROUND(thrott, 2) + " [" + mode + "]".
         SET next_print TO TIME:SECONDS + 2.
     }
 
@@ -141,21 +190,17 @@ LOCK STEERING TO PROGRADE.
 IF SHIP:AVAILABLETHRUST <= 0 {
     PRINT "  Ended early: no thrust available.".
 } ELSE {
-    UNLOCK THROTTLE.
     LOCAL prev_ecc IS SHIP:OBT:ECCENTRICITY.
     LOCAL cur_ecc  IS prev_ecc.
+    LOCAL circ_thrott IS 1.0.
+    LOCK THROTTLE TO circ_thrott.
     SET next_print TO TIME:SECONDS.
     UNTIL SHIP:AVAILABLETHRUST <= 0 OR cur_ecc > prev_ecc {
         SET prev_ecc TO cur_ecc.
-        LOCAL max_thrust IS SHIP:AVAILABLETHRUST.
-        LOCAL weight IS SHIP:MASS * SHIP:BODY:MU /
-                        (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
-        LOCAL twr_throttle IS (max_twr * weight) / max_thrust.
-        LOCAL ecc_throttle IS MIN(1.0, cur_ecc / circularize_ecc_throttle_scale).
-        LOCAL actual_throttle IS MIN(twr_throttle, ecc_throttle).
-        LOCK THROTTLE TO actual_throttle.
+        LOCAL ecc_thr IS MIN(1.0, cur_ecc / circularize_ecc_throttle_scale).
+        SET circ_thrott TO MIN(calc_twr_throttle(max_twr), ecc_thr).
         IF TIME:SECONDS >= next_print {
-            PRINT "  ecc: " + ROUND(cur_ecc, 4) + "  |  thr: " + ROUND(actual_throttle, 2).
+            PRINT "  ecc: " + ROUND(cur_ecc, 4) + "  |  thr: " + ROUND(circ_thrott, 2).
             SET next_print TO TIME:SECONDS + 2.
         }
         WAIT 0.
@@ -167,7 +212,6 @@ IF SHIP:AVAILABLETHRUST <= 0 {
 }
 
 LOCK THROTTLE TO 0.
-
 UNLOCK STEERING.
 SAS ON.
 PRINT "--- Orbit achieved! ---".
