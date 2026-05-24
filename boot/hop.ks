@@ -70,7 +70,7 @@ FUNCTION target_descent_rate {
     RETURN -touchdown_speed.
 }
 
-// #include "0:/lib/logger"
+// #include "0:/lib/logger"   // LSP symbol-resolution hint for logger_* functions
 RUNONCEPATH("0:/lib/logger").
 
 CLEARSCREEN.

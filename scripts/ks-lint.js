@@ -87,7 +87,9 @@ function main() {
 
   function scheduleSettle() {
     clearTimeout(settleTimer);
-    // Wait for any follow-up diagnostics before declaring done
+    // Wait for any follow-up diagnostics before declaring done.
+    // The longer delay (vs the default 500ms) lets ksconfig.json rule overrides
+    // propagate through the LSP and re-diagnose all .ks files before we settle.
     settleTimer = setTimeout(finish, 1500);
   }
 

@@ -58,7 +58,7 @@ FUNCTION sensors_available {
 
 // ------------------------------------------------------------
 
-// #include "0:/lib/logger"
+// #include "0:/lib/logger"   // LSP symbol-resolution hint for logger_* functions
 RUNONCEPATH("0:/lib/logger").
 
 CLEARSCREEN.

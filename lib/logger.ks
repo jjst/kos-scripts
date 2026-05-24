@@ -40,10 +40,10 @@ FUNCTION logger_init {
     // mission_name: short label used in filenames; no spaces or commas.
     PARAMETER mission_name.
 
-    LOCAL ts_s IS ROUND(TIME:SECONDS).
+    LOCAL timestamp_s IS ROUND(TIME:SECONDS).
     SET logger_mission_name TO mission_name.
     SET logger_local_path   TO "1:/log_" + mission_name + ".csv".
-    SET logger_archive_path TO "0:/logs/" + mission_name + "_" + ts_s + ".csv".
+    SET logger_archive_path TO "0:/logs/" + mission_name + "_" + timestamp_s + ".csv".
 
     IF VOLUME(1):FREESPACE < logger_min_freespace_bytes {
         PRINT "[WARN] Logger: insufficient local free space — logging disabled.".
