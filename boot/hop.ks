@@ -26,6 +26,7 @@ SET descent_profile_mid_rate TO -12.
 SET descent_profile_low_rate TO -6.
 SET descent_pid_min_output TO -0.6.
 SET descent_pid_max_output TO 0.6.
+// In meters: below this pad distance, switch to retrograde for stable final touchdown.
 SET launchpad_aim_min_distance TO 15.
 // Limit steering aggressiveness to reduce rapid self-spin during descent.
 SET descent_max_stopping_time TO 3.5.
@@ -71,6 +72,9 @@ FUNCTION target_descent_rate {
     RETURN -touchdown_speed.
 }
 
+// Return a steering vector for descent:
+// - Far from target: point toward launchpad position to correct lateral drift.
+// - Near target: point surface-retrograde to reduce aggressive lateral steering.
 FUNCTION descent_steering_target {
     PARAMETER pad_target.
     IF pad_target:DISTANCE > launchpad_aim_min_distance {
