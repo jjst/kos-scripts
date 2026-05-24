@@ -161,7 +161,6 @@ SET descent_pid TO PIDLOOP(
     descent_pid_max_output,
     descent_pid_epsilon
 ).
-SET descent_pid:SETPOINT TO -touchdown_speed.
 SET thrott_cmd TO 0.
 LOCK THROTTLE TO thrott_cmd.
 SET next_print TO TIME:SECONDS.
