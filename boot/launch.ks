@@ -58,6 +58,9 @@ FUNCTION sensors_available {
 
 // ------------------------------------------------------------
 
+// #include "0:/lib/logger"   // LSP symbol-resolution hint for logger_* functions
+RUNONCEPATH("0:/lib/logger").
+
 CLEARSCREEN.
 TERMINAL:INPUT:CLEAR().
 
@@ -122,6 +125,8 @@ PRINT "Press ENTER to begin launch sequence.".
 WAIT UNTIL TERMINAL:INPUT:HASCHAR.
 TERMINAL:INPUT:GETCHAR().
 
+logger_init("launch").
+
 SAS OFF.
 RCS OFF.
 GEAR OFF.
@@ -137,6 +142,7 @@ FROM {LOCAL i IS 5.} UNTIL i = 0 STEP {SET i TO i - 1.} DO {
 PRINT "Ignition!".
 LOCK THROTTLE TO 1.0.
 STAGE.
+logger_log("countdown", "ignition", 1.0, "").
 
 // Phase 2 — Hold vertical until turn_start_alt
 PRINT "--- Phase 2: Vertical ascent to " + ROUND(turn_start_alt) + " m ---".
@@ -145,6 +151,7 @@ UNTIL SHIP:ALTITUDE > turn_start_alt {
     IF TIME:SECONDS >= next_print {
         PRINT "  Alt: " + ROUND(SHIP:ALTITUDE) + " m  |  vel: " + ROUND(SHIP:VELOCITY:SURFACE:MAG, 1) + " m/s".
         SET next_print TO TIME:SECONDS + 1.
+        logger_log("vertical_ascent", "telemetry", 1.0, "").
     }
     WAIT 0.
 }
@@ -161,6 +168,7 @@ UNTIL SHIP:APOAPSIS >= target_apoapsis {
     IF stage_armed AND STAGE:LIQUIDFUEL < stage_fuel_min {
         PRINT "  Staging!".
         STAGE.
+        logger_log("gravity_turn", "staging", thrott, "").
         SET stage_armed TO FALSE.
         WAIT 1.
         PRINT "  New stage  |  fuel: " + ROUND(STAGE:LIQUIDFUEL, 1) + " u".
@@ -187,6 +195,7 @@ UNTIL SHIP:APOAPSIS >= target_apoapsis {
         IF NOT use_pid { SET mode TO "calc". }
         PRINT "  Alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  Ap: " + ROUND(SHIP:APOAPSIS/1000, 1) + " km  |  pitch: " + ROUND(pitch) + " deg  |  thr: " + ROUND(thrott, 2) + " [" + mode + "]".
         SET next_print TO TIME:SECONDS + 2.
+        logger_log("gravity_turn", "telemetry", thrott, mode).
     }
 
     WAIT 0.
@@ -196,6 +205,7 @@ UNTIL SHIP:APOAPSIS >= target_apoapsis {
 LOCK THROTTLE TO 0.
 PRINT "--- Phase 4: Coasting to apoapsis ---".
 PRINT "  Cutoff  |  Ap: " + ROUND(SHIP:APOAPSIS/1000, 1) + " km  |  Pe: " + ROUND(SHIP:PERIAPSIS/1000, 1) + " km  |  ecc: " + ROUND(SHIP:OBT:ECCENTRICITY, 3).
+logger_log("coast", "cutoff", 0, "").
 LOCK STEERING TO PROGRADE.
 
 LOCAL mu_body  IS SHIP:BODY:MU.
@@ -217,6 +227,7 @@ UNTIL ETA:APOAPSIS < burn_start_eta + 60 {
     IF TIME:SECONDS >= next_print {
         PRINT "  Coasting...  ETA Ap: " + ROUND(ETA:APOAPSIS) + " s".
         SET next_print TO TIME:SECONDS + 30.
+        logger_log("coast", "telemetry", 0, "").
     }
     WAIT 1.
 }
@@ -232,6 +243,7 @@ LOCK STEERING TO PROGRADE.
 
 IF SHIP:AVAILABLETHRUST <= 0 {
     PRINT "  Ended early: no thrust available.".
+    logger_log("circ", "abort_no_thrust", 0, "").
 } ELSE {
     LOCAL prev_ecc IS SHIP:OBT:ECCENTRICITY.
     LOCAL cur_ecc  IS prev_ecc.
@@ -245,12 +257,14 @@ IF SHIP:AVAILABLETHRUST <= 0 {
         IF TIME:SECONDS >= next_print {
             PRINT "  ecc: " + ROUND(cur_ecc, 4) + "  |  thr: " + ROUND(circ_thrott, 2).
             SET next_print TO TIME:SECONDS + 2.
+            logger_log("circ", "telemetry", circ_thrott, "").
         }
         WAIT 0.
         SET cur_ecc TO SHIP:OBT:ECCENTRICITY.
     }
     IF SHIP:AVAILABLETHRUST <= 0 {
         PRINT "  Ended early: no thrust available.".
+        logger_log("circ", "abort_no_thrust", circ_thrott, "").
     }
 }
 
@@ -261,3 +275,5 @@ PRINT "--- Orbit achieved! ---".
 PRINT "  Ap:  " + ROUND(SHIP:APOAPSIS/1000, 1) + " km".
 PRINT "  Pe:  " + ROUND(SHIP:PERIAPSIS/1000, 1) + " km".
 PRINT "  ecc: " + ROUND(SHIP:OBT:ECCENTRICITY, 4).
+logger_log("orbit", "achieved", 0, "").
+logger_finalize().

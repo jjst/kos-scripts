@@ -70,6 +70,9 @@ FUNCTION target_descent_rate {
     RETURN -touchdown_speed.
 }
 
+// #include "0:/lib/logger"   // LSP symbol-resolution hint for logger_* functions
+RUNONCEPATH("0:/lib/logger").
+
 CLEARSCREEN.
 PRINT "=== hop.ks ===".
 PRINT "Hop altitude : " + ROUND(hop_altitude/1000, 1) + " km  |  max TWR: " + max_twr.
@@ -78,6 +81,8 @@ PRINT " ".
 PRINT "Press ENTER to begin launch sequence.".
 WAIT UNTIL TERMINAL:INPUT:HASCHAR.
 TERMINAL:INPUT:GETCHAR().
+
+logger_init("hop").
 
 SAS OFF.
 RCS OFF.
@@ -95,6 +100,7 @@ FROM {LOCAL i IS 5.} UNTIL i = 0 STEP {SET i TO i - 1.} DO {
 PRINT "Ignition!".
 LOCK THROTTLE TO 1.0.
 STAGE.
+logger_log("countdown", "ignition", 1.0, "").
 
 // Phase 2 — Vertical ascent
 PRINT "--- Phase 2: Vertical ascent to " + ROUND(hop_altitude/1000, 1) + " km Ap ---".
@@ -109,6 +115,7 @@ UNTIL SHIP:APOAPSIS >= hop_altitude {
     IF TIME:SECONDS >= next_print {
         PRINT "  Alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  Ap: " + ROUND(SHIP:APOAPSIS/1000, 1) + " km  |  thr: " + ROUND(actual_throttle, 2).
         SET next_print TO TIME:SECONDS + 2.
+        logger_log("ascent", "telemetry", actual_throttle, "").
     }
     WAIT 0.
 }
@@ -117,11 +124,13 @@ UNTIL SHIP:APOAPSIS >= hop_altitude {
 LOCK THROTTLE TO 0.
 PRINT "--- Phase 3: Coasting ---".
 PRINT "  Cutoff  |  Ap: " + ROUND(SHIP:APOAPSIS/1000, 1) + " km  |  Pe: " + ROUND(SHIP:PERIAPSIS/1000, 1) + " km".
+logger_log("coast", "cutoff", 0, "").
 SET next_print TO TIME:SECONDS.
 UNTIL SHIP:VERTICALSPEED < 0 {
     IF TIME:SECONDS >= next_print {
         PRINT "  Alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s".
         SET next_print TO TIME:SECONDS + 2.
+        logger_log("coast", "telemetry", 0, "").
     }
     WAIT 0.
 }
@@ -146,6 +155,7 @@ UNTIL burn_ready {
         GEAR ON.
         SET gear_deployed TO TRUE.
         PRINT "  Gear down  |  alt: " + ROUND(alt_agl) + " m AGL".
+        logger_log("descent_wait", "gear_deploy", 0, "").
     }
 
     IF SHIP:AVAILABLETHRUST <= 0 {
@@ -162,11 +172,13 @@ UNTIL burn_ready {
             LOCAL burn_dist IS (vs^2 / (2 * a_net)) * burn_safety.
             IF alt_agl <= burn_dist {
                 PRINT "  Burn trigger  |  alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s".
+                logger_log("descent_wait", "burn_trigger", 0, "").
                 SET burn_ready TO TRUE.
             }
             IF NOT burn_ready AND TIME:SECONDS >= next_print {
                 PRINT "  Alt: " + ROUND(alt_agl) + " m AGL  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s  |  burn in: " + ROUND(alt_agl - burn_dist) + " m".
                 SET next_print TO TIME:SECONDS + 2.
+                logger_log("descent_wait", "telemetry", 0, "").
             }
         }
     }
@@ -196,10 +208,12 @@ UNTIL SHIP:STATUS = "LANDED" {
         GEAR ON.
         SET gear_deployed TO TRUE.
         PRINT "  Gear down (powered)  |  alt: " + ROUND(alt_agl) + " m AGL".
+        logger_log("powered_descent", "gear_deploy", thrott_cmd, "").
     }
     LOCAL thrust_available IS SHIP:AVAILABLETHRUST.
     IF thrust_available <= 0 {
         PRINT "  FATAL: no thrust during powered descent  |  status: " + SHIP:STATUS + "  |  alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s".
+        logger_log("powered_descent", "abort_no_thrust", 0, "").
         SET descent_aborted TO TRUE.
         SET thrott_cmd TO 0.
         BREAK.
@@ -212,6 +226,7 @@ UNTIL SHIP:STATUS = "LANDED" {
     IF TIME:SECONDS >= next_print {
         PRINT "  Alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s  |  tgt: " + ROUND(target_vs, 1) + " m/s  |  thr: " + ROUND(thrott_cmd, 2).
         SET next_print TO TIME:SECONDS + 1.
+        logger_log("powered_descent", "telemetry", thrott_cmd, "tgt_vs=" + ROUND(target_vs, 1)).
     }
     WAIT 0.
 }
@@ -225,7 +240,10 @@ SAS ON.
 IF descent_aborted {
     PRINT "--- Descent aborted ---".
     PRINT "  Final vs: " + ROUND(SHIP:VERTICALSPEED, 2) + " m/s  |  status: " + SHIP:STATUS.
+    logger_log("powered_descent", "abort", 0, "").
 } ELSE {
     PRINT "--- Landed! ---".
     PRINT "  Final vs: " + ROUND(SHIP:VERTICALSPEED, 2) + " m/s  |  status: " + SHIP:STATUS.
+    logger_log("powered_descent", "landed", 0, "").
 }
+logger_finalize().
