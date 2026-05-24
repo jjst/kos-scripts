@@ -56,6 +56,7 @@ UNTIL SHIP:APOAPSIS >= hop_altitude {
 
 // Phase 3 — Cutoff and coast
 LOCK THROTTLE TO 0.
+RCS ON.
 PRINT "--- Phase 3: Coasting ---".
 PRINT "  Cutoff  |  Ap: " + ROUND(SHIP:APOAPSIS/1000, 1) + " km  |  Pe: " + ROUND(SHIP:PERIAPSIS/1000, 1) + " km".
 SET next_print TO TIME:SECONDS.
@@ -68,6 +69,7 @@ UNTIL SHIP:VERTICALSPEED < 0 {
 }
 
 // Phase 4 — Descending: wait for suicide burn trigger
+LOCK STEERING TO SRFRETROGRADE.
 PRINT "--- Phase 4: Descending ---".
 LOCAL brakes_deployed IS FALSE.
 LOCAL gear_deployed IS FALSE.
@@ -134,6 +136,7 @@ UNTIL SHIP:STATUS = "LANDED" {
 LOCK THROTTLE TO 0.
 UNLOCK THROTTLE.
 UNLOCK STEERING.
+RCS OFF.
 SAS ON.
 PRINT "--- Landed! ---".
 PRINT "  Final vs: " + ROUND(SHIP:VERTICALSPEED, 2) + " m/s  |  status: " + SHIP:STATUS.
