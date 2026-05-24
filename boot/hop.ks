@@ -26,6 +26,7 @@ SET descent_profile_mid_rate TO -12.
 SET descent_profile_low_rate TO -6.
 SET descent_pid_min_output TO -0.6.
 SET descent_pid_max_output TO 0.6.
+SET launchpad_aim_min_distance TO 15.
 // Limit steering aggressiveness to reduce rapid self-spin during descent.
 SET descent_max_stopping_time TO 3.5.
 // PID error deadband (m/s) to reduce tiny throttle chatter.
@@ -70,10 +71,21 @@ FUNCTION target_descent_rate {
     RETURN -touchdown_speed.
 }
 
+FUNCTION descent_steering_target {
+    PARAMETER pad_target.
+    IF pad_target:DISTANCE > launchpad_aim_min_distance {
+        RETURN pad_target:POSITION.
+    }
+    RETURN SRFRETROGRADE.
+}
+
 CLEARSCREEN.
 PRINT "=== hop.ks ===".
 PRINT "Hop altitude : " + ROUND(hop_altitude/1000, 1) + " km  |  max TWR: " + max_twr.
 PRINT "Burn safety  : " + burn_safety + "  |  gear at: " + gear_deploy_alt + " m AGL".
+PRINT " ".
+SET launchpad_target TO SHIP:GEOPOSITION.
+PRINT "Launchpad target: lat " + ROUND(launchpad_target:LAT, 5) + "  lng " + ROUND(launchpad_target:LNG, 5).
 PRINT " ".
 PRINT "Press ENTER to begin launch sequence.".
 WAIT UNTIL TERMINAL:INPUT:HASCHAR.
@@ -129,7 +141,7 @@ UNTIL SHIP:VERTICALSPEED < 0 {
 // Phase 4 — Descending: wait for suicide burn trigger
 LOCAL original_max_stopping_time IS STEERINGMANAGER:MAXSTOPPINGTIME.
 SET STEERINGMANAGER:MAXSTOPPINGTIME TO descent_max_stopping_time.
-LOCK STEERING TO SRFRETROGRADE.
+LOCK STEERING TO descent_steering_target(launchpad_target).
 PRINT "--- Phase 4: Descending ---".
 WAIT 3.
 RCS ON.
@@ -176,7 +188,7 @@ UNTIL burn_ready {
 // Phase 5 — Powered descent and landing
 PRINT "--- Phase 5: Powered descent ---".
 BRAKES ON.
-LOCK STEERING TO SRFRETROGRADE.
+LOCK STEERING TO descent_steering_target(launchpad_target).
 SET descent_pid TO PIDLOOP(
     descent_kp,
     descent_ki,
