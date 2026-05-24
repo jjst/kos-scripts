@@ -43,7 +43,10 @@ FUNCTION lerp {
 FUNCTION target_descent_rate {
     PARAMETER alt_agl.
     // Altitude-rate profile:
-    // >high_alt: min_rate, mid_alt: mid_rate, low_alt: low_rate, flare_alt+: blend to touchdown target.
+    // >descent_profile_high_alt: descent_min_rate,
+    // descent_profile_mid_alt: descent_profile_mid_rate,
+    // descent_profile_low_alt: descent_profile_low_rate,
+    // descent_profile_flare_alt+: blend to touchdown target.
     IF alt_agl > descent_profile_high_alt {
         RETURN descent_min_rate.
     }
@@ -168,7 +171,6 @@ UNTIL burn_ready {
 // Phase 5 — Powered descent and landing
 PRINT "--- Phase 5: Powered descent ---".
 BRAKES OFF.
-UNLOCK STEERING.
 LOCK STEERING TO UP.
 SET descent_pid TO PIDLOOP(
     descent_kp,
@@ -176,7 +178,7 @@ SET descent_pid TO PIDLOOP(
     descent_kd,
     descent_pid_min_output,
     descent_pid_max_output,
-    descent_pid_epsilon
+    descent_pid_epsilon // PID epsilon deadband to reduce throttle chatter.
 ).
 SET thrott_cmd TO 0.
 SET descent_aborted TO FALSE.
@@ -184,14 +186,14 @@ LOCK THROTTLE TO thrott_cmd.
 SET next_print TO TIME:SECONDS.
 UNTIL SHIP:STATUS = "LANDED" {
     LOCAL g_land IS SHIP:BODY:MU / (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
+    LOCAL alt_agl IS ALT:RADAR.
     LOCAL thrust_available IS SHIP:AVAILABLETHRUST.
     IF thrust_available <= 0 {
-        PRINT "  FATAL: no thrust during powered descent  |  status: " + SHIP:STATUS + "  |  alt: " + ROUND(ALT:RADAR) + " m  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s".
+        PRINT "  FATAL: no thrust during powered descent  |  status: " + SHIP:STATUS + "  |  alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s".
         SET descent_aborted TO TRUE.
         SET thrott_cmd TO 0.
         BREAK.
     }
-    LOCAL alt_agl IS ALT:RADAR.
     LOCAL target_vs IS target_descent_rate(alt_agl).
     SET descent_pid:SETPOINT TO target_vs.
     LOCAL hover IS (SHIP:MASS * g_land) / thrust_available.
