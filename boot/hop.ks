@@ -8,7 +8,7 @@
 SET hop_altitude      TO 5000.
 SET max_twr           TO 2.5.
 SET burn_safety       TO 1.3.
-SET gear_deploy_alt   TO 100.
+SET gear_deploy_alt   TO 200.
 // Keep a small non-zero touchdown rate to avoid over-braking hover oscillation.
 SET touchdown_speed   TO 3.
 // PID gains for powered descent vertical-speed control.
@@ -187,6 +187,11 @@ SET next_print TO TIME:SECONDS.
 UNTIL SHIP:STATUS = "LANDED" {
     LOCAL g_land IS SHIP:BODY:MU / (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
     LOCAL alt_agl IS ALT:RADAR.
+    IF NOT gear_deployed AND alt_agl < gear_deploy_alt {
+        GEAR ON.
+        SET gear_deployed TO TRUE.
+        PRINT "  Gear down (powered)  |  alt: " + ROUND(alt_agl) + " m AGL".
+    }
     LOCAL thrust_available IS SHIP:AVAILABLETHRUST.
     IF thrust_available <= 0 {
         PRINT "  FATAL: no thrust during powered descent  |  status: " + SHIP:STATUS + "  |  alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s".
