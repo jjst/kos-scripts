@@ -83,7 +83,7 @@ FUNCTION target_descent_rate {
 // - Near target: point surface-retrograde to reduce aggressive lateral steering.
 FUNCTION descent_steering_target {
     PARAMETER pad_target.
-    // Unit vector from cooked steering (dimensionless).
+    // Surface-retrograde unit vector (dimensionless).
     LOCAL retrograde_vector IS SRFRETROGRADE:FOREVECTOR.
     LOCAL descent_elapsed_s IS TIME:SECONDS - descent_phase_start_time_s.
     IF descent_elapsed_s < launchpad_aim_delay_s {
@@ -92,10 +92,10 @@ FUNCTION descent_steering_target {
     LOCAL pad_vector_m IS pad_target:POSITION.
     IF pad_vector_m:MAG > launchpad_aim_min_distance_m {
         // Exclude retrograde component so correction is lateral-only.
-        LOCAL pad_lateral_m IS VXCL(retrograde_vector, pad_vector_m).
-        IF pad_lateral_m:MAG > 0 {
+        LOCAL pad_lateral_offset_m IS VXCL(retrograde_vector, pad_vector_m).
+        IF pad_lateral_offset_m:MAG > 0 {
             // Blend mostly-retrograde with a bounded lateral correction, then renormalize.
-            RETURN (retrograde_vector + pad_lateral_m:NORMALIZED * launchpad_aim_lateral_blend_weight):NORMALIZED.
+            RETURN (retrograde_vector + pad_lateral_offset_m:NORMALIZED * launchpad_aim_lateral_blend_weight):NORMALIZED.
         }
     }
     RETURN retrograde_vector.
