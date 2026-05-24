@@ -13,6 +13,46 @@ SET circularize_ecc_throttle_scale TO 0.05.
 // ------------------------------------------------------------
 
 CLEARSCREEN.
+TERMINAL:INPUT:CLEAR().
+
+FUNCTION read_line {
+    LOCAL buffer IS "".
+    LOCAL done IS FALSE.
+    UNTIL done {
+        LOCAL ch IS TERMINAL:INPUT:GETCHAR().
+        IF ch = TERMINAL:INPUT:RETURN {
+            SET done TO TRUE.
+        } ELSE IF ch = TERMINAL:INPUT:BACKSPACE {
+            IF buffer:LENGTH > 0 {
+                SET buffer TO buffer:SUBSTRING(0, buffer:LENGTH - 1).
+            }
+        } ELSE {
+            SET buffer TO buffer + ch.
+        }
+    }
+    RETURN buffer.
+}
+
+FUNCTION prompt_number_or_default {
+    PARAMETER prompt_label, default_value.
+    PRINT prompt_label + " (default " + default_value + "):".
+    LOCAL raw_value IS read_line():TRIM.
+    IF raw_value:LENGTH = 0 {
+        RETURN default_value.
+    }
+    LOCAL number_pattern IS "^[-+]?(([0-9]+[.]?[0-9]*)|([.][0-9]+))([eE][-+]?[0-9]+)?$".
+    IF NOT raw_value:MATCHESPATTERN(number_pattern) {
+        PRINT "Invalid input '" + raw_value + "' - using default " + default_value + ".".
+        RETURN default_value.
+    }
+    RETURN raw_value:TONUMBER().
+}
+
+PRINT "Press Return to keep each default value.".
+SET launch_azimuth TO prompt_number_or_default("Launch heading (deg)", launch_azimuth).
+LOCAL target_altitude_km IS prompt_number_or_default("Target orbit altitude (km)", target_apoapsis / 1000).
+SET target_apoapsis TO target_altitude_km * 1000.
+
 PRINT "=== launch.ks ===".
 PRINT "Target orbit : " + ROUND(target_apoapsis/1000, 0) + " km  |  azimuth: " + launch_azimuth + " deg".
 PRINT "Max TWR      : " + max_twr + "  |  gravity turn: " + ROUND(turn_start_alt) + " m -> " + ROUND(turn_end_alt/1000, 0) + " km".
