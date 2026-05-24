@@ -29,7 +29,7 @@ SET descent_pid_max_output TO 0.6.
 // In meters: below this pad distance, switch to retrograde for stable final touchdown.
 SET launchpad_aim_min_distance_m TO 150.
 // In seconds: hold surface-retrograde first to stabilize descent attitude.
-SET launchpad_aim_delay_s TO 4.
+SET launchpad_aim_delay_s TO 20.
 // Limit steering aggressiveness to reduce rapid self-spin during descent.
 SET descent_max_stopping_time TO 3.5.
 // PID error deadband (m/s) to reduce tiny throttle chatter.
