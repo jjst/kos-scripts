@@ -14,6 +14,9 @@ SET descent_kp        TO 0.035.
 SET descent_ki        TO 0.004.
 SET descent_kd        TO 0.02.
 SET descent_min_rate  TO -35.
+SET descent_pid_min_output TO -0.6.
+SET descent_pid_max_output TO 0.6.
+SET descent_pid_epsilon TO 0.15.
 // ------------------------------------------------------------
 
 FUNCTION clamp {
@@ -150,7 +153,14 @@ UNTIL burn_ready {
 PRINT "--- Phase 5: Powered descent ---".
 BRAKES OFF.
 LOCK STEERING TO UP.
-SET descent_pid TO PIDLOOP(descent_kp, descent_ki, descent_kd, -0.6, 0.6, 0.15).
+SET descent_pid TO PIDLOOP(
+    descent_kp,
+    descent_ki,
+    descent_kd,
+    descent_pid_min_output,
+    descent_pid_max_output,
+    descent_pid_epsilon
+).
 SET descent_pid:SETPOINT TO -touchdown_speed.
 SET thrott_cmd TO 0.
 LOCK THROTTLE TO thrott_cmd.
