@@ -1,14 +1,50 @@
 // ============================================================
-//  hop.ks — Suborbital vertical hop with propulsive landing
+//  hop.ks — VTVL proof-of-concept vertical hop and landing
 // ============================================================
+//  Flies a straight-up hop, then performs a PID-guided powered
+//  descent with a gradual vertical-speed target down to ~3 m/s.
 
 // --- CONFIG (edit these) ------------------------------------
 SET hop_altitude      TO 5000.
 SET max_twr           TO 2.5.
 SET burn_safety       TO 1.3.
 SET gear_deploy_alt   TO 200.
-SET touchdown_speed   TO 2.
+SET touchdown_speed   TO 3.
+SET descent_kp        TO 0.035.
+SET descent_ki        TO 0.004.
+SET descent_kd        TO 0.02.
+SET descent_min_rate  TO -35.
 // ------------------------------------------------------------
+
+FUNCTION clamp {
+    PARAMETER value, min_value, max_value.
+    RETURN MIN(max_value, MAX(min_value, value)).
+}
+
+FUNCTION lerp {
+    PARAMETER a, b, t.
+    RETURN a + (b - a) * t.
+}
+
+FUNCTION target_descent_rate {
+    PARAMETER alt_agl.
+    IF alt_agl > 800 {
+        RETURN descent_min_rate.
+    }
+    IF alt_agl > 200 {
+        LOCAL t1 IS (alt_agl - 200) / 600.
+        RETURN lerp(-12, descent_min_rate, t1).
+    }
+    IF alt_agl > 50 {
+        LOCAL t2 IS (alt_agl - 50) / 150.
+        RETURN lerp(-6, -12, t2).
+    }
+    IF alt_agl > 10 {
+        LOCAL t3 IS (alt_agl - 10) / 40.
+        RETURN lerp(-touchdown_speed, -6, t3).
+    }
+    RETURN -touchdown_speed.
+}
 
 CLEARSCREEN.
 PRINT "=== hop.ks ===".
@@ -113,21 +149,33 @@ UNTIL burn_ready {
 // Phase 5 — Powered descent and landing
 PRINT "--- Phase 5: Powered descent ---".
 BRAKES OFF.
+LOCK STEERING TO UP.
+SET descent_pid TO PIDLOOP(descent_kp, descent_ki, descent_kd, -0.6, 0.6, 0.15).
+SET descent_pid:SETPOINT TO -touchdown_speed.
+SET thrott_cmd TO 0.
+LOCK THROTTLE TO thrott_cmd.
 SET next_print TO TIME:SECONDS.
 UNTIL SHIP:STATUS = "LANDED" {
     LOCAL g_land IS SHIP:BODY:MU / (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
-    LOCAL hover IS (SHIP:MASS * g_land) / SHIP:AVAILABLETHRUST.
-    LOCAL error IS SHIP:VERTICALSPEED + touchdown_speed.
-    LOCAL thr IS MAX(0, MIN(1, hover - error * 0.05)).
-    LOCK THROTTLE TO thr.
+    LOCAL thrust_available IS SHIP:AVAILABLETHRUST.
+    IF thrust_available <= 0 {
+        SET thrott_cmd TO 0.
+        BREAK.
+    }
+    LOCAL alt_agl IS ALT:RADAR.
+    LOCAL target_vs IS target_descent_rate(alt_agl).
+    SET descent_pid:SETPOINT TO target_vs.
+    LOCAL hover IS (SHIP:MASS * g_land) / thrust_available.
+    LOCAL pid_correction IS descent_pid:UPDATE(TIME:SECONDS, SHIP:VERTICALSPEED).
+    SET thrott_cmd TO clamp(hover + pid_correction, 0, 1).
     IF TIME:SECONDS >= next_print {
-        PRINT "  Alt: " + ROUND(ALT:RADAR) + " m  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s  |  thr: " + ROUND(thr, 2).
+        PRINT "  Alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s  |  tgt: " + ROUND(target_vs, 1) + " m/s  |  thr: " + ROUND(thrott_cmd, 2).
         SET next_print TO TIME:SECONDS + 1.
     }
     WAIT 0.
 }
 
-LOCK THROTTLE TO 0.
+SET thrott_cmd TO 0.
 UNLOCK THROTTLE.
 UNLOCK STEERING.
 RCS OFF.
