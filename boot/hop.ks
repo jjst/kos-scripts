@@ -224,7 +224,7 @@ SET next_print TO TIME:SECONDS.
 UNTIL burn_ready {
     LOCAL alt_agl IS ALT:RADAR.
     LOCAL vs IS ABS(SHIP:VERTICALSPEED).
-    LOCAL g_m_s2 IS SHIP:BODY:MU / (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
+    LOCAL g IS SHIP:BODY:MU / (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
 
     IF NOT gear_deployed AND alt_agl < gear_deploy_alt {
         GEAR ON.
@@ -247,7 +247,7 @@ UNTIL burn_ready {
 
         IF launchpad_steering_phase_active {
             // Dimensionless throttle ratio needed to approximately hover at current mass and gravity.
-            LOCAL hover_throttle_ratio IS (SHIP:MASS * g_m_s2) / SHIP:AVAILABLETHRUST.
+            LOCAL hover_throttle_ratio IS (SHIP:MASS * g) / SHIP:AVAILABLETHRUST.
             // Keep measurement in native vertical-speed sign convention (descending is negative).
             // Dimensionless throttle ratio correction from the launchpad-steering speed PID.
             LOCAL speed_pid_correction_throttle_ratio IS launchpad_steering_speed_pid:UPDATE(TIME:SECONDS, SHIP:VERTICALSPEED).
@@ -264,7 +264,7 @@ UNTIL burn_ready {
             SET launchpad_aim_lateral_blend_ratio_active TO 0.
         }
 
-        LOCAL a_net IS (SHIP:AVAILABLETHRUST / SHIP:MASS) - g_m_s2.
+        LOCAL a_net IS (SHIP:AVAILABLETHRUST / SHIP:MASS) - g.
         IF a_net <= 0 {
             PRINT "  WARNING: a_net " + ROUND(a_net, 2) + " m/s^2 — forcing burn trigger.".
             SET burn_ready TO TRUE.

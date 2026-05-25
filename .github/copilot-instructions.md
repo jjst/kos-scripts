@@ -44,4 +44,4 @@ The script communicates with the language server over LSP stdio — it exits 0 o
 ## Naming conventions
 
 Use unit suffixes in variable names wherever relevant (for example `_m`, `_km`, `_s`, `_ms`, `_deg`, `_kg`).
-This rule is mandatory for new and modified variables to reduce ambiguity and prevent unit mix-ups.
+This should be followed for new and modified variables when it helps reduce potential ambiguity and prevent unit mix-ups.
