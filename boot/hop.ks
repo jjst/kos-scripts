@@ -39,6 +39,9 @@ SET launchpad_steering_target_speed_m_s TO 150.
 SET launchpad_steering_speed_kp TO 0.012.
 SET launchpad_steering_speed_ki TO 0.0006.
 SET launchpad_steering_speed_kd TO 0.01.
+SET launchpad_steering_speed_pid_min_output TO -0.6.
+SET launchpad_steering_speed_pid_max_output TO 0.6.
+SET launchpad_steering_min_throttle_ratio TO 0.08.
 SET launchpad_steering_direction_kp TO 0.01.
 SET launchpad_steering_direction_ki TO 0.0003.
 SET launchpad_steering_direction_kd TO 0.002.
@@ -200,11 +203,11 @@ SET launchpad_steering_speed_pid TO PIDLOOP(
     launchpad_steering_speed_kp,
     launchpad_steering_speed_ki,
     launchpad_steering_speed_kd,
-    0,
-    1,
+    launchpad_steering_speed_pid_min_output,
+    launchpad_steering_speed_pid_max_output,
     descent_pid_epsilon
 ).
-SET launchpad_steering_speed_pid:SETPOINT TO launchpad_steering_target_speed_m_s.
+SET launchpad_steering_speed_pid:SETPOINT TO -launchpad_steering_target_speed_m_s.
 SET launchpad_steering_direction_pid TO PIDLOOP(
     launchpad_steering_direction_kp,
     launchpad_steering_direction_ki,
@@ -240,8 +243,13 @@ UNTIL burn_ready {
         }
 
         IF launchpad_steering_phase_active {
-            LOCAL descent_speed_m_s IS MAX(0, -SHIP:VERTICALSPEED).
-            SET thrott_cmd TO launchpad_steering_speed_pid:UPDATE(TIME:SECONDS, descent_speed_m_s).
+            LOCAL hover_throttle_ratio IS (SHIP:MASS * g) / SHIP:AVAILABLETHRUST.
+            LOCAL speed_pid_correction_ratio IS launchpad_steering_speed_pid:UPDATE(TIME:SECONDS, SHIP:VERTICALSPEED).
+            SET thrott_cmd TO clamp(
+                hover_throttle_ratio + speed_pid_correction_ratio,
+                launchpad_steering_min_throttle_ratio,
+                1
+            ).
             LOCAL steering_target_vector_unit IS descent_steering_target(launchpad_target).
             LOCAL steering_error_deg IS VANG(SHIP:FACING:FOREVECTOR, steering_target_vector_unit).
             SET launchpad_aim_lateral_blend_ratio_active TO launchpad_steering_direction_pid:UPDATE(TIME:SECONDS, steering_error_deg).
