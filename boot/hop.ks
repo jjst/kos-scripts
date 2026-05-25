@@ -84,7 +84,7 @@ FUNCTION pad_steer_direction {
         // body then pushes the rocket toward the pad.
         // Axis: srfret × toward_pad — right-hand rotation around this axis
         // moves the nose away from toward_pad.
-        LOCAL axis IS VCRS(srfret, horiz:NORMALIZED).
+        LOCAL axis IS VCRS(horiz:NORMALIZED, srfret).
         RETURN ANGLEAXIS(tilt_deg, axis) * srfret.
     }
     RETURN srfret.
