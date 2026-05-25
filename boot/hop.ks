@@ -34,6 +34,8 @@ SET descent_pid_epsilon TO 0.15.
 SET p5_target_speed TO 150.
 // Proportional gain for Phase 5 speed hold.
 SET p5_speed_kp TO 0.03.
+// How strongly Phase 5 leans horizontally toward the pad (0 = pure retrograde).
+SET p5_steer_gain TO 0.3.
 // ------------------------------------------------------------
 
 FUNCTION clamp {
@@ -73,6 +75,8 @@ FUNCTION target_descent_rate {
     }
     RETURN -touchdown_speed.
 }
+
+LOCAL pad_geo IS SHIP:GEOPOSITION.
 
 CLEARSCREEN.
 PRINT "=== hop.ks ===".
@@ -174,6 +178,16 @@ UNTIL p5_burn_ready {
         PRINT "  Gear down (p5)  |  alt: " + ROUND(alt_agl) + " m AGL".
     }
 
+    LOCAL to_pad IS pad_geo:POSITION.
+    LOCAL horiz IS VXCL(UP:FOREVECTOR, to_pad).
+    LOCAL srfret IS SHIP:SRFRETROGRADE:FOREVECTOR.
+    IF horiz:MAG > 10 {
+        LOCAL steer_vec IS (srfret + p5_steer_gain * horiz:NORMALIZED):NORMALIZED.
+        LOCK STEERING TO steer_vec.
+    } ELSE {
+        LOCK STEERING TO SRFRETROGRADE.
+    }
+
     IF SHIP:AVAILABLETHRUST <= 0 {
         PRINT "  FATAL: no thrust in Phase 5 — forcing Phase 6.".
         SET p5_burn_ready TO TRUE.
@@ -194,7 +208,7 @@ UNTIL p5_burn_ready {
             }
         }
         IF NOT p5_burn_ready AND TIME:SECONDS >= next_print {
-            PRINT "  Alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(vs, 1) + " m/s  |  tgt: " + p5_target_vs + " m/s  |  thr: " + ROUND(p5_throttle, 2).
+            PRINT "  Alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(vs, 1) + " m/s  |  tgt: " + p5_target_vs + " m/s  |  thr: " + ROUND(p5_throttle, 2) + "  |  pad: " + ROUND(pad_geo:DISTANCE) + " m".
             SET next_print TO TIME:SECONDS + 2.
         }
     }
