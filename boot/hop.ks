@@ -31,7 +31,7 @@ SET descent_max_stopping_time TO 3.5.
 // PID error deadband (m/s) to reduce tiny throttle chatter.
 SET descent_pid_epsilon TO 0.15.
 // Target descent speed during launchpad-steering phase (m/s, magnitude).
-SET p5_target_speed TO 150.
+SET p5_target_speed TO 120.
 // Proportional gain for Phase 5 speed hold.
 SET p5_speed_kp TO 0.03.
 // How strongly Phase 5 leans horizontally toward the pad (0 = pure retrograde).
