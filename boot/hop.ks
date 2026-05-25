@@ -7,7 +7,7 @@
 // --- CONFIG (edit these) ------------------------------------
 SET hop_altitude      TO 10000.
 SET max_twr           TO 2.5.
-SET burn_safety       TO 1.0.
+SET burn_safety       TO 1.2.
 SET gear_deploy_alt   TO 200.
 // Keep a small non-zero touchdown rate to avoid over-braking hover oscillation.
 SET touchdown_speed   TO 3.
@@ -30,6 +30,10 @@ SET descent_pid_max_output TO 0.6.
 SET descent_max_stopping_time TO 3.5.
 // PID error deadband (m/s) to reduce tiny throttle chatter.
 SET descent_pid_epsilon TO 0.15.
+// Target descent speed during launchpad-steering phase (m/s, magnitude).
+SET p5_target_speed TO 150.
+// Proportional gain for Phase 5 speed hold.
+SET p5_speed_kp TO 0.03.
 // ------------------------------------------------------------
 
 FUNCTION clamp {
@@ -126,7 +130,7 @@ UNTIL SHIP:VERTICALSPEED < 0 {
     WAIT 0.
 }
 
-// Phase 4 — Descending: wait for suicide burn trigger
+// Phase 4 — Descending: wait for sub-5 km handoff to powered descent
 LOCAL original_max_stopping_time IS STEERINGMANAGER:MAXSTOPPINGTIME.
 SET STEERINGMANAGER:MAXSTOPPINGTIME TO descent_max_stopping_time.
 LOCK STEERING TO SRFRETROGRADE.
@@ -135,12 +139,9 @@ WAIT 3.
 RCS ON.
 BRAKES ON.
 LOCAL gear_deployed IS FALSE.
-LOCAL burn_ready IS FALSE.
 SET next_print TO TIME:SECONDS.
-UNTIL burn_ready {
+UNTIL ALT:RADAR < 5000 {
     LOCAL alt_agl IS ALT:RADAR.
-    LOCAL vs IS ABS(SHIP:VERTICALSPEED).
-    LOCAL g IS SHIP:BODY:MU / (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
 
     IF NOT gear_deployed AND alt_agl < gear_deploy_alt {
         GEAR ON.
@@ -148,33 +149,60 @@ UNTIL burn_ready {
         PRINT "  Gear down  |  alt: " + ROUND(alt_agl) + " m AGL".
     }
 
-    IF SHIP:AVAILABLETHRUST <= 0 {
-        PRINT "  FATAL: no thrust — forcing burn trigger.".
-        SET burn_ready TO TRUE.
+    IF TIME:SECONDS >= next_print {
+        PRINT "  Alt: " + ROUND(alt_agl) + " m AGL  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s".
+        SET next_print TO TIME:SECONDS + 2.
     }
-    IF NOT burn_ready {
-        LOCAL a_net IS (SHIP:AVAILABLETHRUST / SHIP:MASS) - g.
-        IF a_net <= 0 {
-            PRINT "  WARNING: a_net " + ROUND(a_net, 2) + " m/s^2 — forcing burn trigger.".
-            SET burn_ready TO TRUE.
-        }
-        IF NOT burn_ready {
-            LOCAL burn_dist IS (vs^2 / (2 * a_net)) * burn_safety.
+    WAIT 0.
+}
+PRINT "  5 km handoff  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s".
+
+// Phase 5 — Powered descent and launchpad steering
+PRINT "--- Phase 5: Powered descent / launchpad steering ---".
+LOCK THROTTLE TO 0.
+LOCAL p5_target_vs IS -(p5_target_speed).
+LOCAL p5_burn_ready IS FALSE.
+SET next_print TO TIME:SECONDS.
+UNTIL p5_burn_ready {
+    LOCAL alt_agl IS ALT:RADAR.
+    LOCAL vs IS SHIP:VERTICALSPEED.
+    LOCAL g_p5 IS SHIP:BODY:MU / (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
+
+    IF NOT gear_deployed AND alt_agl < gear_deploy_alt {
+        GEAR ON.
+        SET gear_deployed TO TRUE.
+        PRINT "  Gear down (p5)  |  alt: " + ROUND(alt_agl) + " m AGL".
+    }
+
+    IF SHIP:AVAILABLETHRUST <= 0 {
+        PRINT "  FATAL: no thrust in Phase 5 — forcing Phase 6.".
+        SET p5_burn_ready TO TRUE.
+    }
+    IF NOT p5_burn_ready {
+        LOCAL a_avail IS SHIP:AVAILABLETHRUST / SHIP:MASS.
+        LOCAL hover IS (SHIP:MASS * g_p5) / SHIP:AVAILABLETHRUST.
+        LOCAL speed_err IS p5_target_vs - vs.
+        LOCAL p5_throttle IS clamp(hover + p5_speed_kp * speed_err, 0, 1).
+        LOCK THROTTLE TO p5_throttle.
+
+        LOCAL a_net IS a_avail - g_p5.
+        IF a_net > 0 {
+            LOCAL burn_dist IS (ABS(vs)^2 / (2 * a_net)) * burn_safety.
             IF alt_agl <= burn_dist {
-                PRINT "  Burn trigger  |  alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s".
-                SET burn_ready TO TRUE.
+                PRINT "  Phase 6 trigger  |  alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(vs, 1) + " m/s".
+                SET p5_burn_ready TO TRUE.
             }
-            IF NOT burn_ready AND TIME:SECONDS >= next_print {
-                PRINT "  Alt: " + ROUND(alt_agl) + " m AGL  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s  |  burn in: " + ROUND(alt_agl - burn_dist) + " m".
-                SET next_print TO TIME:SECONDS + 2.
-            }
+        }
+        IF NOT p5_burn_ready AND TIME:SECONDS >= next_print {
+            PRINT "  Alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(vs, 1) + " m/s  |  tgt: " + p5_target_vs + " m/s  |  thr: " + ROUND(p5_throttle, 2).
+            SET next_print TO TIME:SECONDS + 2.
         }
     }
     WAIT 0.
 }
 
-// Phase 5 — Powered descent and landing
-PRINT "--- Phase 5: Powered descent ---".
+// Phase 6 — Landing burn
+PRINT "--- Phase 6: Landing burn ---".
 BRAKES ON.
 LOCK STEERING TO SRFRETROGRADE.
 SET descent_pid TO PIDLOOP(
