@@ -178,6 +178,8 @@ UNTIL p5_burn_ready {
         PRINT "  Gear down (p5)  |  alt: " + ROUND(alt_agl) + " m AGL".
     }
 
+    // pad_geo:POSITION is ship-relative in KOS (ship-raw frame), so to_pad
+    // is the vector from the ship to the pad.
     LOCAL to_pad IS pad_geo:POSITION.
     LOCAL horiz IS VXCL(UP:FOREVECTOR, to_pad).
     LOCAL srfret IS SHIP:SRFRETROGRADE:FOREVECTOR.
@@ -200,7 +202,11 @@ UNTIL p5_burn_ready {
         LOCK THROTTLE TO p5_throttle.
 
         LOCAL a_net IS a_avail - g_p5.
-        IF a_net > 0 {
+        IF a_net <= 0 {
+            PRINT "  WARNING: a_net " + ROUND(a_net, 2) + " m/s^2 — forcing Phase 6.".
+            SET p5_burn_ready TO TRUE.
+        }
+        IF NOT p5_burn_ready {
             LOCAL burn_dist IS (ABS(vs)^2 / (2 * a_net)) * burn_safety.
             IF alt_agl <= burn_dist {
                 PRINT "  Phase 6 trigger  |  alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(vs, 1) + " m/s".
