@@ -36,6 +36,8 @@ SET p5_target_speed TO 150.
 SET p5_speed_kp TO 0.03.
 // How strongly Phase 5 leans horizontally toward the pad (0 = pure retrograde).
 SET p5_steer_gain TO 0.3.
+// Minimum horizontal distance to pad (m) before applying lateral steering correction.
+SET p5_min_horiz_dist TO 10.
 // ------------------------------------------------------------
 
 FUNCTION clamp {
@@ -46,6 +48,16 @@ FUNCTION clamp {
 FUNCTION lerp {
     PARAMETER a, b, t.
     RETURN a + (b - a) * t.
+}
+
+FUNCTION pad_steer_direction {
+    PARAMETER geo_target, steer_gain, min_horiz_dist.
+    LOCAL horiz IS VXCL(UP:FOREVECTOR, geo_target:POSITION).
+    LOCAL srfret IS SHIP:SRFRETROGRADE:FOREVECTOR.
+    IF horiz:MAG > min_horiz_dist {
+        RETURN (srfret + steer_gain * horiz:NORMALIZED):NORMALIZED.
+    }
+    RETURN srfret.
 }
 
 FUNCTION target_descent_rate {
@@ -164,6 +176,7 @@ PRINT "  5 km handoff  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s".
 // Phase 5 — Powered descent and launchpad steering
 PRINT "--- Phase 5: Powered descent / launchpad steering ---".
 LOCK THROTTLE TO 0.
+LOCK STEERING TO pad_steer_direction(pad_geo, p5_steer_gain, p5_min_horiz_dist).
 LOCAL p5_target_vs IS -(p5_target_speed).
 LOCAL p5_burn_ready IS FALSE.
 SET next_print TO TIME:SECONDS.
@@ -176,18 +189,6 @@ UNTIL p5_burn_ready {
         GEAR ON.
         SET gear_deployed TO TRUE.
         PRINT "  Gear down (p5)  |  alt: " + ROUND(alt_agl) + " m AGL".
-    }
-
-    // pad_geo:POSITION is ship-relative in KOS (ship-raw frame), so to_pad
-    // is the vector from the ship to the pad.
-    LOCAL to_pad IS pad_geo:POSITION.
-    LOCAL horiz IS VXCL(UP:FOREVECTOR, to_pad).
-    LOCAL srfret IS SHIP:SRFRETROGRADE:FOREVECTOR.
-    IF horiz:MAG > 10 {
-        LOCAL steer_vec IS (srfret + p5_steer_gain * horiz:NORMALIZED):NORMALIZED.
-        LOCK STEERING TO steer_vec.
-    } ELSE {
-        LOCK STEERING TO SRFRETROGRADE.
     }
 
     IF SHIP:AVAILABLETHRUST <= 0 {
