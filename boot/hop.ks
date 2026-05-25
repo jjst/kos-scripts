@@ -34,6 +34,10 @@ SET descent_pid_epsilon TO 0.15.
 SET p5_target_speed TO 150.
 // Proportional gain for Phase 5 speed hold.
 SET p5_speed_kp TO 0.03.
+// Minimum downward speed (m/s, negative) before engaging Phase 4 steering.
+// Avoids locking to SRFRETROGRADE at apoapsis when surface velocity is near-zero
+// and the retrograde vector is undefined/unstable.
+SET p4_entry_vs TO -50.
 // ------------------------------------------------------------
 
 FUNCTION clamp {
@@ -122,7 +126,7 @@ LOCK THROTTLE TO 0.
 PRINT "--- Phase 3: Coasting ---".
 PRINT "  Cutoff  |  Ap: " + ROUND(SHIP:APOAPSIS/1000, 1) + " km  |  Pe: " + ROUND(SHIP:PERIAPSIS/1000, 1) + " km".
 SET next_print TO TIME:SECONDS.
-UNTIL SHIP:VERTICALSPEED < 0 {
+UNTIL SHIP:VERTICALSPEED < p4_entry_vs {
     IF TIME:SECONDS >= next_print {
         PRINT "  Alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s".
         SET next_print TO TIME:SECONDS + 2.
@@ -135,7 +139,6 @@ LOCAL original_max_stopping_time IS STEERINGMANAGER:MAXSTOPPINGTIME.
 SET STEERINGMANAGER:MAXSTOPPINGTIME TO descent_max_stopping_time.
 LOCK STEERING TO SRFRETROGRADE.
 PRINT "--- Phase 4: Descending ---".
-WAIT 3.
 RCS ON.
 BRAKES ON.
 LOCAL gear_deployed IS FALSE.
