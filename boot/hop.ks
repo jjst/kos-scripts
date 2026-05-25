@@ -82,9 +82,9 @@ FUNCTION pad_steer_direction {
     IF horiz:MAG > min_horiz_dist AND ABS(tilt_deg) > 0.01 {
         // Rotate srfret AWAY from the pad. Aerodynamic force on the tilted
         // body then pushes the rocket toward the pad.
-        // Axis: srfret × toward_pad — right-hand rotation around this axis
+        // Axis: toward_pad × srfret — right-hand rotation around this axis
         // moves the nose away from toward_pad.
-        LOCAL axis IS VCRS(srfret, horiz:NORMALIZED).
+        LOCAL axis IS VCRS(horiz:NORMALIZED, srfret).
         RETURN ANGLEAXIS(tilt_deg, axis) * srfret.
     }
     RETURN srfret.
