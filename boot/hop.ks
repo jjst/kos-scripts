@@ -215,7 +215,12 @@ UNTIL p5_burn_ready {
             }
         }
         IF NOT p5_burn_ready AND TIME:SECONDS >= next_print {
-            PRINT "  Alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(vs, 1) + " m/s  |  tgt: " + p5_target_vs + " m/s  |  thr: " + ROUND(p5_throttle, 2) + "  |  pad: " + ROUND(pad_geo:DISTANCE) + " m".
+            LOCAL to_pad_h IS VXCL(UP:FOREVECTOR, pad_geo:POSITION).
+            LOCAL horiz_dist IS to_pad_h:MAG.
+            LOCAL hclos IS VDOT(VXCL(UP:FOREVECTOR, SHIP:VELOCITY:SURFACE), to_pad_h:NORMALIZED).
+            LOCAL tilt IS VANG(SHIP:FACING:FOREVECTOR, SHIP:SRFRETROGRADE:FOREVECTOR).
+            PRINT "  Alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(vs, 1) + " m/s  |  tgt: " + p5_target_vs + " m/s  |  thr: " + ROUND(p5_throttle, 2).
+            PRINT "    horiz: " + ROUND(horiz_dist) + " m  |  pad_dist: " + ROUND(pad_geo:DISTANCE) + " m  |  hclos: " + ROUND(hclos, 1) + " m/s  |  tilt: " + ROUND(tilt, 1) + " deg".
             SET next_print TO TIME:SECONDS + 2.
         }
     }
@@ -259,7 +264,11 @@ UNTIL SHIP:STATUS = "LANDED" {
     LOCAL pid_correction IS descent_pid:UPDATE(TIME:SECONDS, SHIP:VERTICALSPEED).
     SET thrott_cmd TO clamp(hover + pid_correction, 0, 1).
     IF TIME:SECONDS >= next_print {
-        PRINT "  Alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s  |  tgt: " + ROUND(target_vs, 1) + " m/s  |  thr: " + ROUND(thrott_cmd, 2) + "  |  pad: " + ROUND(pad_geo:DISTANCE) + " m".
+        LOCAL to_pad_h IS VXCL(UP:FOREVECTOR, pad_geo:POSITION).
+        LOCAL horiz_dist IS to_pad_h:MAG.
+        LOCAL hclos IS VDOT(VXCL(UP:FOREVECTOR, SHIP:VELOCITY:SURFACE), to_pad_h:NORMALIZED).
+        PRINT "  Alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s  |  tgt: " + ROUND(target_vs, 1) + " m/s  |  thr: " + ROUND(thrott_cmd, 2).
+        PRINT "    horiz: " + ROUND(horiz_dist) + " m  |  pad_dist: " + ROUND(pad_geo:DISTANCE) + " m  |  hclos: " + ROUND(hclos, 1) + " m/s".
         SET next_print TO TIME:SECONDS + 1.
     }
     WAIT 0.
