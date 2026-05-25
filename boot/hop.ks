@@ -7,7 +7,7 @@
 // --- CONFIG (edit these) ------------------------------------
 SET hop_altitude      TO 10000.
 SET max_twr           TO 2.5.
-SET burn_safety       TO 1.0.
+SET burn_safety       TO 1.2.
 SET gear_deploy_alt   TO 200.
 // Keep a small non-zero touchdown rate to avoid over-braking hover oscillation.
 SET touchdown_speed   TO 3.
