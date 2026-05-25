@@ -38,25 +38,27 @@ SET p5_speed_kp TO 0.03.
 // Avoids locking to SRFRETROGRADE at apoapsis when surface velocity is near-zero
 // and the retrograde vector is undefined/unstable.
 SET p4_entry_vs TO -50.
-// Lateral guidance PID — Phase 4 (aero, high speed).
-SET p4_lat_kp            TO 0.005.
-SET p4_lat_ki            TO 0.001.
-SET p4_lat_kd            TO 0.002.
-SET p4_lat_max_output    TO 0.2.
+// Lateral guidance PID — output is commanded tilt in degrees away from pad.
+// Aerodynamic force from tilt pushes the rocket toward the pad.
+// Phase 4 (aero, high speed).
+SET p4_lat_kp            TO 0.5.   // deg per m/s closing error
+SET p4_lat_ki            TO 0.05.
+SET p4_lat_kd            TO 0.1.
+SET p4_lat_max_tilt      TO 15.    // degrees
 SET p4_approach_gain     TO 0.05.
 SET p4_max_approach_rate TO 30.
-// Lateral guidance PID — Phase 5 (powered, ~150 m/s).
-SET p5_lat_kp            TO 0.01.
-SET p5_lat_ki            TO 0.002.
-SET p5_lat_kd            TO 0.005.
-SET p5_lat_max_output    TO 0.3.
+// Phase 5 (powered, ~150 m/s).
+SET p5_lat_kp            TO 0.5.
+SET p5_lat_ki            TO 0.05.
+SET p5_lat_kd            TO 0.1.
+SET p5_lat_max_tilt      TO 20.    // degrees
 SET p5_approach_gain     TO 0.1.
 SET p5_max_approach_rate TO 20.
-// Lateral guidance PID — Phase 6 (landing burn, near ground).
-SET p6_lat_kp            TO 0.005.
-SET p6_lat_ki            TO 0.001.
-SET p6_lat_kd            TO 0.002.
-SET p6_lat_max_output    TO 0.1.
+// Phase 6 (landing burn, near ground).
+SET p6_lat_kp            TO 0.3.
+SET p6_lat_ki            TO 0.02.
+SET p6_lat_kd            TO 0.05.
+SET p6_lat_max_tilt      TO 10.    // degrees
 SET p6_approach_gain     TO 0.05.
 SET p6_max_approach_rate TO 5.
 // Minimum horizontal distance (m) before applying lateral correction.
@@ -74,11 +76,16 @@ FUNCTION lerp {
 }
 
 FUNCTION pad_steer_direction {
-    PARAMETER geo_target, steer_gain, min_horiz_dist.
+    PARAMETER geo_target, tilt_deg, min_horiz_dist.
     LOCAL horiz IS VXCL(UP:FOREVECTOR, geo_target:POSITION).
     LOCAL srfret IS SHIP:SRFRETROGRADE:FOREVECTOR.
-    IF horiz:MAG > min_horiz_dist {
-        RETURN (srfret + steer_gain * horiz:NORMALIZED):NORMALIZED.
+    IF horiz:MAG > min_horiz_dist AND ABS(tilt_deg) > 0.01 {
+        // Rotate srfret AWAY from the pad. Aerodynamic force on the tilted
+        // body then pushes the rocket toward the pad.
+        // Axis: srfret × toward_pad — right-hand rotation around this axis
+        // moves the nose away from toward_pad.
+        LOCAL axis IS VCRS(srfret, horiz:NORMALIZED).
+        RETURN ANGLEAXIS(tilt_deg, axis) * srfret.
     }
     RETURN srfret.
 }
@@ -106,27 +113,10 @@ FUNCTION target_descent_rate {
     RETURN -touchdown_speed.
 }
 
-LOCAL lat_horiz_dist IS 0.
-LOCAL lat_hclos IS 0.
-LOCAL lat_hclos_tgt IS 0.
-FUNCTION update_lateral_guidance {
-    PARAMETER geo_target, min_horiz_dist, approach_gain, max_approach_rate, pid.
-    LOCAL to_pad_h  IS VXCL(UP:FOREVECTOR, geo_target:POSITION).
-    SET lat_horiz_dist TO to_pad_h:MAG.
-    SET lat_hclos TO 0.
-    SET lat_hclos_tgt TO 0.
-    IF lat_horiz_dist > min_horiz_dist {
-        SET lat_hclos TO VDOT(VXCL(UP:FOREVECTOR, SHIP:VELOCITY:SURFACE), to_pad_h:NORMALIZED).
-        SET lat_hclos_tgt TO MIN(max_approach_rate, lat_horiz_dist * approach_gain).
-    }
-    SET pid:SETPOINT TO lat_hclos_tgt.
-    RETURN pid:UPDATE(TIME:SECONDS, lat_hclos).
-}
-
 LOCAL pad_geo  IS SHIP:GEOPOSITION.
-LOCAL lat_gain IS 0.
+LOCAL lat_tilt IS 0.
 LOCAL lat_pid  IS PIDLOOP(p4_lat_kp, p4_lat_ki, p4_lat_kd,
-                           -p4_lat_max_output, p4_lat_max_output).
+                           -p4_lat_max_tilt, p4_lat_max_tilt).
 
 CLEARSCREEN.
 PRINT "=== hop.ks ===".
@@ -199,7 +189,7 @@ UNTIL SHIP:VERTICALSPEED < p4_entry_vs {
 // Phase 4 — Descending: PID lateral guidance until 5 km handoff
 LOCAL original_max_stopping_time IS STEERINGMANAGER:MAXSTOPPINGTIME.
 SET STEERINGMANAGER:MAXSTOPPINGTIME TO descent_max_stopping_time.
-LOCK STEERING TO pad_steer_direction(pad_geo, lat_gain, lat_min_horiz_dist).
+LOCK STEERING TO pad_steer_direction(pad_geo, lat_tilt, lat_min_horiz_dist).
 PRINT "--- Phase 4: Descending ---".
 RCS ON.
 BRAKES ON.
@@ -214,12 +204,20 @@ UNTIL ALT:RADAR < 5000 {
         PRINT "  Gear down  |  alt: " + ROUND(alt_agl) + " m AGL".
     }
 
-    SET lat_gain TO update_lateral_guidance(pad_geo, lat_min_horiz_dist, p4_approach_gain, p4_max_approach_rate, lat_pid).
+    LOCAL to_pad_h  IS VXCL(UP:FOREVECTOR, pad_geo:POSITION).
+    LOCAL horiz_dist IS to_pad_h:MAG.
+    LOCAL hclos IS 0.
+    LOCAL hclos_tgt IS 0.
+    IF horiz_dist > lat_min_horiz_dist {
+        SET hclos     TO VDOT(VXCL(UP:FOREVECTOR, SHIP:VELOCITY:SURFACE), to_pad_h:NORMALIZED).
+        SET hclos_tgt TO MIN(p4_max_approach_rate, horiz_dist * p4_approach_gain).
+    }
+    SET lat_pid:SETPOINT TO hclos_tgt.
+    SET lat_tilt TO lat_pid:UPDATE(TIME:SECONDS, hclos).
 
     IF TIME:SECONDS >= next_print {
-        LOCAL tilt IS VANG(SHIP:FACING:FOREVECTOR, SHIP:SRFRETROGRADE:FOREVECTOR).
         PRINT "  Alt: " + ROUND(alt_agl) + " m AGL  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s".
-        PRINT "    horiz: " + ROUND(lat_horiz_dist) + " m  |  hclos: " + ROUND(lat_hclos, 1) + " m/s  |  tgt: " + ROUND(lat_hclos_tgt, 1) + " m/s  |  lat_gain: " + ROUND(lat_gain, 3) + "  |  tilt: " + ROUND(tilt, 1) + " deg".
+        PRINT "    horiz: " + ROUND(horiz_dist) + " m  |  hclos: " + ROUND(hclos, 1) + " m/s  |  tgt: " + ROUND(hclos_tgt, 1) + " m/s  |  tilt_cmd: " + ROUND(lat_tilt, 1) + " deg".
         SET next_print TO TIME:SECONDS + 2.
     }
     WAIT 0.
@@ -229,7 +227,7 @@ PRINT "  5 km handoff  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s".
 // Phase 5 — Powered descent and launchpad steering
 PRINT "--- Phase 5: Powered descent / launchpad steering ---".
 SET lat_pid TO PIDLOOP(p5_lat_kp, p5_lat_ki, p5_lat_kd,
-                        -p5_lat_max_output, p5_lat_max_output).
+                        -p5_lat_max_tilt, p5_lat_max_tilt).
 LOCK THROTTLE TO 0.
 LOCAL p5_target_vs IS -(p5_target_speed).
 LOCAL p5_burn_ready IS FALSE.
@@ -245,7 +243,16 @@ UNTIL p5_burn_ready {
         PRINT "  Gear down (p5)  |  alt: " + ROUND(alt_agl) + " m AGL".
     }
 
-    SET lat_gain TO update_lateral_guidance(pad_geo, lat_min_horiz_dist, p5_approach_gain, p5_max_approach_rate, lat_pid).
+    LOCAL to_pad_h  IS VXCL(UP:FOREVECTOR, pad_geo:POSITION).
+    LOCAL horiz_dist IS to_pad_h:MAG.
+    LOCAL hclos IS 0.
+    LOCAL hclos_tgt IS 0.
+    IF horiz_dist > lat_min_horiz_dist {
+        SET hclos     TO VDOT(VXCL(UP:FOREVECTOR, SHIP:VELOCITY:SURFACE), to_pad_h:NORMALIZED).
+        SET hclos_tgt TO MIN(p5_max_approach_rate, horiz_dist * p5_approach_gain).
+    }
+    SET lat_pid:SETPOINT TO hclos_tgt.
+    SET lat_tilt TO lat_pid:UPDATE(TIME:SECONDS, hclos).
 
     IF SHIP:AVAILABLETHRUST <= 0 {
         PRINT "  FATAL: no thrust in Phase 5 — forcing Phase 6.".
@@ -267,9 +274,8 @@ UNTIL p5_burn_ready {
             }
         }
         IF NOT p5_burn_ready AND TIME:SECONDS >= next_print {
-            LOCAL tilt IS VANG(SHIP:FACING:FOREVECTOR, SHIP:SRFRETROGRADE:FOREVECTOR).
             PRINT "  Alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(vs, 1) + " m/s  |  tgt: " + p5_target_vs + " m/s  |  thr: " + ROUND(p5_throttle, 2).
-            PRINT "    horiz: " + ROUND(lat_horiz_dist) + " m  |  hclos: " + ROUND(lat_hclos, 1) + " m/s  |  tgt_hclos: " + ROUND(lat_hclos_tgt, 1) + " m/s  |  lat_gain: " + ROUND(lat_gain, 3) + "  |  tilt: " + ROUND(tilt, 1) + " deg".
+            PRINT "    horiz: " + ROUND(horiz_dist) + " m  |  hclos: " + ROUND(hclos, 1) + " m/s  |  tgt_hclos: " + ROUND(hclos_tgt, 1) + " m/s  |  tilt_cmd: " + ROUND(lat_tilt, 1) + " deg".
             SET next_print TO TIME:SECONDS + 2.
         }
     }
@@ -279,7 +285,7 @@ UNTIL p5_burn_ready {
 // Phase 6 — Landing burn
 PRINT "--- Phase 6: Landing burn ---".
 SET lat_pid TO PIDLOOP(p6_lat_kp, p6_lat_ki, p6_lat_kd,
-                        -p6_lat_max_output, p6_lat_max_output).
+                        -p6_lat_max_tilt, p6_lat_max_tilt).
 BRAKES ON.
 SET descent_pid TO PIDLOOP(
     descent_kp,
@@ -309,7 +315,16 @@ UNTIL SHIP:STATUS = "LANDED" {
         BREAK.
     }
 
-    SET lat_gain TO update_lateral_guidance(pad_geo, lat_min_horiz_dist, p6_approach_gain, p6_max_approach_rate, lat_pid).
+    LOCAL to_pad_h  IS VXCL(UP:FOREVECTOR, pad_geo:POSITION).
+    LOCAL horiz_dist IS to_pad_h:MAG.
+    LOCAL hclos IS 0.
+    LOCAL hclos_tgt IS 0.
+    IF horiz_dist > lat_min_horiz_dist {
+        SET hclos     TO VDOT(VXCL(UP:FOREVECTOR, SHIP:VELOCITY:SURFACE), to_pad_h:NORMALIZED).
+        SET hclos_tgt TO MIN(p6_max_approach_rate, horiz_dist * p6_approach_gain).
+    }
+    SET lat_pid:SETPOINT TO hclos_tgt.
+    SET lat_tilt TO lat_pid:UPDATE(TIME:SECONDS, hclos).
 
     LOCAL target_vs IS target_descent_rate(alt_agl).
     SET descent_pid:SETPOINT TO target_vs.
@@ -318,7 +333,7 @@ UNTIL SHIP:STATUS = "LANDED" {
     SET thrott_cmd TO clamp(hover + pid_correction, 0, 1).
     IF TIME:SECONDS >= next_print {
         PRINT "  Alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s  |  tgt: " + ROUND(target_vs, 1) + " m/s  |  thr: " + ROUND(thrott_cmd, 2).
-        PRINT "    horiz: " + ROUND(lat_horiz_dist) + " m  |  hclos: " + ROUND(lat_hclos, 1) + " m/s  |  tgt_hclos: " + ROUND(lat_hclos_tgt, 1) + " m/s  |  lat_gain: " + ROUND(lat_gain, 3).
+        PRINT "    horiz: " + ROUND(horiz_dist) + " m  |  hclos: " + ROUND(hclos, 1) + " m/s  |  tgt_hclos: " + ROUND(hclos_tgt, 1) + " m/s  |  tilt_cmd: " + ROUND(lat_tilt, 1) + " deg".
         SET next_print TO TIME:SECONDS + 1.
     }
     WAIT 0.
