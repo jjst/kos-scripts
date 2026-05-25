@@ -32,6 +32,16 @@ SET launchpad_aim_min_distance_m TO 150.
 SET launchpad_aim_delay_s TO 20.
 // Dimensionless blend weight for lateral launchpad correction after stabilization.
 SET launchpad_aim_lateral_blend_ratio TO 0.35.
+SET launchpad_aim_lateral_blend_ratio_active TO 0.
+SET launchpad_steering_enabled TO FALSE.
+SET launchpad_steering_start_alt_m TO 5000.
+SET launchpad_steering_target_speed_ms TO 150.
+SET launchpad_steering_speed_kp TO 0.012.
+SET launchpad_steering_speed_ki TO 0.0006.
+SET launchpad_steering_speed_kd TO 0.01.
+SET launchpad_steering_direction_kp TO 0.01.
+SET launchpad_steering_direction_ki TO 0.0003.
+SET launchpad_steering_direction_kd TO 0.002.
 // Limit steering aggressiveness to reduce rapid self-spin during descent.
 SET descent_max_stopping_time TO 3.5.
 // PID error deadband (m/s) to reduce tiny throttle chatter.
@@ -85,6 +95,9 @@ FUNCTION descent_steering_target {
     PARAMETER pad_target.
     // Surface-retrograde unit vector (dimensionless).
     LOCAL retrograde_vector_unit IS SRFRETROGRADE:FOREVECTOR.
+    IF NOT launchpad_steering_enabled {
+        RETURN retrograde_vector_unit.
+    }
     LOCAL descent_elapsed_time_s IS TIME:SECONDS - descent_phase_start_time_s.
     IF descent_elapsed_time_s < launchpad_aim_delay_s {
         RETURN retrograde_vector_unit.
@@ -95,7 +108,7 @@ FUNCTION descent_steering_target {
         LOCAL pad_lateral_vector_m IS VXCL(retrograde_vector_unit, pad_vector_m).
         IF pad_lateral_vector_m:MAG > 0 {
             // Blend mostly-retrograde with a bounded lateral correction, then renormalize.
-            RETURN (retrograde_vector_unit + pad_lateral_vector_m:NORMALIZED * launchpad_aim_lateral_blend_ratio):NORMALIZED.
+            RETURN (retrograde_vector_unit + pad_lateral_vector_m:NORMALIZED * launchpad_aim_lateral_blend_ratio_active):NORMALIZED.
         }
     }
     RETURN retrograde_vector_unit.
@@ -167,16 +180,38 @@ UNTIL SHIP:VERTICALSPEED <= 0 {
     WAIT 0.
 }
 
-// Phase 4 — Descending: wait for suicide burn trigger
+// Phase 4 — Descending: coasting to launchpad-steering gate
 LOCAL original_max_stopping_time IS STEERINGMANAGER:MAXSTOPPINGTIME.
 SET STEERINGMANAGER:MAXSTOPPINGTIME TO descent_max_stopping_time.
 SET descent_phase_start_time_s TO TIME:SECONDS.
 LOCK STEERING TO descent_steering_target(launchpad_target).
-PRINT "--- Phase 4: Descending ---".
+PRINT "--- Phase 4: Descending coast ---".
 WAIT 3.
 RCS ON.
 LOCAL gear_deployed IS FALSE.
 LOCAL burn_ready IS FALSE.
+LOCAL launchpad_steering_phase_active IS FALSE.
+SET thrott_cmd TO 0.
+LOCK THROTTLE TO thrott_cmd.
+SET launchpad_aim_lateral_blend_ratio_active TO 0.
+SET launchpad_steering_speed_pid TO PIDLOOP(
+    launchpad_steering_speed_kp,
+    launchpad_steering_speed_ki,
+    launchpad_steering_speed_kd,
+    0,
+    1,
+    descent_pid_epsilon
+).
+SET launchpad_steering_speed_pid:SETPOINT TO -launchpad_steering_target_speed_ms.
+SET launchpad_steering_direction_pid TO PIDLOOP(
+    launchpad_steering_direction_kp,
+    launchpad_steering_direction_ki,
+    launchpad_steering_direction_kd,
+    0,
+    launchpad_aim_lateral_blend_ratio,
+    0.25
+).
+SET launchpad_steering_direction_pid:SETPOINT TO 0.
 SET next_print TO TIME:SECONDS.
 UNTIL burn_ready {
     LOCAL alt_agl IS ALT:RADAR.
@@ -194,6 +229,24 @@ UNTIL burn_ready {
         SET burn_ready TO TRUE.
     }
     IF NOT burn_ready {
+        IF NOT launchpad_steering_phase_active AND alt_agl <= launchpad_steering_start_alt_m {
+            SET launchpad_steering_phase_active TO TRUE.
+            SET launchpad_steering_enabled TO TRUE.
+            // Start launchpad steering immediately at phase gate.
+            SET descent_phase_start_time_s TO TIME:SECONDS - launchpad_aim_delay_s.
+            PRINT "--- Phase 5: Launchpad steering descent ---".
+        }
+
+        IF launchpad_steering_phase_active {
+            SET thrott_cmd TO launchpad_steering_speed_pid:UPDATE(TIME:SECONDS, SHIP:VERTICALSPEED).
+            LOCAL steering_target_vector_unit IS descent_steering_target(launchpad_target).
+            LOCAL steering_error_deg IS VANG(SHIP:FACING:FOREVECTOR, steering_target_vector_unit).
+            SET launchpad_aim_lateral_blend_ratio_active TO launchpad_steering_direction_pid:UPDATE(TIME:SECONDS, steering_error_deg).
+        } ELSE {
+            SET thrott_cmd TO 0.
+            SET launchpad_aim_lateral_blend_ratio_active TO 0.
+        }
+
         LOCAL a_net IS (SHIP:AVAILABLETHRUST / SHIP:MASS) - g.
         IF a_net <= 0 {
             PRINT "  WARNING: a_net " + ROUND(a_net, 2) + " m/s^2 — forcing burn trigger.".
@@ -208,7 +261,7 @@ UNTIL burn_ready {
             IF NOT burn_ready AND TIME:SECONDS >= next_print {
                 LOCAL steering_target_vector_unit IS descent_steering_target(launchpad_target).
                 LOCAL steering_error_deg IS VANG(SHIP:FACING:FOREVECTOR, steering_target_vector_unit).
-                PRINT "  Alt: " + ROUND(alt_agl) + " m AGL  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s  |  burn in: " + ROUND(alt_agl - burn_dist) + " m  |  steer err: " + ROUND(steering_error_deg, 1) + " deg".
+                PRINT "  Alt: " + ROUND(alt_agl) + " m AGL  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s  |  burn in: " + ROUND(alt_agl - burn_dist) + " m  |  thr: " + ROUND(thrott_cmd, 2) + "  |  steer err: " + ROUND(steering_error_deg, 1) + " deg  |  steer cmd: " + ROUND(launchpad_aim_lateral_blend_ratio_active, 2).
                 SET next_print TO TIME:SECONDS + 2.
             }
         }
@@ -216,9 +269,11 @@ UNTIL burn_ready {
     WAIT 0.
 }
 
-// Phase 5 — Powered descent and landing
-PRINT "--- Phase 5: Powered descent ---".
+// Phase 6 — Powered descent and landing
+PRINT "--- Phase 6: Powered descent ---".
 BRAKES ON.
+SET launchpad_steering_enabled TO TRUE.
+SET launchpad_aim_lateral_blend_ratio_active TO launchpad_aim_lateral_blend_ratio.
 LOCK STEERING TO descent_steering_target(launchpad_target).
 SET descent_pid TO PIDLOOP(
     descent_kp,
