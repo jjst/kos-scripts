@@ -35,13 +35,15 @@ SET launchpad_aim_lateral_blend_ratio TO 0.35.
 SET launchpad_aim_lateral_blend_ratio_active TO 0.
 SET launchpad_steering_enabled TO FALSE.
 SET launchpad_steering_start_alt_m TO 5000.
-SET launchpad_steering_target_speed_ms TO 150.
+SET launchpad_steering_target_speed_m_s TO 150.
 SET launchpad_steering_speed_kp TO 0.012.
 SET launchpad_steering_speed_ki TO 0.0006.
 SET launchpad_steering_speed_kd TO 0.01.
 SET launchpad_steering_direction_kp TO 0.01.
 SET launchpad_steering_direction_ki TO 0.0003.
 SET launchpad_steering_direction_kd TO 0.002.
+SET launchpad_steering_direction_pid_max_output_ratio TO 0.25.
+SET launchpad_steering_direction_pid_epsilon_deg TO 0.25.
 // Limit steering aggressiveness to reduce rapid self-spin during descent.
 SET descent_max_stopping_time TO 3.5.
 // PID error deadband (m/s) to reduce tiny throttle chatter.
@@ -202,14 +204,14 @@ SET launchpad_steering_speed_pid TO PIDLOOP(
     1,
     descent_pid_epsilon
 ).
-SET launchpad_steering_speed_pid:SETPOINT TO -launchpad_steering_target_speed_ms.
+SET launchpad_steering_speed_pid:SETPOINT TO launchpad_steering_target_speed_m_s.
 SET launchpad_steering_direction_pid TO PIDLOOP(
     launchpad_steering_direction_kp,
     launchpad_steering_direction_ki,
     launchpad_steering_direction_kd,
     0,
-    launchpad_aim_lateral_blend_ratio,
-    0.25
+    launchpad_steering_direction_pid_max_output_ratio,
+    launchpad_steering_direction_pid_epsilon_deg
 ).
 SET launchpad_steering_direction_pid:SETPOINT TO 0.
 SET next_print TO TIME:SECONDS.
@@ -232,13 +234,14 @@ UNTIL burn_ready {
         IF NOT launchpad_steering_phase_active AND alt_agl <= launchpad_steering_start_alt_m {
             SET launchpad_steering_phase_active TO TRUE.
             SET launchpad_steering_enabled TO TRUE.
-            // Start launchpad steering immediately at phase gate.
+            // Backdate phase start to bypass launchpad_aim_delay_s so launchpad steering starts immediately under 5 km.
             SET descent_phase_start_time_s TO TIME:SECONDS - launchpad_aim_delay_s.
             PRINT "--- Phase 5: Launchpad steering descent ---".
         }
 
         IF launchpad_steering_phase_active {
-            SET thrott_cmd TO launchpad_steering_speed_pid:UPDATE(TIME:SECONDS, SHIP:VERTICALSPEED).
+            LOCAL descent_speed_m_s IS MAX(0, -SHIP:VERTICALSPEED).
+            SET thrott_cmd TO launchpad_steering_speed_pid:UPDATE(TIME:SECONDS, descent_speed_m_s).
             LOCAL steering_target_vector_unit IS descent_steering_target(launchpad_target).
             LOCAL steering_error_deg IS VANG(SHIP:FACING:FOREVECTOR, steering_target_vector_unit).
             SET launchpad_aim_lateral_blend_ratio_active TO launchpad_steering_direction_pid:UPDATE(TIME:SECONDS, steering_error_deg).
