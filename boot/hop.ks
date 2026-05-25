@@ -39,8 +39,10 @@ SET launchpad_steering_target_speed_m_s TO 150.
 SET launchpad_steering_speed_kp TO 0.012.
 SET launchpad_steering_speed_ki TO 0.0006.
 SET launchpad_steering_speed_kd TO 0.01.
-SET launchpad_steering_speed_pid_min_output TO -0.6.
-SET launchpad_steering_speed_pid_max_output TO 0.6.
+// PID correction output bounds in throttle ratio space during phase-5 launchpad steering.
+SET launchpad_steering_speed_pid_min_output_ratio TO -0.6.
+SET launchpad_steering_speed_pid_max_output_ratio TO 0.6.
+// Keep engine lit for steering authority while phase-5 launchpad steering is active.
 SET launchpad_steering_min_throttle_ratio TO 0.08.
 SET launchpad_steering_direction_kp TO 0.01.
 SET launchpad_steering_direction_ki TO 0.0003.
@@ -203,10 +205,11 @@ SET launchpad_steering_speed_pid TO PIDLOOP(
     launchpad_steering_speed_kp,
     launchpad_steering_speed_ki,
     launchpad_steering_speed_kd,
-    launchpad_steering_speed_pid_min_output,
-    launchpad_steering_speed_pid_max_output,
+    launchpad_steering_speed_pid_min_output_ratio,
+    launchpad_steering_speed_pid_max_output_ratio,
     descent_pid_epsilon
 ).
+// SHIP:VERTICALSPEED is negative when descending, so use negative setpoint for a downward target rate.
 SET launchpad_steering_speed_pid:SETPOINT TO -launchpad_steering_target_speed_m_s.
 SET launchpad_steering_direction_pid TO PIDLOOP(
     launchpad_steering_direction_kp,
@@ -221,7 +224,7 @@ SET next_print TO TIME:SECONDS.
 UNTIL burn_ready {
     LOCAL alt_agl IS ALT:RADAR.
     LOCAL vs IS ABS(SHIP:VERTICALSPEED).
-    LOCAL g IS SHIP:BODY:MU / (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
+    LOCAL g_m_s2 IS SHIP:BODY:MU / (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
 
     IF NOT gear_deployed AND alt_agl < gear_deploy_alt {
         GEAR ON.
@@ -243,22 +246,25 @@ UNTIL burn_ready {
         }
 
         IF launchpad_steering_phase_active {
-            LOCAL hover_throttle_ratio IS (SHIP:MASS * g) / SHIP:AVAILABLETHRUST.
-            LOCAL speed_pid_correction_ratio IS launchpad_steering_speed_pid:UPDATE(TIME:SECONDS, SHIP:VERTICALSPEED).
+            // Dimensionless throttle ratio needed to approximately hover at current mass and gravity.
+            LOCAL hover_throttle_ratio IS (SHIP:MASS * g_m_s2) / SHIP:AVAILABLETHRUST.
+            // Keep measurement in native vertical-speed sign convention (descending is negative).
+            // Dimensionless throttle ratio correction from the launchpad-steering speed PID.
+            LOCAL speed_pid_correction_throttle_ratio IS launchpad_steering_speed_pid:UPDATE(TIME:SECONDS, SHIP:VERTICALSPEED).
             SET thrott_cmd TO clamp(
-                hover_throttle_ratio + speed_pid_correction_ratio,
+                hover_throttle_ratio + speed_pid_correction_throttle_ratio,
                 launchpad_steering_min_throttle_ratio,
                 1
             ).
-            LOCAL steering_target_vector_unit IS descent_steering_target(launchpad_target).
-            LOCAL steering_error_deg IS VANG(SHIP:FACING:FOREVECTOR, steering_target_vector_unit).
+            LOCAL steering_target_vector_unitless IS descent_steering_target(launchpad_target).
+            LOCAL steering_error_deg IS VANG(SHIP:FACING:FOREVECTOR, steering_target_vector_unitless).
             SET launchpad_aim_lateral_blend_ratio_active TO launchpad_steering_direction_pid:UPDATE(TIME:SECONDS, steering_error_deg).
         } ELSE {
             SET thrott_cmd TO 0.
             SET launchpad_aim_lateral_blend_ratio_active TO 0.
         }
 
-        LOCAL a_net IS (SHIP:AVAILABLETHRUST / SHIP:MASS) - g.
+        LOCAL a_net IS (SHIP:AVAILABLETHRUST / SHIP:MASS) - g_m_s2.
         IF a_net <= 0 {
             PRINT "  WARNING: a_net " + ROUND(a_net, 2) + " m/s^2 — forcing burn trigger.".
             SET burn_ready TO TRUE.
