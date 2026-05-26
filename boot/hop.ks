@@ -65,7 +65,7 @@ SET p6_max_approach_rate TO 5.
 SET lat_min_horiz_dist TO 10.
 // Launch deflection — tilts the ascent trajectory to seed a lateral drift for testing.
 // Set to 0 for a nominal straight-up hop.
-SET launch_deflect_deg TO 3.
+SET launch_deflect_deg TO 1.
 SET launch_deflect_hdg TO ROUND(RANDOM() * 360).
 // ------------------------------------------------------------
 
@@ -175,7 +175,6 @@ UNTIL SHIP:APOAPSIS >= hop_altitude {
 LOCK THROTTLE TO 0.
 PRINT "--- Phase 3: Coasting ---".
 PRINT "  Cutoff  |  Ap: " + ROUND(SHIP:APOAPSIS/1000, 1) + " km  |  Pe: " + ROUND(SHIP:PERIAPSIS/1000, 1) + " km".
-SET next_print TO TIME:SECONDS.
 UNTIL SHIP:VERTICALSPEED < p4_entry_vs {
     IF TIME:SECONDS >= next_print {
         LOCAL to_pad_h  IS VXCL(UP:FOREVECTOR, pad_geo:POSITION).
@@ -196,6 +195,7 @@ SET STEERINGMANAGER:MAXSTOPPINGTIME TO descent_max_stopping_time.
 LOCAL pred_to_pad IS VXCL(UP:FOREVECTOR, pad_geo:POSITION).
 LOCK STEERING TO pad_steer_direction(pred_to_pad, lat_tilt, lat_min_horiz_dist).
 PRINT "--- Phase 4: Descending ---".
+STAGE.
 RCS ON.
 BRAKES ON.
 LOCAL gear_deployed IS FALSE.
