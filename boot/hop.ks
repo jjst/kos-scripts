@@ -63,6 +63,10 @@ SET p6_approach_gain     TO 0.05.
 SET p6_max_approach_rate TO 5.
 // Minimum horizontal distance (m) before applying lateral correction.
 SET lat_min_horiz_dist TO 10.
+// Launch deflection — tilts the ascent trajectory to seed a lateral drift for testing.
+// Set to 0 for a nominal straight-up hop.
+SET launch_deflect_deg TO 3.
+SET launch_deflect_hdg TO ROUND(RANDOM() * 360).
 // ------------------------------------------------------------
 
 FUNCTION clamp {
@@ -121,6 +125,7 @@ CLEARSCREEN.
 PRINT "=== hop.ks ===".
 PRINT "Hop altitude : " + ROUND(hop_altitude/1000, 1) + " km  |  max TWR: " + max_twr.
 PRINT "Burn safety  : " + burn_safety + "  |  gear at: " + gear_deploy_alt + " m AGL".
+PRINT "Launch deflect: " + launch_deflect_deg + " deg toward hdg " + launch_deflect_hdg + " deg".
 PRINT " ".
 PRINT "Press ENTER to begin launch sequence.".
 WAIT UNTIL TERMINAL:INPUT:HASCHAR.
@@ -131,7 +136,7 @@ RCS OFF.
 GEAR OFF.
 BRAKES OFF.
 LOCK THROTTLE TO 0.
-LOCK STEERING TO UP.
+LOCK STEERING TO HEADING(launch_deflect_hdg, 90 - launch_deflect_deg).
 
 // Phase 1 — Countdown
 PRINT "--- Phase 1: Countdown ---".
