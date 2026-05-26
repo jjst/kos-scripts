@@ -42,18 +42,18 @@ SET p4_entry_vs TO -50.
 // Aerodynamic force from tilt pushes the rocket toward the pad.
 // Phase 4 (aero, high speed).
 SET p4_lat_kp            TO 0.5.   // deg per m/s closing error
-SET p4_lat_ki            TO 0.05.
+SET p4_lat_ki            TO 0.005. // low — prevents integral windup over long Phase 4 descent
 SET p4_lat_kd            TO 0.1.
 SET p4_lat_max_tilt      TO 15.    // degrees
 SET p4_approach_gain     TO 0.05.
-SET p4_max_approach_rate TO 30.
+SET p4_max_approach_rate TO 10.    // cap approach speed so Phase 5 entry is gentle
 // Phase 5 (powered, ~150 m/s).
 SET p5_lat_kp            TO 0.5.
-SET p5_lat_ki            TO 0.05.
-SET p5_lat_kd            TO 0.1.
+SET p5_lat_ki            TO 0.02.
+SET p5_lat_kd            TO 0.3.   // more damping to reduce oscillation
 SET p5_lat_max_tilt      TO 20.    // degrees
 SET p5_approach_gain     TO 0.1.
-SET p5_max_approach_rate TO 20.
+SET p5_max_approach_rate TO 10.
 // Phase 6 (landing burn, near ground).
 SET p6_lat_kp            TO 0.3.
 SET p6_lat_ki            TO 0.02.
