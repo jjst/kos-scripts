@@ -147,6 +147,7 @@ FROM {LOCAL i IS 5.} UNTIL i = 0 STEP {SET i TO i - 1.} DO {
 PRINT "Ignition!".
 LOCK THROTTLE TO 1.0.
 STAGE.
+LOCAL start_time IS TIME:SECONDS.
 
 // Phase 2 — Vertical ascent
 PRINT "--- Phase 2: Vertical ascent to " + ROUND(hop_altitude/1000, 1) + " km Ap ---".
@@ -368,10 +369,17 @@ UNLOCK THROTTLE.
 UNLOCK STEERING.
 RCS OFF.
 SAS ON.
+LOCAL land_offset IS VXCL(UP:FOREVECTOR, pad_geo:POSITION):MAG.
+LOCAL land_hspd   IS VXCL(UP:FOREVECTOR, SHIP:VELOCITY:SURFACE):MAG.
+LOCAL flight_time IS TIME:SECONDS - start_time.
 IF descent_aborted {
     PRINT "--- Descent aborted ---".
-    PRINT "  Final vs: " + ROUND(SHIP:VERTICALSPEED, 2) + " m/s  |  status: " + SHIP:STATUS.
+    PRINT "  vs: " + ROUND(SHIP:VERTICALSPEED, 2) + " m/s  |  horiz spd: " + ROUND(land_hspd, 1) + " m/s  |  status: " + SHIP:STATUS.
+    PRINT "  pad offset: " + ROUND(land_offset, 1) + " m  |  flight time: " + ROUND(flight_time) + " s".
+    PRINT "  deflection: " + launch_deflect_deg + " deg hdg " + launch_deflect_hdg.
 } ELSE {
     PRINT "--- Landed! ---".
-    PRINT "  Final vs: " + ROUND(SHIP:VERTICALSPEED, 2) + " m/s  |  status: " + SHIP:STATUS.
+    PRINT "  vs: " + ROUND(SHIP:VERTICALSPEED, 2) + " m/s  |  horiz spd: " + ROUND(land_hspd, 1) + " m/s".
+    PRINT "  pad offset: " + ROUND(land_offset, 1) + " m  |  flight time: " + ROUND(flight_time) + " s".
+    PRINT "  deflection: " + launch_deflect_deg + " deg hdg " + launch_deflect_hdg.
 }
