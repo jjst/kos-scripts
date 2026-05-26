@@ -223,7 +223,7 @@ UNTIL ALT:RADAR < 5000 {
 
     IF TIME:SECONDS >= next_print {
         PRINT "  Alt: " + ROUND(alt_agl) + " m AGL  |  vs: " + ROUND(vs, 1) + " m/s  |  tof: " + ROUND(tof, 1) + " s".
-        PRINT "    pred_miss: " + ROUND(horiz_dist) + " m  |  hclos: " + ROUND(hclos, 1) + " m/s  |  tgt: " + ROUND(hclos_tgt, 1) + " m/s  |  tilt_cmd: " + ROUND(lat_tilt, 1) + " deg".
+        PRINT "    horiz: " + ROUND(to_pad_h:MAG) + " m  |  pred_miss: " + ROUND(horiz_dist) + " m  |  hclos: " + ROUND(hclos, 1) + " m/s  |  tgt: " + ROUND(hclos_tgt, 1) + " m/s  |  tilt_cmd: " + ROUND(lat_tilt, 1) + " deg".
         SET next_print TO TIME:SECONDS + 2.
     }
     WAIT 0.
@@ -286,7 +286,7 @@ UNTIL p5_burn_ready {
         }
         IF NOT p5_burn_ready AND TIME:SECONDS >= next_print {
             PRINT "  Alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(vs, 1) + " m/s  |  tof: " + ROUND(tof, 1) + " s  |  thr: " + ROUND(p5_throttle, 2).
-            PRINT "    pred_miss: " + ROUND(horiz_dist) + " m  |  hclos: " + ROUND(hclos, 1) + " m/s  |  tgt_hclos: " + ROUND(hclos_tgt, 1) + " m/s  |  tilt_cmd: " + ROUND(lat_tilt, 1) + " deg".
+            PRINT "    horiz: " + ROUND(to_pad_h:MAG) + " m  |  pred_miss: " + ROUND(horiz_dist) + " m  |  hclos: " + ROUND(hclos, 1) + " m/s  |  tgt_hclos: " + ROUND(hclos_tgt, 1) + " m/s  |  tilt_cmd: " + ROUND(lat_tilt, 1) + " deg".
             SET next_print TO TIME:SECONDS + 2.
         }
     }
@@ -326,13 +326,14 @@ UNTIL SHIP:STATUS = "LANDED" {
     }
 
     LOCAL vs_p6      IS SHIP:VERTICALSPEED.
+    LOCAL horiz_dist IS VXCL(UP:FOREVECTOR, pad_geo:POSITION):MAG.
     LOCAL target_vs IS target_descent_rate(alt_agl).
     SET descent_pid:SETPOINT TO target_vs.
     LOCAL hover IS (SHIP:MASS * g_land) / thrust_available.
     LOCAL pid_correction IS descent_pid:UPDATE(TIME:SECONDS, vs_p6).
     SET thrott_cmd TO clamp(hover + pid_correction, 0, 1).
     IF TIME:SECONDS >= next_print {
-        PRINT "  Alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(vs_p6, 1) + " m/s  |  tgt: " + ROUND(target_vs, 1) + " m/s  |  thr: " + ROUND(thrott_cmd, 2).
+        PRINT "  Alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(vs_p6, 1) + " m/s  |  horiz: " + ROUND(horiz_dist) + " m  |  tgt: " + ROUND(target_vs, 1) + " m/s  |  thr: " + ROUND(thrott_cmd, 2).
         SET next_print TO TIME:SECONDS + 1.
     }
     WAIT 0.
