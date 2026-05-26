@@ -34,6 +34,9 @@ SET descent_pid_epsilon TO 0.15.
 SET p5_target_speed TO 150.
 // Proportional gain for Phase 5 speed hold.
 SET p5_speed_kp TO 0.03.
+// Phase handoff altitudes used as bounded prediction horizons.
+SET p4_handoff_alt TO 5000.
+SET p6_entry_alt TO 1000.
 // Minimum downward speed (m/s, negative) before engaging Phase 4 steering.
 // Avoids locking to SRFRETROGRADE at apoapsis when surface velocity is near-zero
 // and the retrograde vector is undefined/unstable.
@@ -60,6 +63,8 @@ SET lat_min_horiz_dist TO 10.
 // Set to 0 for a nominal straight-up hop.
 SET launch_deflect_deg TO 1.
 SET launch_deflect_hdg TO ROUND(RANDOM() * 360).
+// Terminal output is mirrored to this file with LOG.
+SET log_path TO "hop.log".
 // ------------------------------------------------------------
 
 FUNCTION clamp {
@@ -70,6 +75,12 @@ FUNCTION clamp {
 FUNCTION lerp {
     PARAMETER a, b, t.
     RETURN a + (b - a) * t.
+}
+
+FUNCTION log_line {
+    PARAMETER msg.
+    PRINT msg.
+    LOG msg TO log_path.
 }
 
 FUNCTION pad_steer_direction {
@@ -84,6 +95,24 @@ FUNCTION pad_steer_direction {
         RETURN ANGLEAXIS(tilt_deg, axis) * srfret.
     }
     RETURN srfret.
+}
+
+FUNCTION time_to_alt_delta {
+    PARAMETER vs, g, alt_delta.
+    IF alt_delta <= 0 OR g <= 0 {
+        RETURN 0.
+    }
+    LOCAL disc IS vs^2 + 2 * g * alt_delta.
+    IF disc <= 0 {
+        RETURN 0.
+    }
+    RETURN MAX(0, (vs + SQRT(disc)) / g).
+}
+
+FUNCTION predict_miss_vec {
+    PARAMETER to_pad_h, horiz_vel, vs, g, alt_delta.
+    LOCAL tof IS time_to_alt_delta(vs, g, alt_delta).
+    RETURN to_pad_h - horiz_vel * tof.
 }
 
 FUNCTION target_descent_rate {
@@ -115,12 +144,12 @@ LOCAL lat_pid  IS PIDLOOP(p4_lat_kp, p4_lat_ki, p4_lat_kd,
                            -p4_lat_max_tilt, p4_lat_max_tilt).
 
 CLEARSCREEN.
-PRINT "=== hop.ks ===".
-PRINT "Hop altitude : " + ROUND(hop_altitude/1000, 1) + " km  |  max TWR: " + max_twr.
-PRINT "Burn safety  : " + burn_safety + "  |  gear at: " + gear_deploy_alt + " m AGL".
-PRINT "Launch deflect: " + launch_deflect_deg + " deg toward hdg " + launch_deflect_hdg + " deg".
-PRINT " ".
-PRINT "Press ENTER to begin launch sequence.".
+log_line("=== hop.ks ===").
+log_line("Hop altitude : " + ROUND(hop_altitude/1000, 1) + " km  |  max TWR: " + max_twr).
+log_line("Burn safety  : " + burn_safety + "  |  gear at: " + gear_deploy_alt + " m AGL").
+log_line("Launch deflect: " + launch_deflect_deg + " deg toward hdg " + launch_deflect_hdg + " deg").
+log_line(" ").
+log_line("Press ENTER to begin launch sequence.").
 WAIT UNTIL TERMINAL:INPUT:HASCHAR.
 TERMINAL:INPUT:GETCHAR().
 
@@ -132,18 +161,18 @@ LOCK THROTTLE TO 0.
 LOCK STEERING TO HEADING(launch_deflect_hdg, 90 - launch_deflect_deg).
 
 // Phase 1 — Countdown
-PRINT "--- Phase 1: Countdown ---".
+log_line("--- Phase 1: Countdown ---").
 FROM {LOCAL i IS 5.} UNTIL i = 0 STEP {SET i TO i - 1.} DO {
-    PRINT "T-" + i + "...".
+    log_line("T-" + i + "...").
     WAIT 1.
 }
-PRINT "Ignition!".
+log_line("Ignition!").
 LOCK THROTTLE TO 1.0.
 STAGE.
 LOCAL start_time IS TIME:SECONDS.
 
 // Phase 2 — Vertical ascent
-PRINT "--- Phase 2: Vertical ascent to " + ROUND(hop_altitude/1000, 1) + " km Ap ---".
+log_line("--- Phase 2: Vertical ascent to " + ROUND(hop_altitude/1000, 1) + " km Ap ---").
 LOCAL next_print IS TIME:SECONDS.
 UNTIL SHIP:APOAPSIS >= hop_altitude {
     LOCAL max_thrust IS SHIP:AVAILABLETHRUST.
@@ -159,7 +188,7 @@ UNTIL SHIP:APOAPSIS >= hop_altitude {
         IF horiz_dist > lat_min_horiz_dist {
             SET hclos TO VDOT(VXCL(UP:FOREVECTOR, SHIP:VELOCITY:SURFACE), to_pad_h:NORMALIZED).
         }
-        PRINT "  Alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  Ap: " + ROUND(SHIP:APOAPSIS/1000, 1) + " km  |  thr: " + ROUND(actual_throttle, 2) + "  |  horiz: " + ROUND(horiz_dist) + " m  |  hclos: " + ROUND(hclos, 1) + " m/s".
+        log_line("  Alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  Ap: " + ROUND(SHIP:APOAPSIS/1000, 1) + " km  |  thr: " + ROUND(actual_throttle, 2) + "  |  horiz: " + ROUND(horiz_dist) + " m  |  hclos: " + ROUND(hclos, 1) + " m/s").
         SET next_print TO TIME:SECONDS + 2.
     }
     WAIT 0.
@@ -167,8 +196,8 @@ UNTIL SHIP:APOAPSIS >= hop_altitude {
 
 // Phase 3 — Cutoff and coast
 LOCK THROTTLE TO 0.
-PRINT "--- Phase 3: Coasting ---".
-PRINT "  Cutoff  |  Ap: " + ROUND(SHIP:APOAPSIS/1000, 1) + " km  |  Pe: " + ROUND(SHIP:PERIAPSIS/1000, 1) + " km".
+log_line("--- Phase 3: Coasting ---").
+log_line("  Cutoff  |  Ap: " + ROUND(SHIP:APOAPSIS/1000, 1) + " km  |  Pe: " + ROUND(SHIP:PERIAPSIS/1000, 1) + " km").
 UNTIL SHIP:VERTICALSPEED < p4_entry_vs {
     IF TIME:SECONDS >= next_print {
         LOCAL to_pad_h  IS VXCL(UP:FOREVECTOR, pad_geo:POSITION).
@@ -177,7 +206,7 @@ UNTIL SHIP:VERTICALSPEED < p4_entry_vs {
         IF horiz_dist > lat_min_horiz_dist {
             SET hclos TO VDOT(VXCL(UP:FOREVECTOR, SHIP:VELOCITY:SURFACE), to_pad_h:NORMALIZED).
         }
-        PRINT "  Alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s  |  horiz: " + ROUND(horiz_dist) + " m  |  hclos: " + ROUND(hclos, 1) + " m/s".
+        log_line("  Alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s  |  horiz: " + ROUND(horiz_dist) + " m  |  hclos: " + ROUND(hclos, 1) + " m/s").
         SET next_print TO TIME:SECONDS + 2.
     }
     WAIT 0.
@@ -188,29 +217,28 @@ LOCAL original_max_stopping_time IS STEERINGMANAGER:MAXSTOPPINGTIME.
 SET STEERINGMANAGER:MAXSTOPPINGTIME TO descent_max_stopping_time.
 LOCAL pred_to_pad IS VXCL(UP:FOREVECTOR, pad_geo:POSITION).
 LOCK STEERING TO pad_steer_direction(pred_to_pad, lat_tilt, lat_min_horiz_dist).
-PRINT "--- Phase 4: Descending ---".
+log_line("--- Phase 4: Descending ---").
 STAGE.
 RCS ON.
 BRAKES ON.
 LOCAL gear_deployed IS FALSE.
 SET next_print TO TIME:SECONDS.
-UNTIL ALT:RADAR < 5000 {
+UNTIL ALT:RADAR < p4_handoff_alt {
     LOCAL alt_agl IS ALT:RADAR.
 
     IF NOT gear_deployed AND alt_agl < gear_deploy_alt {
         GEAR ON.
         SET gear_deployed TO TRUE.
-        PRINT "  Gear down  |  alt: " + ROUND(alt_agl) + " m AGL".
+        log_line("  Gear down  |  alt: " + ROUND(alt_agl) + " m AGL").
     }
 
     LOCAL to_pad_h  IS VXCL(UP:FOREVECTOR, pad_geo:POSITION).
     LOCAL horiz_vel IS VXCL(UP:FOREVECTOR, SHIP:VELOCITY:SURFACE).
     LOCAL vs        IS SHIP:VERTICALSPEED.
     LOCAL g_p4      IS SHIP:BODY:MU / (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
-    LOCAL disc      IS vs^2 + 2 * g_p4 * alt_agl.
-    LOCAL tof       IS 0.
-    IF disc > 0 { SET tof TO (-vs + SQRT(disc)) / g_p4. }
-    SET pred_to_pad TO to_pad_h - horiz_vel * tof.
+    LOCAL alt_delta IS alt_agl - p4_handoff_alt.
+    LOCAL tof       IS time_to_alt_delta(vs, g_p4, alt_delta).
+    SET pred_to_pad TO predict_miss_vec(to_pad_h, horiz_vel, vs, g_p4, alt_delta).
     LOCAL horiz_dist IS pred_to_pad:MAG.
     LOCAL hclos     IS 0.
     LOCAL hclos_tgt IS 0.
@@ -222,16 +250,16 @@ UNTIL ALT:RADAR < 5000 {
     SET lat_tilt TO lat_pid:UPDATE(TIME:SECONDS, hclos).
 
     IF TIME:SECONDS >= next_print {
-        PRINT "  Alt: " + ROUND(alt_agl) + " m AGL  |  vs: " + ROUND(vs, 1) + " m/s  |  tof: " + ROUND(tof, 1) + " s".
-        PRINT "    horiz: " + ROUND(to_pad_h:MAG) + " m  |  pred_miss: " + ROUND(horiz_dist) + " m  |  hclos: " + ROUND(hclos, 1) + " m/s  |  tgt: " + ROUND(hclos_tgt, 1) + " m/s  |  tilt_cmd: " + ROUND(lat_tilt, 1) + " deg".
+        log_line("  Alt: " + ROUND(alt_agl) + " m AGL  |  vs: " + ROUND(vs, 1) + " m/s  |  tof_to_p5: " + ROUND(tof, 1) + " s").
+        log_line("    horiz: " + ROUND(to_pad_h:MAG) + " m  |  pred_miss: " + ROUND(horiz_dist) + " m  |  hclos: " + ROUND(hclos, 1) + " m/s  |  tgt: " + ROUND(hclos_tgt, 1) + " m/s  |  tilt_cmd: " + ROUND(lat_tilt, 1) + " deg").
         SET next_print TO TIME:SECONDS + 2.
     }
     WAIT 0.
 }
-PRINT "  5 km handoff  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s".
+log_line("  Phase 5 handoff  |  alt: " + ROUND(ALT:RADAR) + " m  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s").
 
 // Phase 5 — Powered descent and launchpad steering
-PRINT "--- Phase 5: Powered descent / launchpad steering ---".
+log_line("--- Phase 5: Powered descent / launchpad steering ---").
 SET lat_pid TO PIDLOOP(p5_lat_kp, p5_lat_ki, p5_lat_kd,
                         -p5_lat_max_tilt, p5_lat_max_tilt).
 LOCK THROTTLE TO 0.
@@ -246,15 +274,14 @@ UNTIL p5_burn_ready {
     IF NOT gear_deployed AND alt_agl < gear_deploy_alt {
         GEAR ON.
         SET gear_deployed TO TRUE.
-        PRINT "  Gear down (p5)  |  alt: " + ROUND(alt_agl) + " m AGL".
+        log_line("  Gear down (p5)  |  alt: " + ROUND(alt_agl) + " m AGL").
     }
 
     LOCAL to_pad_h   IS VXCL(UP:FOREVECTOR, pad_geo:POSITION).
     LOCAL horiz_vel  IS VXCL(UP:FOREVECTOR, SHIP:VELOCITY:SURFACE).
-    LOCAL disc_p5    IS vs^2 + 2 * g_p5 * alt_agl.
-    LOCAL tof        IS 0.
-    IF disc_p5 > 0 { SET tof TO (-vs + SQRT(disc_p5)) / g_p5. }
-    SET pred_to_pad TO to_pad_h - horiz_vel * tof.
+    LOCAL alt_delta  IS alt_agl - p6_entry_alt.
+    LOCAL tof        IS time_to_alt_delta(vs, g_p5, alt_delta).
+    SET pred_to_pad TO predict_miss_vec(to_pad_h, horiz_vel, vs, g_p5, alt_delta).
     LOCAL horiz_dist IS pred_to_pad:MAG.
     LOCAL hclos      IS 0.
     LOCAL hclos_tgt  IS 0.
@@ -266,7 +293,7 @@ UNTIL p5_burn_ready {
     SET lat_tilt TO lat_pid:UPDATE(TIME:SECONDS, hclos).
 
     IF SHIP:AVAILABLETHRUST <= 0 {
-        PRINT "  FATAL: no thrust in Phase 5 — forcing Phase 6.".
+        log_line("  FATAL: no thrust in Phase 5 — forcing Phase 6.").
         SET p5_burn_ready TO TRUE.
     }
     IF NOT p5_burn_ready {
@@ -277,16 +304,23 @@ UNTIL p5_burn_ready {
         LOCK THROTTLE TO p5_throttle.
 
         LOCAL a_net IS a_avail - g_p5.
-        IF a_net > 0 {
+        LOCAL trigger_p6 IS FALSE.
+        IF alt_agl <= p6_entry_alt {
+            SET trigger_p6 TO TRUE.
+        }
+        IF NOT trigger_p6 AND a_net > 0 {
             LOCAL burn_dist IS (ABS(vs)^2 / (2 * a_net)) * burn_safety.
             IF alt_agl <= burn_dist {
-                PRINT "  Phase 6 trigger  |  alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(vs, 1) + " m/s".
-                SET p5_burn_ready TO TRUE.
+                SET trigger_p6 TO TRUE.
             }
         }
+        IF trigger_p6 {
+            log_line("  Phase 6 trigger  |  alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(vs, 1) + " m/s").
+            SET p5_burn_ready TO TRUE.
+        }
         IF NOT p5_burn_ready AND TIME:SECONDS >= next_print {
-            PRINT "  Alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(vs, 1) + " m/s  |  tof: " + ROUND(tof, 1) + " s  |  thr: " + ROUND(p5_throttle, 2).
-            PRINT "    horiz: " + ROUND(to_pad_h:MAG) + " m  |  pred_miss: " + ROUND(horiz_dist) + " m  |  hclos: " + ROUND(hclos, 1) + " m/s  |  tgt_hclos: " + ROUND(hclos_tgt, 1) + " m/s  |  tilt_cmd: " + ROUND(lat_tilt, 1) + " deg".
+            log_line("  Alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(vs, 1) + " m/s  |  tof_to_p6: " + ROUND(tof, 1) + " s  |  thr: " + ROUND(p5_throttle, 2)).
+            log_line("    horiz: " + ROUND(to_pad_h:MAG) + " m  |  pred_miss: " + ROUND(horiz_dist) + " m  |  hclos: " + ROUND(hclos, 1) + " m/s  |  tgt_hclos: " + ROUND(hclos_tgt, 1) + " m/s  |  tilt_cmd: " + ROUND(lat_tilt, 1) + " deg").
             SET next_print TO TIME:SECONDS + 2.
         }
     }
@@ -294,7 +328,7 @@ UNTIL p5_burn_ready {
 }
 
 // Phase 6 — Landing burn (pure retrograde, no lateral corrections)
-PRINT "--- Phase 6: Landing burn ---".
+log_line("--- Phase 6: Landing burn ---").
 LOCK STEERING TO SHIP:SRFRETROGRADE.
 BRAKES ON.
 SET descent_pid TO PIDLOOP(
@@ -315,11 +349,11 @@ UNTIL SHIP:STATUS = "LANDED" {
     IF NOT gear_deployed AND alt_agl < gear_deploy_alt {
         GEAR ON.
         SET gear_deployed TO TRUE.
-        PRINT "  Gear down (powered)  |  alt: " + ROUND(alt_agl) + " m AGL".
+        log_line("  Gear down (powered)  |  alt: " + ROUND(alt_agl) + " m AGL").
     }
     LOCAL thrust_available IS SHIP:AVAILABLETHRUST.
     IF thrust_available <= 0 {
-        PRINT "  FATAL: no thrust during powered descent  |  status: " + SHIP:STATUS + "  |  alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s".
+        log_line("  FATAL: no thrust during powered descent  |  status: " + SHIP:STATUS + "  |  alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s").
         SET descent_aborted TO TRUE.
         SET thrott_cmd TO 0.
         BREAK.
@@ -333,7 +367,7 @@ UNTIL SHIP:STATUS = "LANDED" {
     LOCAL pid_correction IS descent_pid:UPDATE(TIME:SECONDS, vs_p6).
     SET thrott_cmd TO clamp(hover + pid_correction, 0, 1).
     IF TIME:SECONDS >= next_print {
-        PRINT "  Alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(vs_p6, 1) + " m/s  |  horiz: " + ROUND(horiz_dist) + " m  |  tgt: " + ROUND(target_vs, 1) + " m/s  |  thr: " + ROUND(thrott_cmd, 2).
+        log_line("  Alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(vs_p6, 1) + " m/s  |  horiz: " + ROUND(horiz_dist) + " m  |  tgt: " + ROUND(target_vs, 1) + " m/s  |  thr: " + ROUND(thrott_cmd, 2)).
         SET next_print TO TIME:SECONDS + 1.
     }
     WAIT 0.
@@ -349,13 +383,13 @@ LOCAL land_offset IS VXCL(UP:FOREVECTOR, pad_geo:POSITION):MAG.
 LOCAL land_hspd   IS VXCL(UP:FOREVECTOR, SHIP:VELOCITY:SURFACE):MAG.
 LOCAL flight_time IS TIME:SECONDS - start_time.
 IF descent_aborted {
-    PRINT "--- Descent aborted ---".
-    PRINT "  vs: " + ROUND(SHIP:VERTICALSPEED, 2) + " m/s  |  horiz spd: " + ROUND(land_hspd, 1) + " m/s  |  status: " + SHIP:STATUS.
-    PRINT "  pad offset: " + ROUND(land_offset, 1) + " m  |  flight time: " + ROUND(flight_time) + " s".
-    PRINT "  deflection: " + launch_deflect_deg + " deg hdg " + launch_deflect_hdg.
+    log_line("--- Descent aborted ---").
+    log_line("  vs: " + ROUND(SHIP:VERTICALSPEED, 2) + " m/s  |  horiz spd: " + ROUND(land_hspd, 1) + " m/s  |  status: " + SHIP:STATUS).
+    log_line("  pad offset: " + ROUND(land_offset, 1) + " m  |  flight time: " + ROUND(flight_time) + " s").
+    log_line("  deflection: " + launch_deflect_deg + " deg hdg " + launch_deflect_hdg).
 } ELSE {
-    PRINT "--- Landed! ---".
-    PRINT "  vs: " + ROUND(SHIP:VERTICALSPEED, 2) + " m/s  |  horiz spd: " + ROUND(land_hspd, 1) + " m/s".
-    PRINT "  pad offset: " + ROUND(land_offset, 1) + " m  |  flight time: " + ROUND(flight_time) + " s".
-    PRINT "  deflection: " + launch_deflect_deg + " deg hdg " + launch_deflect_hdg.
+    log_line("--- Landed! ---").
+    log_line("  vs: " + ROUND(SHIP:VERTICALSPEED, 2) + " m/s  |  horiz spd: " + ROUND(land_hspd, 1) + " m/s").
+    log_line("  pad offset: " + ROUND(land_offset, 1) + " m  |  flight time: " + ROUND(flight_time) + " s").
+    log_line("  deflection: " + launch_deflect_deg + " deg hdg " + launch_deflect_hdg).
 }
