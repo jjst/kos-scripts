@@ -8,7 +8,7 @@
 SET hop_altitude      TO 15000.
 SET max_twr           TO 2.5.
 SET burn_safety       TO 1.2.
-SET gear_deploy_alt   TO 200.
+SET gear_deploy_alt   TO 500.
 // Keep a small non-zero touchdown rate to avoid over-braking hover oscillation.
 SET touchdown_speed   TO 3.
 // PID gains for powered descent vertical-speed control.
@@ -54,13 +54,6 @@ SET p5_lat_kd            TO 0.1.
 SET p5_lat_max_tilt      TO 20.    // degrees
 SET p5_approach_gain     TO 0.1.
 SET p5_max_approach_rate TO 20.
-// Phase 6 (landing burn, near ground).
-SET p6_lat_kp            TO 0.3.
-SET p6_lat_ki            TO 0.02.
-SET p6_lat_kd            TO 0.05.
-SET p6_lat_max_tilt      TO 10.    // degrees
-SET p6_approach_gain     TO 0.05.
-SET p6_max_approach_rate TO 5.
 // Minimum horizontal distance (m) before applying lateral correction.
 SET lat_min_horiz_dist TO 10.
 // Launch deflection — tilts the ascent trajectory to seed a lateral drift for testing.
@@ -300,10 +293,9 @@ UNTIL p5_burn_ready {
     WAIT 0.
 }
 
-// Phase 6 — Landing burn
+// Phase 6 — Landing burn (pure retrograde, no lateral corrections)
 PRINT "--- Phase 6: Landing burn ---".
-SET lat_pid TO PIDLOOP(p6_lat_kp, p6_lat_ki, p6_lat_kd,
-                        -p6_lat_max_tilt, p6_lat_max_tilt).
+LOCK STEERING TO SHIP:SRFRETROGRADE.
 BRAKES ON.
 SET descent_pid TO PIDLOOP(
     descent_kp,
@@ -333,31 +325,14 @@ UNTIL SHIP:STATUS = "LANDED" {
         BREAK.
     }
 
-    LOCAL to_pad_h   IS VXCL(UP:FOREVECTOR, pad_geo:POSITION).
-    LOCAL horiz_vel  IS VXCL(UP:FOREVECTOR, SHIP:VELOCITY:SURFACE).
     LOCAL vs_p6      IS SHIP:VERTICALSPEED.
-    LOCAL disc_p6    IS vs_p6^2 + 2 * g_land * alt_agl.
-    LOCAL tof        IS 0.
-    IF disc_p6 > 0 { SET tof TO (-vs_p6 + SQRT(disc_p6)) / g_land. }
-    SET pred_to_pad TO to_pad_h - horiz_vel * tof.
-    LOCAL horiz_dist IS pred_to_pad:MAG.
-    LOCAL hclos      IS 0.
-    LOCAL hclos_tgt  IS 0.
-    IF horiz_dist > lat_min_horiz_dist {
-        SET hclos     TO VDOT(horiz_vel, pred_to_pad:NORMALIZED).
-        SET hclos_tgt TO MIN(p6_max_approach_rate, horiz_dist * p6_approach_gain).
-    }
-    SET lat_pid:SETPOINT TO hclos_tgt.
-    SET lat_tilt TO lat_pid:UPDATE(TIME:SECONDS, hclos).
-
     LOCAL target_vs IS target_descent_rate(alt_agl).
     SET descent_pid:SETPOINT TO target_vs.
     LOCAL hover IS (SHIP:MASS * g_land) / thrust_available.
     LOCAL pid_correction IS descent_pid:UPDATE(TIME:SECONDS, vs_p6).
     SET thrott_cmd TO clamp(hover + pid_correction, 0, 1).
     IF TIME:SECONDS >= next_print {
-        PRINT "  Alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(vs_p6, 1) + " m/s  |  tof: " + ROUND(tof, 1) + " s  |  tgt: " + ROUND(target_vs, 1) + " m/s  |  thr: " + ROUND(thrott_cmd, 2).
-        PRINT "    pred_miss: " + ROUND(horiz_dist) + " m  |  hclos: " + ROUND(hclos, 1) + " m/s  |  tgt_hclos: " + ROUND(hclos_tgt, 1) + " m/s  |  tilt_cmd: " + ROUND(lat_tilt, 1) + " deg".
+        PRINT "  Alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(vs_p6, 1) + " m/s  |  tgt: " + ROUND(target_vs, 1) + " m/s  |  thr: " + ROUND(thrott_cmd, 2).
         SET next_print TO TIME:SECONDS + 1.
     }
     WAIT 0.
