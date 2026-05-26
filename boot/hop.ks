@@ -5,7 +5,7 @@
 //  descent with a gradual vertical-speed target down to ~3 m/s.
 
 // --- CONFIG (edit these) ------------------------------------
-SET hop_altitude      TO 10000.
+SET hop_altitude      TO 15000.
 SET max_twr           TO 2.5.
 SET burn_safety       TO 1.2.
 SET gear_deploy_alt   TO 200.
