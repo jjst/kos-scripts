@@ -46,8 +46,8 @@ FUNCTION measure_gforce {
     RETURN (SHIP:SENSORS:ACC - SHIP:SENSORS:GRAV):MAG / local_g().
 }
 
-FUNCTION mark_telemetry_logged {
-    SET next_print TO TIME:SECONDS + telemetry_interval.
+FUNCTION next_telemetry_time {
+    RETURN TIME:SECONDS + telemetry_interval.
 }
 
 FUNCTION ascent_throttle {
@@ -271,7 +271,7 @@ LOCAL next_print IS TIME:SECONDS.
 UNTIL SHIP:ALTITUDE > turn_start_alt {
     IF TIME:SECONDS >= next_print {
         log_line("  Alt: " + ROUND(SHIP:ALTITUDE) + " m  |  vel: " + ROUND(SHIP:VELOCITY:SURFACE:MAG, 1) + " m/s  |  stage dv: " + ROUND(current_stage_dv(), 1) + " m/s  |  burn: " + ROUND(current_stage_burn_time_remaining(1.0), 1) + " s").
-        mark_telemetry_logged().
+        SET next_print TO next_telemetry_time().
     }
     WAIT 0.
 }
@@ -306,7 +306,7 @@ UNTIL SHIP:APOAPSIS >= target_apoapsis - apoapsis_cutoff_margin {
         LOCAL mode IS "pid".
         IF NOT use_pid { SET mode TO "calc". }
         log_line("  Alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  Ap: " + ROUND(SHIP:APOAPSIS/1000, 1) + " km  |  pitch: " + ROUND(pitch) + " deg  |  thr: " + ROUND(thrott, 2) + " [" + mode + "]  |  stage dv: " + ROUND(current_stage_dv(), 1) + " m/s  |  burn: " + ROUND(current_stage_burn_time_remaining(thrott), 1) + " s").
-        mark_telemetry_logged().
+        SET next_print TO next_telemetry_time().
     }
 
     WAIT 0.
@@ -366,7 +366,7 @@ IF SHIP:AVAILABLETHRUST <= 0 {
         SET circ_thrott TO ecc_thr.
         IF TIME:SECONDS >= next_print {
             log_line("  Ap: " + ROUND(SHIP:APOAPSIS/1000, 1) + " km  |  Pe: " + ROUND(SHIP:PERIAPSIS/1000, 1) + " km  |  ecc: " + ROUND(cur_ecc, 4) + "  |  thr: " + ROUND(circ_thrott, 2) + "  |  stage dv: " + ROUND(current_stage_dv(), 1) + " m/s  |  burn: " + ROUND(current_stage_burn_time_remaining(circ_thrott), 1) + " s").
-            mark_telemetry_logged().
+            SET next_print TO next_telemetry_time().
         }
         WAIT 0.
         SET cur_ecc TO SHIP:OBT:ECCENTRICITY.

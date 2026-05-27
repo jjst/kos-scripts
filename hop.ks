@@ -86,8 +86,8 @@ FUNCTION log_line {
     LOG msg TO log_path.
 }
 
-FUNCTION mark_telemetry_logged {
-    SET next_print TO TIME:SECONDS + telemetry_interval.
+FUNCTION next_telemetry_time {
+    RETURN TIME:SECONDS + telemetry_interval.
 }
 
 FUNCTION pad_steer_direction {
@@ -271,7 +271,7 @@ UNTIL SHIP:APOAPSIS >= hop_altitude {
         LOCAL to_pad_h  IS VXCL(UP:FOREVECTOR, pad_geo:POSITION).
         LOCAL horiz_dist IS to_pad_h:MAG.
         log_line("  Alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  Ap: " + ROUND(SHIP:APOAPSIS/1000, 1) + " km  |  thr: " + ROUND(actual_throttle, 2) + "  |  horiz: " + ROUND(horiz_dist) + " m").
-        mark_telemetry_logged().
+        SET next_print TO next_telemetry_time().
     }
     WAIT 0.
 }
@@ -285,7 +285,7 @@ UNTIL SHIP:VERTICALSPEED < d1_entry_vs {
         LOCAL to_pad_h  IS VXCL(UP:FOREVECTOR, pad_geo:POSITION).
         LOCAL horiz_dist IS to_pad_h:MAG.
         log_line("  Alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s  |  horiz: " + ROUND(horiz_dist) + " m").
-        mark_telemetry_logged().
+        SET next_print TO next_telemetry_time().
     }
     WAIT 0.
 }
@@ -329,7 +329,7 @@ UNTIL ALT:RADAR < powered_steering_alt_meters {
         LOCAL actual_tilt IS actual_retro_tilt().
         log_line("  Alt: " + ROUND(alt_agl) + " m AGL  |  vs: " + ROUND(vs, 1) + " m/s  |  tof_to_d2: " + ROUND(tof, 1) + " s").
         log_line("    horiz: " + ROUND(to_pad_h:MAG) + " m  |  pred_miss: " + ROUND(pred_miss) + " m  |  tol: " + ROUND(allowed_miss) + " m  |  eff_miss: " + ROUND(effective_miss) + " m  |  miss_tilt: " + ROUND(miss_tilt, 1) + " deg  |  tilt_cmd: " + ROUND(lat_tilt, 1) + " deg  |  actual_tilt: " + ROUND(actual_tilt, 1) + " deg").
-        mark_telemetry_logged().
+        SET next_print TO next_telemetry_time().
     }
     WAIT 0.
 }
@@ -382,7 +382,7 @@ UNTIL ALT:RADAR <= landing_burn_alt_meters {
         LOCAL actual_tilt IS actual_retro_tilt().
         log_line("  Alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(vs, 1) + " m/s  |  tof_to_d3: " + ROUND(tof, 1) + " s  |  thr: " + ROUND(d2_throttle, 2)).
         log_line("    horiz: " + ROUND(to_pad_h:MAG) + " m  |  pred_miss: " + ROUND(pred_miss) + " m  |  guidance_miss: " + ROUND(guidance_miss) + " m  |  tol: " + ROUND(allowed_miss) + " m  |  eff_miss: " + ROUND(effective_miss) + " m  |  hclos: " + ROUND(hclos, 1) + " m/s  |  tgt_hclos: " + ROUND(hclos_tgt, 1) + " m/s  |  tilt_cmd: " + ROUND(lat_tilt, 1) + " deg  |  actual_tilt: " + ROUND(actual_tilt, 1) + " deg").
-        mark_telemetry_logged().
+        SET next_print TO next_telemetry_time().
     }
     WAIT 0.
 }
@@ -464,7 +464,7 @@ UNTIL SHIP:STATUS = "LANDED" {
         LOCAL roll_rate IS roll_rate_deg().
         log_line("  Alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(vs_d3, 1) + " m/s  |  horiz: " + ROUND(horiz_dist) + " m  |  hspd: " + ROUND(hspd, 1) + " m/s  |  tgt_hspd: " + ROUND(tgt_hspd, 1) + " m/s  |  max_hspd: " + ROUND(max_hspd, 1) + " m/s  |  tgt: " + ROUND(target_vs, 1) + " m/s  |  thr: " + ROUND(thrott_cmd, 2) + "  |  rcs: " + ROUND(rcs_cmd:X, 2) + "," + ROUND(rcs_cmd:Y, 2) + "," + ROUND(rcs_cmd:Z, 2)).
         log_line("    facing: " + ROUND(SHIP:FACING:PITCH, 1) + "," + ROUND(SHIP:FACING:YAW, 1) + "," + ROUND(SHIP:FACING:ROLL, 1) + " deg  |  steer_err: " + ROUND(steer_err, 1) + " deg  |  roll_err: " + ROUND(roll_err, 1) + " deg  |  roll_rate: " + ROUND(roll_rate, 1) + " deg/s").
-        mark_telemetry_logged().
+        SET next_print TO next_telemetry_time().
     }
     WAIT 0.
 }

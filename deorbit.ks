@@ -36,12 +36,12 @@ FUNCTION log_line {
     LOG msg TO log_path.
 }
 
-FUNCTION mark_telemetry_logged {
-    SET next_print TO TIME:SECONDS + telemetry_interval.
+FUNCTION next_telemetry_time {
+    RETURN TIME:SECONDS + telemetry_interval.
 }
 
-FUNCTION mark_burn_telemetry_logged {
-    SET next_print TO TIME:SECONDS + burn_telemetry_interval.
+FUNCTION next_burn_telemetry_time {
+    RETURN TIME:SECONDS + burn_telemetry_interval.
 }
 
 FUNCTION transmit_log {
@@ -244,7 +244,7 @@ UNTIL success {
 
         IF TIME:SECONDS >= next_print {
             log_line("  burn: " + ROUND(burn_used, 1) + " m/s  |  miss: " + ROUND(miss) + " m  |  best: " + ROUND(best_miss) + " m  |  thr: " + ROUND(deorbit_throttle, 2) + "/" + ROUND(max_twr_throttle, 2) + "  |  impact: " + ROUND(impact_geo:LAT, 4) + ", " + ROUND(impact_geo:LNG, 4)).
-            mark_burn_telemetry_logged().
+            SET next_print TO next_burn_telemetry_time().
         }
     } ELSE {
         IF had_impact {
@@ -253,7 +253,7 @@ UNTIL success {
         SET deorbit_throttle TO max_twr_throttle.
         IF TIME:SECONDS >= next_print {
             log_line("  burn: " + ROUND(burn_used, 1) + " m/s  |  waiting for Trajectories impact prediction  |  thr cap: " + ROUND(max_twr_throttle, 2)).
-            mark_burn_telemetry_logged().
+            SET next_print TO next_burn_telemetry_time().
         }
     }
 
