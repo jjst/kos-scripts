@@ -10,13 +10,13 @@ SET telemetry_interval TO 5.
 SET wait_telemetry_interval TO 20.
 SET entry_brakes_enabled TO TRUE.
 SET entry_brakes_deploy_alt_meters TO 70000.
-SET entry_brakes_retract_speed_mps TO 1600.
+SET entry_brakes_retract_speed_mps TO 1200.
 SET entry_aoa_enabled TO TRUE.
 SET entry_aoa_high_alt_meters TO 70000.
 SET entry_aoa_low_alt_meters TO 35000.
 SET entry_aoa_high_deg TO 50.
 SET entry_aoa_low_deg TO 5.
-SET entry_aoa_retract_speed_mps TO 1600.
+SET entry_aoa_retract_speed_mps TO 1200.
 // Keep a small non-zero touchdown rate to avoid over-braking hover oscillation.
 SET touchdown_speed   TO 2.
 // PID gains for powered descent vertical-speed control.
