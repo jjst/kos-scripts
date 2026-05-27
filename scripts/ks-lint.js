@@ -38,8 +38,13 @@ function main() {
 
   console.log(`Checking ${files.length} file(s)...`);
 
-  const klsBin = resolve(__dirname, `../node_modules/.bin/${process.platform === 'win32' ? 'kls.cmd' : 'kls'}`);
-  const server = spawn(klsBin, ['--stdio'], { stdio: ['pipe', 'pipe', 'inherit'] });
+  const klsBin = process.platform === 'win32'
+    ? process.execPath
+    : resolve(__dirname, '../node_modules/.bin/kls');
+  const klsArgs = process.platform === 'win32'
+    ? [resolve(__dirname, '../node_modules/kos-language-server/bin/kos'), '--stdio']
+    : ['--stdio'];
+  const server = spawn(klsBin, klsArgs, { stdio: ['pipe', 'pipe', 'inherit'] });
 
   const fileUris = new Set(files.map(f => pathToFileURL(f).href));
   const seen = new Set();
