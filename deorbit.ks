@@ -327,15 +327,17 @@ log_line("  final impact: " + ROUND(final_impact_lat, 5) + ", " + ROUND(final_im
 transmit_log().
 
 PRINT " ".
-PRINT "Press any key to run land.ks, or ESC to abort.".
+PRINT "Auto-running land.ks in 30 seconds. Press any key to abort.".
 TERMINAL:INPUT:CLEAR().
-WAIT UNTIL TERMINAL:INPUT:HASCHAR.
-LOCAL land_choice IS TERMINAL:INPUT:GETCHAR().
-TERMINAL:INPUT:CLEAR().
-IF UNCHAR(land_choice) = 27 {
-    log_line("Land handoff aborted by user.").
-    transmit_log().
-    SHUTDOWN.
+LOCAL land_countdown_end IS TIME:SECONDS + 30.
+UNTIL TIME:SECONDS >= land_countdown_end {
+    IF TERMINAL:INPUT:HASCHAR {
+        TERMINAL:INPUT:CLEAR().
+        log_line("Land handoff aborted by user.").
+        transmit_log().
+        SHUTDOWN.
+    }
+    WAIT 1.
 }
 
 log_line("Running land script: " + land_script_path).
