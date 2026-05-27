@@ -16,6 +16,7 @@ SET min_deorbit_phase_angle_deg TO 90.
 SET max_deorbit_phase_angle_deg TO 150.
 SET slow_burn_miss_meters TO 10000.
 SET min_deorbit_throttle TO 0.02.
+SET max_deorbit_twr TO 1.
 SET deorbit_miss_kp TO 0.0001.
 SET burn_alignment_max_error_deg TO 1.
 SET burn_alignment_timeout TO 45.
@@ -72,6 +73,19 @@ FUNCTION target_miss_distance {
 FUNCTION deorbit_burn_mps {
     PARAMETER initial_speed.
     RETURN MAX(0, initial_speed - SHIP:VELOCITY:ORBIT:MAG).
+}
+
+FUNCTION local_g {
+    RETURN SHIP:BODY:MU / (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
+}
+
+FUNCTION twr_limited_throttle {
+    PARAMETER target_twr.
+    LOCAL max_thrust IS SHIP:AVAILABLETHRUST.
+    IF max_thrust <= 0 {
+        RETURN 0.
+    }
+    RETURN clamp((target_twr * SHIP:MASS * local_g()) / max_thrust, 0, 1).
 }
 
 FUNCTION orbit_retrograde_error {
@@ -153,6 +167,7 @@ check_line(deorbit_phase_angle >= min_deorbit_phase_angle_deg AND deorbit_phase_
 check_line(ADDONS:TR:AVAILABLE, "Trajectories addon", "AVAILABLE = " + ADDONS:TR:AVAILABLE).
 check_line(SHIP:AVAILABLETHRUST > 0, "Available thrust", ROUND(SHIP:AVAILABLETHRUST, 1) + " kN").
 check_line(min_deorbit_throttle >= 0 AND min_deorbit_throttle <= 1, "Minimum burn throttle", ROUND(min_deorbit_throttle, 2)).
+check_line(max_deorbit_twr > 0, "Maximum burn TWR", max_deorbit_twr).
 
 IF preflight_failed {
     abort_deorbit("preflight checks failed.").
@@ -164,7 +179,7 @@ IF ADDONS:TR:ISVERTWOTWO {
 }
 
 log_line("Orbit: Ap " + ROUND(SHIP:APOAPSIS/1000, 1) + " km  |  Pe " + ROUND(SHIP:PERIAPSIS/1000, 1) + " km  |  ecc " + ROUND(SHIP:OBT:ECCENTRICITY, 4)).
-log_line("Limits: miss <= " + ROUND(impact_tolerance_meters) + " m").
+log_line("Limits: miss <= " + ROUND(impact_tolerance_meters) + " m  |  TWR <= " + max_deorbit_twr).
 
 SAS OFF.
 LOCK STEERING TO RETROGRADE.
@@ -204,6 +219,7 @@ UNTIL success {
     }
 
     SET burn_used TO deorbit_burn_mps(start_speed).
+    LOCAL max_twr_throttle IS twr_limited_throttle(max_deorbit_twr).
 
     IF ADDONS:TR:HASIMPACT {
         SET had_impact TO TRUE.
@@ -218,20 +234,20 @@ UNTIL success {
         IF miss <= impact_tolerance_meters {
             SET success TO TRUE.
         } ELSE {
-            SET deorbit_throttle TO clamp(miss_pid:UPDATE(TIME:SECONDS, -miss), min_deorbit_throttle, 1).
+            SET deorbit_throttle TO clamp(miss_pid:UPDATE(TIME:SECONDS, -miss), min_deorbit_throttle, max_twr_throttle).
         }
 
         IF TIME:SECONDS >= next_print {
-            log_line("  burn: " + ROUND(burn_used, 1) + " m/s  |  miss: " + ROUND(miss) + " m  |  best: " + ROUND(best_miss) + " m  |  thr: " + ROUND(deorbit_throttle, 2) + "  |  impact: " + ROUND(impact_geo:LAT, 4) + ", " + ROUND(impact_geo:LNG, 4)).
+            log_line("  burn: " + ROUND(burn_used, 1) + " m/s  |  miss: " + ROUND(miss) + " m  |  best: " + ROUND(best_miss) + " m  |  thr: " + ROUND(deorbit_throttle, 2) + "/" + ROUND(max_twr_throttle, 2) + "  |  impact: " + ROUND(impact_geo:LAT, 4) + ", " + ROUND(impact_geo:LNG, 4)).
             mark_telemetry_logged().
         }
     } ELSE {
         IF had_impact {
             abort_deorbit("Trajectories lost impact prediction after a usable prediction.").
         }
-        SET deorbit_throttle TO 1.
+        SET deorbit_throttle TO max_twr_throttle.
         IF TIME:SECONDS >= next_print {
-            log_line("  burn: " + ROUND(burn_used, 1) + " m/s  |  waiting for Trajectories impact prediction.").
+            log_line("  burn: " + ROUND(burn_used, 1) + " m/s  |  waiting for Trajectories impact prediction  |  thr cap: " + ROUND(max_twr_throttle, 2)).
             mark_telemetry_logged().
         }
     }
