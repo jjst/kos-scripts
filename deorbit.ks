@@ -21,6 +21,7 @@ SET deorbit_miss_kp TO 0.0001.
 SET burn_alignment_max_error_deg TO 1.
 SET burn_alignment_timeout TO 45.
 SET telemetry_interval TO 5.
+SET burn_telemetry_interval TO 1.
 SET log_path TO "deorbit.log".
 // ------------------------------------------------------------
 
@@ -37,6 +38,10 @@ FUNCTION log_line {
 
 FUNCTION mark_telemetry_logged {
     SET next_print TO TIME:SECONDS + telemetry_interval.
+}
+
+FUNCTION mark_burn_telemetry_logged {
+    SET next_print TO TIME:SECONDS + burn_telemetry_interval.
 }
 
 FUNCTION transmit_log {
@@ -239,7 +244,7 @@ UNTIL success {
 
         IF TIME:SECONDS >= next_print {
             log_line("  burn: " + ROUND(burn_used, 1) + " m/s  |  miss: " + ROUND(miss) + " m  |  best: " + ROUND(best_miss) + " m  |  thr: " + ROUND(deorbit_throttle, 2) + "/" + ROUND(max_twr_throttle, 2) + "  |  impact: " + ROUND(impact_geo:LAT, 4) + ", " + ROUND(impact_geo:LNG, 4)).
-            mark_telemetry_logged().
+            mark_burn_telemetry_logged().
         }
     } ELSE {
         IF had_impact {
@@ -248,7 +253,7 @@ UNTIL success {
         SET deorbit_throttle TO max_twr_throttle.
         IF TIME:SECONDS >= next_print {
             log_line("  burn: " + ROUND(burn_used, 1) + " m/s  |  waiting for Trajectories impact prediction  |  thr cap: " + ROUND(max_twr_throttle, 2)).
-            mark_telemetry_logged().
+            mark_burn_telemetry_logged().
         }
     }
 
