@@ -15,9 +15,9 @@ SET max_parking_eccentricity TO 0.1.
 SET min_deorbit_phase_angle_deg TO 90.
 SET max_deorbit_phase_angle_deg TO 150.
 SET slow_burn_miss_meters TO 10000.
-SET min_deorbit_throttle TO 0.02.
+SET min_deorbit_throttle TO 0.01.
 SET max_deorbit_twr TO 1.
-SET deorbit_miss_kp TO 0.0001.
+SET deorbit_miss_kp TO 0.00001.
 SET burn_alignment_max_error_deg TO 1.
 SET burn_alignment_timeout TO 45.
 SET telemetry_interval TO 5.
@@ -236,15 +236,20 @@ UNTIL success {
             abort_deorbit("predicted impact is worsening; best miss was " + ROUND(best_miss) + " m.").
         }
 
+        LOCAL miss_outside_tolerance IS MAX(0, miss - impact_tolerance_meters).
+        LOCAL pid_throttle IS 0.
+
         IF miss <= impact_tolerance_meters {
             SET deorbit_throttle TO 0.
             SET success TO TRUE.
         } ELSE {
-            SET deorbit_throttle TO clamp(miss_pid:UPDATE(TIME:SECONDS, -miss), min_deorbit_throttle, max_twr_throttle).
+            SET pid_throttle TO miss_pid:UPDATE(TIME:SECONDS, -miss_outside_tolerance).
+            SET deorbit_throttle TO clamp(pid_throttle, min_deorbit_throttle, max_twr_throttle).
         }
 
         IF TIME:SECONDS >= next_print {
-            log_line("  burn: " + ROUND(burn_used, 1) + " m/s  |  miss: " + ROUND(miss) + " m  |  best: " + ROUND(best_miss) + " m  |  thr: " + ROUND(deorbit_throttle, 2) + "/" + ROUND(max_twr_throttle, 2) + "  |  impact: " + ROUND(impact_geo:LAT, 4) + ", " + ROUND(impact_geo:LNG, 4)).
+            log_line("  burn: " + ROUND(burn_used, 1) + " m/s  |  miss: " + ROUND(miss) + " m  |  outside: " + ROUND(miss_outside_tolerance) + " m  |  best: " + ROUND(best_miss) + " m").
+            log_line("    pid: " + ROUND(pid_throttle, 3) + "  |  thr: " + ROUND(deorbit_throttle, 3) + "/" + ROUND(max_twr_throttle, 3) + "  |  impact: " + ROUND(impact_geo:LAT, 4) + ", " + ROUND(impact_geo:LNG, 4)).
             SET next_print TO next_burn_telemetry_time().
         }
     } ELSE {
