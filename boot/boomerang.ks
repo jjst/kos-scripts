@@ -1,5 +1,5 @@
 // ============================================================
-//  boomerang.ks — boot strapper for local hop execution
+//  boomerang.ks — bootstrap loader for local hop execution
 // ============================================================
 
 PRINT "=== boomerang.ks ===".
