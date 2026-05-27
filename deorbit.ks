@@ -272,9 +272,4 @@ log_line("--- Deorbit achieved ---").
 log_line("  burn: " + ROUND(burn_used, 1) + " m/s  |  predicted miss: " + ROUND(best_miss) + " m").
 transmit_log().
 
-IF EXISTS(land_script_path) {
-    log_line("Arming land script: " + land_script_path).
-    RUNPATH(land_script_path).
-} ELSE {
-    abort_deorbit("land script not found: " + land_script_path).
-}
+log_line("Land script not auto-started. Run " + land_script_path + " manually when ready.").
