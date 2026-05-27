@@ -104,9 +104,6 @@ IF SHIP:PERIAPSIS < min_parking_alt_meters OR SHIP:PERIAPSIS > max_parking_alt_m
 IF SHIP:OBT:ECCENTRICITY > max_parking_eccentricity {
     abort_deorbit("orbit eccentricity too high: " + ROUND(SHIP:OBT:ECCENTRICITY, 4) + ".").
 }
-IF STAGE:DELTAV:CURRENT < max_deorbit_burn_mps {
-    abort_deorbit("stage dV below max deorbit allowance: " + ROUND(STAGE:DELTAV:CURRENT, 1) + " m/s.").
-}
 IF NOT ADDONS:TR:AVAILABLE {
     abort_deorbit("Trajectories addon is not available.").
 }
