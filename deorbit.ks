@@ -326,4 +326,17 @@ log_line("  burn: " + ROUND(burn_used, 1) + " m/s  |  predicted aim miss: " + RO
 log_line("  final impact: " + ROUND(final_impact_lat, 5) + ", " + ROUND(final_impact_lng, 5) + "  |  predicted landing miss: " + ROUND(final_landing_miss/1000, 1) + " km").
 transmit_log().
 
-log_line("Land script not auto-started. Run " + land_script_path + " manually when ready.").
+PRINT " ".
+PRINT "Press any key to run land.ks, or ESC to abort.".
+TERMINAL:INPUT:CLEAR().
+WAIT UNTIL TERMINAL:INPUT:HASCHAR.
+LOCAL land_choice IS TERMINAL:INPUT:GETCHAR().
+TERMINAL:INPUT:CLEAR().
+IF UNCHAR(land_choice) = 27 {
+    log_line("Land handoff aborted by user.").
+    transmit_log().
+    SHUTDOWN.
+}
+
+log_line("Running land script: " + land_script_path).
+RUNPATH(land_script_path).
