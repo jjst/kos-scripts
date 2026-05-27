@@ -9,6 +9,7 @@ SET fallback_target_body TO "Kerbin".
 SET fallback_target_lat TO -0.0972.
 SET fallback_target_lng TO -74.5577.
 SET impact_tolerance_meters TO 5000.
+SET aim_long_distance_meters TO 150000.
 SET min_parking_alt_meters TO 70000.
 SET max_parking_alt_meters TO 150000.
 SET max_parking_eccentricity TO 0.1.
@@ -130,6 +131,20 @@ FUNCTION target_phase_angle {
     RETURN angle.
 }
 
+FUNCTION aim_long_target {
+    PARAMETER target_geo, offset_meters.
+    IF offset_meters <= 0 {
+        RETURN target_geo.
+    }
+
+    LOCAL ship_radial IS SHIP:POSITION - SHIP:BODY:POSITION.
+    LOCAL target_radial IS target_geo:POSITION - SHIP:BODY:POSITION.
+    LOCAL orbit_normal IS VCRS(ship_radial, SHIP:VELOCITY:ORBIT):NORMALIZED.
+    LOCAL offset_angle_deg IS offset_meters / SHIP:BODY:RADIUS * 180 / 3.14159265.
+    LOCAL aim_radial IS ANGLEAXIS(offset_angle_deg, orbit_normal) * target_radial.
+    RETURN SHIP:BODY:GEOPOSITIONOF(SHIP:BODY:POSITION + aim_radial).
+}
+
 FUNCTION check_line {
     PARAMETER ok, label, detail.
     LOCAL mark IS "[x]".
@@ -170,8 +185,10 @@ IF EXISTS(land_target_path) {
 }
 
 LOCAL pad_geo IS LATLNG(target_lat, target_lng).
-LOCAL deorbit_phase_angle IS target_phase_angle(pad_geo).
-log_line("Target: " + ROUND(pad_geo:LAT, 5) + ", " + ROUND(pad_geo:LNG, 5) + " on " + target_body).
+LOCAL aim_geo IS aim_long_target(pad_geo, aim_long_distance_meters).
+LOCAL deorbit_phase_angle IS target_phase_angle(aim_geo).
+log_line("Landing target: " + ROUND(pad_geo:LAT, 5) + ", " + ROUND(pad_geo:LNG, 5) + " on " + target_body).
+log_line("Deorbit aim   : " + ROUND(aim_geo:LAT, 5) + ", " + ROUND(aim_geo:LNG, 5) + "  |  long by " + ROUND(aim_long_distance_meters/1000, 1) + " km").
 log_line("Target source: " + target_source).
 
 log_line("--- Preflight checks ---").
@@ -184,6 +201,7 @@ check_line(ADDONS:TR:AVAILABLE, "Trajectories addon", "AVAILABLE = " + ADDONS:TR
 check_line(SHIP:AVAILABLETHRUST > 0, "Available thrust", ROUND(SHIP:AVAILABLETHRUST, 1) + " kN").
 check_line(min_deorbit_throttle >= 0 AND min_deorbit_throttle <= 1, "Minimum burn throttle", ROUND(min_deorbit_throttle, 2)).
 check_line(max_deorbit_twr > 0, "Maximum burn TWR", max_deorbit_twr).
+check_line(aim_long_distance_meters >= 0, "Aim-long offset", ROUND(aim_long_distance_meters/1000, 1) + " km").
 info_line("Entry brakes", "enabled for Trajectories prediction = " + entry_brakes_enabled).
 
 IF preflight_failed {
@@ -195,7 +213,7 @@ IF entry_brakes_enabled {
     log_line("Entry brakes deployed before Trajectories targeting.").
 }
 
-ADDONS:TR:SETTARGET(pad_geo).
+ADDONS:TR:SETTARGET(aim_geo).
 IF ADDONS:TR:ISVERTWOTWO {
     SET ADDONS:TR:RETROGRADE TO TRUE.
 }
@@ -229,6 +247,9 @@ LOCAL burn_used IS 0.
 LOCAL deorbit_throttle IS 1.
 LOCAL next_print IS TIME:SECONDS.
 LOCAL worsening_logged IS FALSE.
+LOCAL final_impact_lat IS 0.
+LOCAL final_impact_lng IS 0.
+LOCAL final_landing_miss IS 999999999.
 LOCAL miss_pid IS PIDLOOP().
 SET miss_pid:KP TO deorbit_miss_kp.
 SET miss_pid:MINOUTPUT TO min_deorbit_throttle.
@@ -247,9 +268,13 @@ UNTIL success {
     IF ADDONS:TR:HASIMPACT {
         SET had_impact TO TRUE.
         LOCAL impact_geo IS ADDONS:TR:IMPACTPOS.
-        LOCAL miss IS target_miss_distance(impact_geo, pad_geo).
+        LOCAL miss IS target_miss_distance(impact_geo, aim_geo).
+        LOCAL landing_miss IS target_miss_distance(impact_geo, pad_geo).
         IF miss < best_miss {
             SET best_miss TO miss.
+            SET final_impact_lat TO impact_geo:LAT.
+            SET final_impact_lng TO impact_geo:LNG.
+            SET final_landing_miss TO landing_miss.
             SET worsening_logged TO FALSE.
         } ELSE IF NOT worsening_logged AND best_miss < slow_burn_miss_meters AND miss > best_miss + impact_tolerance_meters {
             warn_line("Predicted miss worsening", "current " + ROUND(miss) + " m; best " + ROUND(best_miss) + " m; continuing burn").
@@ -268,7 +293,7 @@ UNTIL success {
         }
 
         IF TIME:SECONDS >= next_print {
-            log_line("  burn: " + ROUND(burn_used, 1) + " m/s  |  miss: " + ROUND(miss) + " m  |  outside: " + ROUND(miss_outside_tolerance) + " m  |  best: " + ROUND(best_miss) + " m").
+            log_line("  burn: " + ROUND(burn_used, 1) + " m/s  |  aim miss: " + ROUND(miss) + " m  |  landing miss: " + ROUND(landing_miss/1000, 1) + " km  |  best: " + ROUND(best_miss) + " m").
             log_line("    pid: " + ROUND(pid_throttle, 3) + "  |  thr: " + ROUND(deorbit_throttle, 3) + "/" + ROUND(max_twr_throttle, 3) + "  |  impact: " + ROUND(impact_geo:LAT, 4) + ", " + ROUND(impact_geo:LNG, 4)).
             SET next_print TO next_burn_telemetry_time().
         }
@@ -289,7 +314,8 @@ UNTIL success {
 
 LOCK THROTTLE TO 0.
 log_line("--- Deorbit achieved ---").
-log_line("  burn: " + ROUND(burn_used, 1) + " m/s  |  predicted miss: " + ROUND(best_miss) + " m").
+log_line("  burn: " + ROUND(burn_used, 1) + " m/s  |  predicted aim miss: " + ROUND(best_miss) + " m").
+log_line("  final impact: " + ROUND(final_impact_lat, 5) + ", " + ROUND(final_impact_lng, 5) + "  |  predicted landing miss: " + ROUND(final_landing_miss/1000, 1) + " km").
 transmit_log().
 
 log_line("Land script not auto-started. Run " + land_script_path + " manually when ready.").

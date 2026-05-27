@@ -10,7 +10,7 @@ SET telemetry_interval TO 5.
 SET wait_telemetry_interval TO 20.
 SET entry_brakes_enabled TO TRUE.
 SET entry_brakes_deploy_alt_meters TO 70000.
-SET entry_brakes_retract_speed_mps TO 1700.
+SET entry_brakes_retract_speed_mps TO 1600.
 // Keep a small non-zero touchdown rate to avoid over-braking hover oscillation.
 SET touchdown_speed   TO 2.
 // PID gains for powered descent vertical-speed control.
@@ -345,12 +345,12 @@ UNTIL VXCL(UP:FOREVECTOR, pad_geo:POSITION):MAG < guidance_start_range_meters {
         IF SHIP:ALTITUDE > wait_orbit_retro_alt_meters {
             SET retro_mode TO "orbit".
         }
-        log_line("  Range: " + ROUND(to_pad_h:MAG/1000, 1) + " km  |  Alt: " + ROUND(ALT:RADAR/1000, 1) + " km AGL  |  spd: " + ROUND(surface_speed, 1) + " m/s  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s  |  brakes: " + brake_mode + "  |  retro: " + retro_mode).
+        log_line("  Range: " + ROUND(to_pad_h:MAG/1000, 1) + " km  |  hdg: " + ROUND(pad_geo:HEADING, 1) + "  |  brg: " + ROUND(pad_geo:BEARING, 1) + "  |  Alt: " + ROUND(ALT:RADAR/1000, 1) + " km AGL  |  spd: " + ROUND(surface_speed, 1) + " m/s  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s  |  brakes: " + brake_mode + "  |  retro: " + retro_mode).
         SET next_print TO TIME:SECONDS + wait_telemetry_interval.
     }
     WAIT 0.
 }
-log_line("  Guidance start  |  range: " + ROUND(VXCL(UP:FOREVECTOR, pad_geo:POSITION):MAG) + " m  |  alt: " + ROUND(ALT:RADAR) + " m AGL").
+log_line("  Guidance start  |  range: " + ROUND(VXCL(UP:FOREVECTOR, pad_geo:POSITION):MAG) + " m  |  hdg: " + ROUND(pad_geo:HEADING, 1) + "  |  brg: " + ROUND(pad_geo:BEARING, 1) + "  |  alt: " + ROUND(ALT:RADAR) + " m AGL").
 
 // Descent Phase 1 — Descending: PID lateral guidance until 5 km handoff
 LOCAL original_max_stopping_time IS STEERINGMANAGER:MAXSTOPPINGTIME.
