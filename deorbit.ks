@@ -17,7 +17,7 @@ SET max_deorbit_phase_angle_deg TO 150.
 SET slow_burn_miss_meters TO 10000.
 SET min_deorbit_throttle TO 0.02.
 SET deorbit_miss_kp TO 0.0001.
-SET burn_alignment_max_error_deg TO 5.
+SET burn_alignment_max_error_deg TO 1.
 SET burn_alignment_timeout TO 45.
 SET telemetry_interval TO 5.
 SET log_path TO "deorbit.log".
