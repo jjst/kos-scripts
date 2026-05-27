@@ -9,12 +9,12 @@ SET fallback_target_body TO "Kerbin".
 SET fallback_target_lat TO -0.0972.
 SET fallback_target_lng TO -74.5577.
 SET impact_tolerance_meters TO 5000.
-SET aim_long_distance_meters TO 150000.
+SET aim_long_distance_meters TO 250000.
 SET min_parking_alt_meters TO 70000.
 SET max_parking_alt_meters TO 150000.
 SET max_parking_eccentricity TO 0.1.
 SET min_deorbit_phase_angle_deg TO 90.
-SET max_deorbit_phase_angle_deg TO 150.
+SET max_deorbit_phase_angle_deg TO 200.
 SET slow_burn_miss_meters TO 10000.
 SET min_deorbit_throttle TO 0.01.
 SET max_deorbit_twr TO 0.5.
