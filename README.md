@@ -4,7 +4,9 @@ A bunch of [kOS](https://ksp-kos.github.io/KOS/) scripts for [Kerbal Space Progr
 
 ## Contents
 
+- `boot/boomerang.ks` — boot script that copies `hop.ks` to local volume and runs it
 - `boot/launch.ks` — gravity-turn ascent script targeting a circular orbit
+- `hop.ks` — VTVL proof-of-concept vertical hop and landing
 
 ## Useful links
 
