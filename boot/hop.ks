@@ -2,13 +2,14 @@
 //  hop.ks — VTVL proof-of-concept vertical hop and landing
 // ============================================================
 //  Flies a straight-up hop, then performs a PID-guided powered
-//  descent with a gradual vertical-speed target down to ~3 m/s.
+//  descent with active guidance back to launchpad.
 
 // --- CONFIG (edit these) ------------------------------------
 SET hop_altitude      TO 20000.
 SET max_twr           TO 2.5.
 SET burn_safety       TO 1.2.
 SET gear_deploy_alt   TO 500.
+SET telemetry_interval TO 5.
 // Keep a small non-zero touchdown rate to avoid over-braking hover oscillation.
 SET touchdown_speed   TO 2.
 // PID gains for powered descent vertical-speed control.
@@ -30,6 +31,8 @@ SET descent_pid_max_output TO  0.6.
 SET descent_max_stopping_time TO 3.5.
 // PID error deadband (m/s) to reduce tiny throttle chatter.
 SET descent_pid_epsilon TO 0.15.
+// D3 horizontal speed target cap: m/s allowed per sqrt-meter AGL.
+SET d3_hvel_limit_slope TO 0.5.
 // Target descent speed during powered-descent phase (m/s, magnitude).
 SET d2_target_speed TO 150.
 // Proportional gain for Descent Phase 2 speed hold.
@@ -63,7 +66,7 @@ SET lat_min_horiz_dist TO 10.
 // Launch deflection — tilts the ascent trajectory to seed a lateral drift for testing.
 // Set to 0 for a nominal straight-up hop.
 SET launch_deflect_deg TO 1.
-SET launch_deflect_hdg_deg TO ROUND(RANDOM() * 360).
+SET launch_deflect_hdg_deg TO 27.
 // Terminal output is mirrored to this file with LOG.
 SET log_path TO "hop.log".
 // ------------------------------------------------------------
@@ -82,6 +85,10 @@ FUNCTION log_line {
     PARAMETER msg.
     PRINT msg.
     LOG msg TO log_path.
+}
+
+FUNCTION mark_telemetry_logged {
+    SET next_print TO TIME:SECONDS + telemetry_interval.
 }
 
 FUNCTION pad_steer_direction {
@@ -166,6 +173,17 @@ FUNCTION d3_steering_direction {
 FUNCTION roll_error_deg {
     PARAMETER roll_ref.
     RETURN VANG(SHIP:FACING:TOPVECTOR, roll_ref).
+}
+
+FUNCTION capped_hvel_target {
+    PARAMETER to_pad_h, alt_agl, vs.
+    LOCAL time_to_ground IS alt_agl / MAX(ABS(vs), 1).
+    LOCAL target_hvel IS to_pad_h / MAX(time_to_ground, 1).
+    LOCAL max_hvel IS SQRT(MAX(0, alt_agl)) * d3_hvel_limit_slope.
+    IF target_hvel:MAG > max_hvel {
+        SET target_hvel TO target_hvel:NORMALIZED * max_hvel.
+    }
+    RETURN target_hvel.
 }
 
 FUNCTION transmit_log {
@@ -254,7 +272,7 @@ UNTIL SHIP:APOAPSIS >= hop_altitude {
         LOCAL to_pad_h  IS VXCL(UP:FOREVECTOR, pad_geo:POSITION).
         LOCAL horiz_dist IS to_pad_h:MAG.
         log_line("  Alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  Ap: " + ROUND(SHIP:APOAPSIS/1000, 1) + " km  |  thr: " + ROUND(actual_throttle, 2) + "  |  horiz: " + ROUND(horiz_dist) + " m").
-        SET next_print TO TIME:SECONDS + 2.
+        mark_telemetry_logged().
     }
     WAIT 0.
 }
@@ -268,7 +286,7 @@ UNTIL SHIP:VERTICALSPEED < d1_entry_vs {
         LOCAL to_pad_h  IS VXCL(UP:FOREVECTOR, pad_geo:POSITION).
         LOCAL horiz_dist IS to_pad_h:MAG.
         log_line("  Alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s  |  horiz: " + ROUND(horiz_dist) + " m").
-        SET next_print TO TIME:SECONDS + 2.
+        mark_telemetry_logged().
     }
     WAIT 0.
 }
@@ -283,7 +301,7 @@ log_line("--- DESCENT PHASE 1: Descending ---").
 // the post-deployment vehicle.
 STAGE.
 RCS ON.
-BRAKES ON.
+// BRAKES ON.  // Disabled for airbrake-off comparison run.
 LOCAL gear_deployed IS FALSE.
 SET next_print TO TIME:SECONDS.
 UNTIL ALT:RADAR < d1_handoff_alt {
@@ -320,7 +338,7 @@ UNTIL ALT:RADAR < d1_handoff_alt {
         LOCAL actual_tilt IS actual_retro_tilt().
         log_line("  Alt: " + ROUND(alt_agl) + " m AGL  |  vs: " + ROUND(vs, 1) + " m/s  |  tof_to_d2: " + ROUND(tof, 1) + " s").
         log_line("    horiz: " + ROUND(to_pad_h:MAG) + " m  |  pred_miss: " + ROUND(pred_miss) + " m  |  tol: " + ROUND(allowed_miss) + " m  |  eff_miss: " + ROUND(effective_miss) + " m  |  miss_tilt: " + ROUND(miss_tilt, 1) + " deg  |  tilt_cmd: " + ROUND(lat_tilt, 1) + " deg  |  actual_tilt: " + ROUND(actual_tilt, 1) + " deg").
-        SET next_print TO TIME:SECONDS + 2.
+        mark_telemetry_logged().
     }
     WAIT 0.
 }
@@ -330,6 +348,7 @@ log_line("  DESCENT PHASE 2 handoff  |  alt: " + ROUND(ALT:RADAR) + " m  |  vs: 
 log_line("--- DESCENT PHASE 2: Powered descent / launchpad steering ---").
 SET lat_pid TO PIDLOOP(d2_lat_kp, d2_lat_ki, d2_lat_kd,
                         -d2_lat_max_tilt, d2_lat_max_tilt).
+BRAKES ON.
 LOCK THROTTLE TO 0.
 LOCAL d2_target_vs IS -(d2_target_speed).
 LOCAL d2_burn_ready IS FALSE.
@@ -396,7 +415,7 @@ UNTIL d2_burn_ready {
             LOCAL actual_tilt IS actual_retro_tilt().
             log_line("  Alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(vs, 1) + " m/s  |  tof_to_d3: " + ROUND(tof, 1) + " s  |  thr: " + ROUND(d2_throttle, 2)).
             log_line("    horiz: " + ROUND(to_pad_h:MAG) + " m  |  pred_miss: " + ROUND(pred_miss) + " m  |  guidance_miss: " + ROUND(guidance_miss) + " m  |  tol: " + ROUND(allowed_miss) + " m  |  eff_miss: " + ROUND(effective_miss) + " m  |  hclos: " + ROUND(hclos, 1) + " m/s  |  tgt_hclos: " + ROUND(hclos_tgt, 1) + " m/s  |  tilt_cmd: " + ROUND(lat_tilt, 1) + " deg  |  actual_tilt: " + ROUND(actual_tilt, 1) + " deg").
-            SET next_print TO TIME:SECONDS + 2.
+            mark_telemetry_logged().
         }
     }
     WAIT 0.
@@ -446,9 +465,15 @@ UNTIL SHIP:STATUS = "LANDED" {
 
     LOCAL vs_d3     IS SHIP:VERTICALSPEED.
     LOCAL to_pad_h  IS VXCL(UP:FOREVECTOR, pad_geo:POSITION).
+    LOCAL horiz_vel IS VXCL(UP:FOREVECTOR, SHIP:VELOCITY:SURFACE).
     LOCAL horiz_dist IS to_pad_h:MAG.
-    LOCAL star_err IS -VDOT(to_pad_h, SHIP:FACING:STARVECTOR).
-    LOCAL top_err  IS -VDOT(to_pad_h, SHIP:FACING:TOPVECTOR).
+    LOCAL target_hvel IS capped_hvel_target(to_pad_h, alt_agl, vs_d3).
+    LOCAL hvel_error IS horiz_vel - target_hvel.
+    LOCAL hspd IS horiz_vel:MAG.
+    LOCAL tgt_hspd IS target_hvel:MAG.
+    LOCAL max_hspd IS SQRT(MAX(0, alt_agl)) * d3_hvel_limit_slope.
+    LOCAL star_err IS VDOT(hvel_error, SHIP:FACING:STARVECTOR).
+    LOCAL top_err  IS VDOT(hvel_error, SHIP:FACING:TOPVECTOR).
     LOCAL rcs_cmd IS V(
         d3_rcs_star_pid:UPDATE(TIME:SECONDS, star_err),
         d3_rcs_top_pid:UPDATE(TIME:SECONDS, top_err),
@@ -469,9 +494,9 @@ UNTIL SHIP:STATUS = "LANDED" {
         LOCAL steer_err IS VANG(SHIP:FACING:FOREVECTOR, steering_target).
         LOCAL roll_err IS roll_error_deg(roll_ref).
         LOCAL roll_rate IS roll_rate_deg().
-        log_line("  Alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(vs_d3, 1) + " m/s  |  horiz: " + ROUND(horiz_dist) + " m  |  tgt: " + ROUND(target_vs, 1) + " m/s  |  thr: " + ROUND(thrott_cmd, 2) + "  |  rcs: " + ROUND(rcs_cmd:X, 2) + "," + ROUND(rcs_cmd:Y, 2) + "," + ROUND(rcs_cmd:Z, 2)).
+        log_line("  Alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(vs_d3, 1) + " m/s  |  horiz: " + ROUND(horiz_dist) + " m  |  hspd: " + ROUND(hspd, 1) + " m/s  |  tgt_hspd: " + ROUND(tgt_hspd, 1) + " m/s  |  max_hspd: " + ROUND(max_hspd, 1) + " m/s  |  tgt: " + ROUND(target_vs, 1) + " m/s  |  thr: " + ROUND(thrott_cmd, 2) + "  |  rcs: " + ROUND(rcs_cmd:X, 2) + "," + ROUND(rcs_cmd:Y, 2) + "," + ROUND(rcs_cmd:Z, 2)).
         log_line("    facing: " + ROUND(SHIP:FACING:PITCH, 1) + "," + ROUND(SHIP:FACING:YAW, 1) + "," + ROUND(SHIP:FACING:ROLL, 1) + " deg  |  steer_err: " + ROUND(steer_err, 1) + " deg  |  roll_err: " + ROUND(roll_err, 1) + " deg  |  roll_rate: " + ROUND(roll_rate, 1) + " deg/s").
-        SET next_print TO TIME:SECONDS + 1.
+        mark_telemetry_logged().
     }
     WAIT 0.
 }
