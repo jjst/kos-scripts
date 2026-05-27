@@ -34,9 +34,6 @@ SET descent_pid_epsilon TO 0.15.
 SET d2_target_speed TO 150.
 // Proportional gain for Descent Phase 2 speed hold.
 SET d2_speed_kp TO 0.03.
-// Descent Phase 3 RCS translation trim while main steering remains retrograde.
-SET d3_rcs_pos_gain TO 0.20.   // raw RCS command per meter toward pad
-SET d3_rcs_vel_gain TO 0.18.   // raw RCS command per m/s horizontal velocity
 // Descent phase handoff altitudes used as bounded prediction horizons.
 SET d1_handoff_alt TO 5000.
 SET d3_entry_alt TO 1000.
@@ -66,7 +63,7 @@ SET lat_min_horiz_dist TO 10.
 // Launch deflection — tilts the ascent trajectory to seed a lateral drift for testing.
 // Set to 0 for a nominal straight-up hop.
 SET launch_deflect_deg TO 1.
-SET launch_deflect_hdg_deg TO 168.
+SET launch_deflect_hdg_deg TO ROUND(RANDOM() * 360).
 // Terminal output is mirrored to this file with LOG.
 SET log_path TO "hop.log".
 // ------------------------------------------------------------
@@ -145,13 +142,46 @@ FUNCTION actual_retro_tilt {
     RETURN VANG(SHIP:FACING:FOREVECTOR, SHIP:SRFRETROGRADE:FOREVECTOR).
 }
 
-FUNCTION set_rcs_translation_world {
-    PARAMETER world_vec.
-    LOCAL star_cmd IS clamp(VDOT(world_vec, SHIP:FACING:STARVECTOR), -1, 1).
-    LOCAL top_cmd  IS clamp(VDOT(world_vec, SHIP:FACING:TOPVECTOR), -1, 1).
-    LOCAL fore_cmd IS clamp(VDOT(world_vec, SHIP:FACING:FOREVECTOR), -1, 1).
-    SET SHIP:CONTROL:TRANSLATION TO V(star_cmd, top_cmd, fore_cmd).
-    RETURN V(star_cmd, top_cmd, fore_cmd).
+FUNCTION roll_rate_deg {
+    RETURN VDOT(SHIP:ANGULARVEL, SHIP:FACING:FOREVECTOR) * 57.2958.
+}
+
+FUNCTION d3_roll_reference {
+    PARAMETER look.
+    LOCAL ref IS VXCL(look, HEADING(0, 0):FOREVECTOR).
+    IF ref:MAG < 0.01 {
+        SET ref TO VXCL(look, HEADING(90, 0):FOREVECTOR).
+    }
+    RETURN ref.
+}
+
+FUNCTION d3_steering_direction {
+    LOCAL look IS SHIP:SRFRETROGRADE:FOREVECTOR.
+    IF ALT:RADAR < gear_deploy_alt {
+        SET look TO UP:FOREVECTOR.
+    }
+    RETURN LOOKDIRUP(look, d3_roll_reference(look)).
+}
+
+FUNCTION roll_error_deg {
+    PARAMETER roll_ref.
+    RETURN VANG(SHIP:FACING:TOPVECTOR, roll_ref).
+}
+
+FUNCTION transmit_log {
+    LOCAL recovered_on_kerbin IS FALSE.
+    IF SHIP:BODY:NAME = "Kerbin" {
+        IF SHIP:STATUS = "LANDED" OR SHIP:STATUS = "SPLASHED" {
+            SET recovered_on_kerbin TO TRUE.
+        }
+    }
+
+    // Archive transfer is allowed after Kerbin recovery or through a live home link.
+    IF recovered_on_kerbin OR HOMECONNECTION:ISCONNECTED {
+        COPYPATH(log_path, "0:").
+        RETURN TRUE.
+    }
+    RETURN FALSE.
 }
 
 FUNCTION target_descent_rate {
@@ -374,7 +404,9 @@ UNTIL d2_burn_ready {
 
 // Descent Phase 3 — Landing burn (retrograde with RCS trim)
 log_line("--- DESCENT PHASE 3: Landing burn / RCS trim ---").
-LOCK STEERING TO SHIP:SRFRETROGRADE.
+// Hold retrograde for braking, then switch to vertical-up at gear deploy
+// altitude so the final touchdown attitude does not chase tiny retrograde shifts.
+LOCK STEERING TO d3_steering_direction().
 BRAKES ON.
 SET descent_pid TO PIDLOOP(
     descent_kp,
@@ -387,6 +419,14 @@ SET descent_pid TO PIDLOOP(
 SET thrott_cmd TO 0.
 SET descent_aborted TO FALSE.
 LOCK THROTTLE TO thrott_cmd.
+LOCAL d3_rcs_star_pid IS PIDLOOP().
+LOCAL d3_rcs_top_pid IS PIDLOOP().
+SET d3_rcs_star_pid:MINOUTPUT TO -1.
+SET d3_rcs_star_pid:MAXOUTPUT TO 1.
+SET d3_rcs_top_pid:MINOUTPUT TO -1.
+SET d3_rcs_top_pid:MAXOUTPUT TO 1.
+SET d3_rcs_star_pid:SETPOINT TO 0.
+SET d3_rcs_top_pid:SETPOINT TO 0.
 SET next_print TO TIME:SECONDS.
 UNTIL SHIP:STATUS = "LANDED" {
     LOCAL g_land IS SHIP:BODY:MU / (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
@@ -406,17 +446,31 @@ UNTIL SHIP:STATUS = "LANDED" {
 
     LOCAL vs_d3     IS SHIP:VERTICALSPEED.
     LOCAL to_pad_h  IS VXCL(UP:FOREVECTOR, pad_geo:POSITION).
-    LOCAL horiz_vel IS VXCL(UP:FOREVECTOR, SHIP:VELOCITY:SURFACE).
     LOCAL horiz_dist IS to_pad_h:MAG.
-    LOCAL rcs_world IS to_pad_h * d3_rcs_pos_gain - horiz_vel * d3_rcs_vel_gain.
-    LOCAL rcs_cmd IS set_rcs_translation_world(rcs_world).
+    LOCAL star_err IS -VDOT(to_pad_h, SHIP:FACING:STARVECTOR).
+    LOCAL top_err  IS -VDOT(to_pad_h, SHIP:FACING:TOPVECTOR).
+    LOCAL rcs_cmd IS V(
+        d3_rcs_star_pid:UPDATE(TIME:SECONDS, star_err),
+        d3_rcs_top_pid:UPDATE(TIME:SECONDS, top_err),
+        0
+    ).
+    SET SHIP:CONTROL:TRANSLATION TO rcs_cmd.
     LOCAL target_vs IS target_descent_rate(alt_agl).
     SET descent_pid:SETPOINT TO target_vs.
     LOCAL hover IS (SHIP:MASS * g_land) / thrust_available.
     LOCAL pid_correction IS descent_pid:UPDATE(TIME:SECONDS, vs_d3).
     SET thrott_cmd TO clamp(hover + pid_correction, 0, 1).
     IF TIME:SECONDS >= next_print {
+        LOCAL steering_target IS SHIP:SRFRETROGRADE:FOREVECTOR.
+        IF alt_agl < gear_deploy_alt {
+            SET steering_target TO UP:FOREVECTOR.
+        }
+        LOCAL roll_ref IS d3_roll_reference(steering_target).
+        LOCAL steer_err IS VANG(SHIP:FACING:FOREVECTOR, steering_target).
+        LOCAL roll_err IS roll_error_deg(roll_ref).
+        LOCAL roll_rate IS roll_rate_deg().
         log_line("  Alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(vs_d3, 1) + " m/s  |  horiz: " + ROUND(horiz_dist) + " m  |  tgt: " + ROUND(target_vs, 1) + " m/s  |  thr: " + ROUND(thrott_cmd, 2) + "  |  rcs: " + ROUND(rcs_cmd:X, 2) + "," + ROUND(rcs_cmd:Y, 2) + "," + ROUND(rcs_cmd:Z, 2)).
+        log_line("    facing: " + ROUND(SHIP:FACING:PITCH, 1) + "," + ROUND(SHIP:FACING:YAW, 1) + "," + ROUND(SHIP:FACING:ROLL, 1) + " deg  |  steer_err: " + ROUND(steer_err, 1) + " deg  |  roll_err: " + ROUND(roll_err, 1) + " deg  |  roll_rate: " + ROUND(roll_rate, 1) + " deg/s").
         SET next_print TO TIME:SECONDS + 1.
     }
     WAIT 0.
@@ -443,5 +497,4 @@ IF descent_aborted {
     log_line("  pad offset: " + ROUND(land_offset, 1) + " m  |  flight time: " + ROUND(flight_time) + " s").
     log_line("  deflection: " + launch_deflect_deg + " deg hdg " + launch_deflect_hdg_deg).
 }
-// Archive the log whenever the script survives long enough to run this.
-COPYPATH(log_path, "0:").
+transmit_log().
