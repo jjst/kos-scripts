@@ -38,8 +38,8 @@ SET d2_target_speed TO 150.
 // Proportional gain for Descent Phase 2 speed hold.
 SET d2_speed_kp TO 0.03.
 // Descent phase handoff altitudes used as bounded prediction horizons.
-SET d1_handoff_alt TO 5000.
-SET d3_entry_alt TO 1000.
+SET powered_steering_alt_meters TO 5000.
+SET landing_burn_alt_meters TO 1000.
 // Shared lateral miss corridor based on altitude above ground.
 SET handoff_tolerance_slope TO 0.4.   // extra meters allowed per sqrt-meter AGL
 // Keep correcting this fraction of predicted miss even inside the corridor.
@@ -302,14 +302,14 @@ log_line("--- DESCENT PHASE 1: Descending ---").
 STAGE.
 RCS ON.
 SET next_print TO TIME:SECONDS.
-UNTIL ALT:RADAR < d1_handoff_alt {
+UNTIL ALT:RADAR < powered_steering_alt_meters {
     LOCAL alt_agl IS ALT:RADAR.
 
     LOCAL to_pad_h  IS VXCL(UP:FOREVECTOR, pad_geo:POSITION).
     LOCAL horiz_vel IS VXCL(UP:FOREVECTOR, SHIP:VELOCITY:SURFACE).
     LOCAL vs        IS SHIP:VERTICALSPEED.
     LOCAL g_d1      IS SHIP:BODY:MU / (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
-    LOCAL alt_delta IS alt_agl - d1_handoff_alt.
+    LOCAL alt_delta IS alt_agl - powered_steering_alt_meters.
     LOCAL tof       IS time_to_alt_delta(vs, g_d1, alt_delta).
     SET pred_to_pad TO predict_miss_vec(to_pad_h, horiz_vel, vs, g_d1, alt_delta).
     LOCAL pred_miss IS pred_to_pad:MAG.
@@ -352,7 +352,7 @@ UNTIL d2_burn_ready {
 
     LOCAL to_pad_h   IS VXCL(UP:FOREVECTOR, pad_geo:POSITION).
     LOCAL horiz_vel  IS VXCL(UP:FOREVECTOR, SHIP:VELOCITY:SURFACE).
-    LOCAL alt_delta  IS alt_agl - d3_entry_alt.
+    LOCAL alt_delta  IS alt_agl - landing_burn_alt_meters.
     LOCAL tof        IS time_to_alt_delta(vs, g_d2, alt_delta).
     SET pred_to_pad TO predict_miss_vec(to_pad_h, horiz_vel, vs, g_d2, alt_delta).
     LOCAL pred_miss  IS pred_to_pad:MAG.
@@ -376,24 +376,12 @@ UNTIL d2_burn_ready {
         SET d2_burn_ready TO TRUE.
     }
     IF NOT d2_burn_ready {
-        LOCAL a_avail IS SHIP:AVAILABLETHRUST / SHIP:MASS.
         LOCAL hover IS (SHIP:MASS * g_d2) / SHIP:AVAILABLETHRUST.
         LOCAL speed_err IS d2_target_vs - vs.
         LOCAL d2_throttle IS clamp(hover + d2_speed_kp * speed_err, 0, 1).
         LOCK THROTTLE TO d2_throttle.
 
-        LOCAL a_net IS a_avail - g_d2.
-        LOCAL trigger_d3 IS FALSE.
-        IF alt_agl <= d3_entry_alt {
-            SET trigger_d3 TO TRUE.
-        }
-        IF NOT trigger_d3 AND a_net > 0 {
-            LOCAL burn_dist IS (ABS(vs)^2 / (2 * a_net)) * burn_safety.
-            IF alt_agl <= burn_dist {
-                SET trigger_d3 TO TRUE.
-            }
-        }
-        IF trigger_d3 {
+        IF alt_agl <= landing_burn_alt_meters {
             log_line("  DESCENT PHASE 3 trigger  |  alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(vs, 1) + " m/s").
             SET d2_burn_ready TO TRUE.
         }
