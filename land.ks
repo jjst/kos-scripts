@@ -11,6 +11,10 @@ SET wait_telemetry_interval TO 20.
 SET entry_brakes_enabled TO TRUE.
 SET entry_brakes_deploy_alt_meters TO 70000.
 SET entry_brakes_retract_speed_mps TO 1600.
+SET entry_aoa_enabled TO TRUE.
+SET entry_aoa_deg TO 5.
+SET entry_aoa_deploy_alt_meters TO 70000.
+SET entry_aoa_retract_speed_mps TO 1600.
 // Keep a small non-zero touchdown rate to avoid over-braking hover oscillation.
 SET touchdown_speed   TO 2.
 // PID gains for powered descent vertical-speed control.
@@ -211,7 +215,20 @@ FUNCTION wait_retrograde_steering {
     IF SHIP:ALTITUDE > wait_orbit_retro_alt_meters {
         RETURN RETROGRADE.
     }
+    IF entry_aoa_active() {
+        LOCAL srfret IS SHIP:SRFRETROGRADE:FOREVECTOR.
+        LOCAL axis IS VCRS(UP:FOREVECTOR, srfret).
+        IF axis:MAG > 0.01 {
+            RETURN ANGLEAXIS(entry_aoa_deg, axis:NORMALIZED) * srfret.
+        }
+    }
     RETURN SHIP:SRFRETROGRADE.
+}
+
+FUNCTION entry_aoa_active {
+    RETURN entry_aoa_enabled AND
+           SHIP:ALTITUDE < entry_aoa_deploy_alt_meters AND
+           SHIP:VELOCITY:SURFACE:MAG > entry_aoa_retract_speed_mps.
 }
 
 FUNCTION capped_hvel_target {
@@ -292,6 +309,7 @@ log_line("Target       : " + ROUND(pad_geo:LAT, 5) + ", " + ROUND(pad_geo:LNG, 5
 log_line("Target source: " + target_source).
 log_line("Guidance range: " + ROUND(guidance_start_range_meters/1000, 1) + " km").
 log_line("Wait attitude: orbit retro above " + ROUND(wait_orbit_retro_alt_meters/1000, 1) + " km, surface retro below.").
+log_line("Entry AoA    : " + entry_aoa_deg + " deg below " + ROUND(entry_aoa_deploy_alt_meters/1000, 1) + " km while faster than " + ROUND(entry_aoa_retract_speed_mps) + " m/s.").
 
 log_line("--- Preflight checks ---").
 IF target_file_found {
@@ -304,6 +322,8 @@ check_line(SHIP:AVAILABLETHRUST > 0, "Available thrust", ROUND(SHIP:AVAILABLETHR
 check_line(guidance_start_range_meters > 0, "Guidance range", ROUND(guidance_start_range_meters/1000, 1) + " km").
 check_line(powered_steering_alt_meters > landing_burn_alt_meters, "Descent handoff altitudes", ROUND(powered_steering_alt_meters) + " m -> " + ROUND(landing_burn_alt_meters) + " m").
 check_line(entry_brakes_retract_speed_mps > 0, "Entry brake retract speed", ROUND(entry_brakes_retract_speed_mps) + " m/s").
+check_line(entry_aoa_deg >= 0, "Entry AoA angle", ROUND(entry_aoa_deg, 1) + " deg").
+check_line(entry_aoa_retract_speed_mps > 0, "Entry AoA retract speed", ROUND(entry_aoa_retract_speed_mps) + " m/s").
 info_line("Landing target coordinates", ROUND(pad_geo:LAT, 5) + ", " + ROUND(pad_geo:LNG, 5)).
 IF preflight_failed {
     abort_land("preflight checks failed.").
@@ -339,13 +359,19 @@ UNTIL VXCL(UP:FOREVECTOR, pad_geo:POSITION):MAG < guidance_start_range_meters {
         LOCAL to_pad_h IS VXCL(UP:FOREVECTOR, pad_geo:POSITION).
         LOCAL retro_mode IS "surface".
         LOCAL brake_mode IS "off".
+        LOCAL aoa_mode IS "off".
+        LOCAL aoa_cmd IS 0.
         IF entry_brakes_deployed {
             SET brake_mode TO "on".
         }
         IF SHIP:ALTITUDE > wait_orbit_retro_alt_meters {
             SET retro_mode TO "orbit".
+        } ELSE IF entry_aoa_active() {
+            SET aoa_mode TO "on".
+            SET aoa_cmd TO entry_aoa_deg.
         }
-        log_line("  Range: " + ROUND(to_pad_h:MAG/1000, 1) + " km  |  hdg: " + ROUND(pad_geo:HEADING, 1) + "  |  brg: " + ROUND(pad_geo:BEARING, 1) + "  |  Alt: " + ROUND(ALT:RADAR/1000, 1) + " km AGL  |  spd: " + ROUND(surface_speed, 1) + " m/s  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s  |  brakes: " + brake_mode + "  |  retro: " + retro_mode).
+        log_line("  Range: " + ROUND(to_pad_h:MAG/1000, 1) + " km  |  hdg: " + ROUND(pad_geo:HEADING, 1) + "  |  brg: " + ROUND(pad_geo:BEARING, 1) + "  |  Alt: " + ROUND(ALT:RADAR/1000, 1) + " km AGL  |  spd: " + ROUND(surface_speed, 1) + " m/s  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s").
+        log_line("    brakes: " + brake_mode + "  |  retro: " + retro_mode + "  |  aoa: " + aoa_mode + "  |  cmd: " + ROUND(aoa_cmd, 1) + " deg  |  actual: " + ROUND(actual_retro_tilt(), 1) + " deg").
         SET next_print TO TIME:SECONDS + wait_telemetry_interval.
     }
     WAIT 0.
