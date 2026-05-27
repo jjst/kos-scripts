@@ -5,12 +5,12 @@
 //  descent with a gradual vertical-speed target down to ~3 m/s.
 
 // --- CONFIG (edit these) ------------------------------------
-SET hop_altitude      TO 15000.
+SET hop_altitude      TO 20000.
 SET max_twr           TO 2.5.
 SET burn_safety       TO 1.2.
 SET gear_deploy_alt   TO 500.
 // Keep a small non-zero touchdown rate to avoid over-braking hover oscillation.
-SET touchdown_speed   TO 3.
+SET touchdown_speed   TO 2.
 // PID gains for powered descent vertical-speed control.
 // Increase Kp for faster response, Ki to reduce steady-state bias, Kd for damping.
 SET descent_kp        TO 0.035.
@@ -34,35 +34,39 @@ SET descent_pid_epsilon TO 0.15.
 SET p5_target_speed TO 150.
 // Proportional gain for Phase 5 speed hold.
 SET p5_speed_kp TO 0.03.
+// Phase 6 RCS translation trim while main steering remains retrograde.
+SET p6_rcs_pos_gain TO 0.20.   // raw RCS command per meter toward pad
+SET p6_rcs_vel_gain TO 0.18.   // raw RCS command per m/s horizontal velocity
 // Phase handoff altitudes used as bounded prediction horizons.
 SET p4_handoff_alt TO 5000.
 SET p6_entry_alt TO 1000.
+// Shared lateral miss corridor based on altitude above ground.
+SET handoff_tolerance_slope TO 0.4.   // extra meters allowed per sqrt-meter AGL
+// Keep correcting this fraction of predicted miss even inside the corridor.
+// The corridor softens guidance effort; it does not create a no-correction dead zone.
+SET handoff_min_effort_fraction TO 0.5.
 // Minimum downward speed (m/s, negative) before engaging Phase 4 steering.
 // Avoids locking to SRFRETROGRADE at apoapsis when surface velocity is near-zero
 // and the retrograde vector is undefined/unstable.
 SET p4_entry_vs TO -50.
 // Lateral guidance PID — output is commanded tilt in degrees away from pad.
 // Aerodynamic force from tilt pushes the rocket toward the pad.
-// Phase 4 (aero, high speed).
-SET p4_lat_kp            TO 0.5.   // deg per m/s closing error
-SET p4_lat_ki            TO 0.05.
-SET p4_lat_kd            TO 0.1.
-SET p4_lat_max_tilt      TO 15.    // degrees
-SET p4_approach_gain     TO 0.05.
-SET p4_max_approach_rate TO 30.
+// Phase 4 controls handoff miss directly; the tilt clamp is the authority limit.
+SET p4_miss_kp           TO 0.16.  // deg per meter of effective handoff miss
+SET p4_miss_ki           TO 0.0.
+SET p4_miss_kd           TO 0.0.
+SET p4_lat_max_tilt      TO 30.    // degrees
 // Phase 5 (powered, ~150 m/s).
 SET p5_lat_kp            TO 0.5.
 SET p5_lat_ki            TO 0.05.
 SET p5_lat_kd            TO 0.1.
-SET p5_lat_max_tilt      TO 20.    // degrees
-SET p5_approach_gain     TO 0.1.
-SET p5_max_approach_rate TO 20.
+SET p5_lat_max_tilt      TO 30.    // degrees
 // Minimum horizontal distance (m) before applying lateral correction.
 SET lat_min_horiz_dist TO 10.
 // Launch deflection — tilts the ascent trajectory to seed a lateral drift for testing.
 // Set to 0 for a nominal straight-up hop.
 SET launch_deflect_deg TO 1.
-SET launch_deflect_hdg TO ROUND(RANDOM() * 360).
+SET launch_deflect_hdg TO 168.
 // Terminal output is mirrored to this file with LOG.
 SET log_path TO "hop.log".
 // ------------------------------------------------------------
@@ -115,6 +119,41 @@ FUNCTION predict_miss_vec {
     RETURN to_pad_h - horiz_vel * tof.
 }
 
+FUNCTION allowed_handoff_miss {
+    PARAMETER alt_agl.
+    RETURN SQRT(MAX(0, alt_agl)) * handoff_tolerance_slope.
+}
+
+FUNCTION target_hclosing_speed {
+    PARAMETER horiz_dist, tof, alt_agl.
+    LOCAL effective_miss IS guidance_effective_miss(horiz_dist, alt_agl).
+    IF effective_miss <= 0 OR tof <= 0 {
+        RETURN 0.
+    }
+    RETURN effective_miss / tof.
+}
+
+FUNCTION guidance_effective_miss {
+    PARAMETER horiz_dist, alt_agl.
+    LOCAL allowed_miss IS allowed_handoff_miss(alt_agl).
+    LOCAL outside_miss IS MAX(0, horiz_dist - allowed_miss).
+    LOCAL floor_miss IS horiz_dist * handoff_min_effort_fraction.
+    RETURN MAX(outside_miss, floor_miss).
+}
+
+FUNCTION actual_retro_tilt {
+    RETURN VANG(SHIP:FACING:FOREVECTOR, SHIP:SRFRETROGRADE:FOREVECTOR).
+}
+
+FUNCTION set_rcs_translation_world {
+    PARAMETER world_vec.
+    LOCAL star_cmd IS clamp(VDOT(world_vec, SHIP:FACING:STARVECTOR), -1, 1).
+    LOCAL top_cmd  IS clamp(VDOT(world_vec, SHIP:FACING:TOPVECTOR), -1, 1).
+    LOCAL fore_cmd IS clamp(VDOT(world_vec, SHIP:FACING:FOREVECTOR), -1, 1).
+    SET SHIP:CONTROL:TRANSLATION TO V(star_cmd, top_cmd, fore_cmd).
+    RETURN V(star_cmd, top_cmd, fore_cmd).
+}
+
 FUNCTION target_descent_rate {
     PARAMETER alt_agl.
     IF alt_agl > descent_profile_high_alt {
@@ -140,8 +179,8 @@ FUNCTION target_descent_rate {
 
 LOCAL pad_geo  IS SHIP:GEOPOSITION.
 LOCAL lat_tilt IS 0.
-LOCAL lat_pid  IS PIDLOOP(p4_lat_kp, p4_lat_ki, p4_lat_kd,
-                           -p4_lat_max_tilt, p4_lat_max_tilt).
+LOCAL lat_pid  IS PIDLOOP(p4_miss_kp, p4_miss_ki, p4_miss_kd,
+                           -p4_lat_max_tilt * 2, p4_lat_max_tilt * 2).
 
 CLEARSCREEN.
 log_line("=== hop.ks ===").
@@ -184,11 +223,7 @@ UNTIL SHIP:APOAPSIS >= hop_altitude {
     IF TIME:SECONDS >= next_print {
         LOCAL to_pad_h  IS VXCL(UP:FOREVECTOR, pad_geo:POSITION).
         LOCAL horiz_dist IS to_pad_h:MAG.
-        LOCAL hclos IS 0.
-        IF horiz_dist > lat_min_horiz_dist {
-            SET hclos TO VDOT(VXCL(UP:FOREVECTOR, SHIP:VELOCITY:SURFACE), to_pad_h:NORMALIZED).
-        }
-        log_line("  Alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  Ap: " + ROUND(SHIP:APOAPSIS/1000, 1) + " km  |  thr: " + ROUND(actual_throttle, 2) + "  |  horiz: " + ROUND(horiz_dist) + " m  |  hclos: " + ROUND(hclos, 1) + " m/s").
+        log_line("  Alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  Ap: " + ROUND(SHIP:APOAPSIS/1000, 1) + " km  |  thr: " + ROUND(actual_throttle, 2) + "  |  horiz: " + ROUND(horiz_dist) + " m").
         SET next_print TO TIME:SECONDS + 2.
     }
     WAIT 0.
@@ -202,11 +237,7 @@ UNTIL SHIP:VERTICALSPEED < p4_entry_vs {
     IF TIME:SECONDS >= next_print {
         LOCAL to_pad_h  IS VXCL(UP:FOREVECTOR, pad_geo:POSITION).
         LOCAL horiz_dist IS to_pad_h:MAG.
-        LOCAL hclos IS 0.
-        IF horiz_dist > lat_min_horiz_dist {
-            SET hclos TO VDOT(VXCL(UP:FOREVECTOR, SHIP:VELOCITY:SURFACE), to_pad_h:NORMALIZED).
-        }
-        log_line("  Alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s  |  horiz: " + ROUND(horiz_dist) + " m  |  hclos: " + ROUND(hclos, 1) + " m/s").
+        log_line("  Alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s  |  horiz: " + ROUND(horiz_dist) + " m").
         SET next_print TO TIME:SECONDS + 2.
     }
     WAIT 0.
@@ -239,19 +270,24 @@ UNTIL ALT:RADAR < p4_handoff_alt {
     LOCAL alt_delta IS alt_agl - p4_handoff_alt.
     LOCAL tof       IS time_to_alt_delta(vs, g_p4, alt_delta).
     SET pred_to_pad TO predict_miss_vec(to_pad_h, horiz_vel, vs, g_p4, alt_delta).
-    LOCAL horiz_dist IS pred_to_pad:MAG.
-    LOCAL hclos     IS 0.
-    LOCAL hclos_tgt IS 0.
-    IF horiz_dist > lat_min_horiz_dist {
-        SET hclos     TO VDOT(horiz_vel, pred_to_pad:NORMALIZED).
-        SET hclos_tgt TO MIN(p4_max_approach_rate, horiz_dist * p4_approach_gain).
+    LOCAL guidance_miss IS pred_to_pad:MAG.
+    LOCAL allowed_miss IS allowed_handoff_miss(alt_agl).
+    LOCAL effective_miss IS guidance_effective_miss(guidance_miss, alt_agl).
+    LOCAL miss_tilt IS 0.
+    IF guidance_miss > lat_min_horiz_dist {
+        // Phase 4 is about fixing the predicted handoff miss now, not pacing it
+        // against remaining time.
+        SET lat_pid:SETPOINT TO 0.
+        SET miss_tilt TO lat_pid:UPDATE(TIME:SECONDS, -effective_miss).
+        SET lat_tilt TO clamp(miss_tilt, -p4_lat_max_tilt, p4_lat_max_tilt).
+    } ELSE {
+        SET lat_tilt TO 0.
     }
-    SET lat_pid:SETPOINT TO hclos_tgt.
-    SET lat_tilt TO lat_pid:UPDATE(TIME:SECONDS, hclos).
 
     IF TIME:SECONDS >= next_print {
+        LOCAL actual_tilt IS actual_retro_tilt().
         log_line("  Alt: " + ROUND(alt_agl) + " m AGL  |  vs: " + ROUND(vs, 1) + " m/s  |  tof_to_p5: " + ROUND(tof, 1) + " s").
-        log_line("    horiz: " + ROUND(to_pad_h:MAG) + " m  |  pred_miss: " + ROUND(horiz_dist) + " m  |  hclos: " + ROUND(hclos, 1) + " m/s  |  tgt: " + ROUND(hclos_tgt, 1) + " m/s  |  tilt_cmd: " + ROUND(lat_tilt, 1) + " deg").
+        log_line("    horiz: " + ROUND(to_pad_h:MAG) + " m  |  pred_miss: " + ROUND(guidance_miss) + " m  |  guidance_miss: " + ROUND(guidance_miss) + " m  |  tol: " + ROUND(allowed_miss) + " m  |  eff_miss: " + ROUND(effective_miss) + " m  |  miss_tilt: " + ROUND(miss_tilt, 1) + " deg  |  tilt_cmd: " + ROUND(lat_tilt, 1) + " deg  |  actual_tilt: " + ROUND(actual_tilt, 1) + " deg").
         SET next_print TO TIME:SECONDS + 2.
     }
     WAIT 0.
@@ -282,12 +318,15 @@ UNTIL p5_burn_ready {
     LOCAL alt_delta  IS alt_agl - p6_entry_alt.
     LOCAL tof        IS time_to_alt_delta(vs, g_p5, alt_delta).
     SET pred_to_pad TO predict_miss_vec(to_pad_h, horiz_vel, vs, g_p5, alt_delta).
-    LOCAL horiz_dist IS pred_to_pad:MAG.
+    LOCAL pred_miss  IS pred_to_pad:MAG.
+    LOCAL horiz_dist IS to_pad_h:MAG.
+    LOCAL allowed_miss IS allowed_handoff_miss(alt_agl).
+    LOCAL effective_miss IS guidance_effective_miss(horiz_dist, alt_agl).
     LOCAL hclos      IS 0.
     LOCAL hclos_tgt  IS 0.
     IF horiz_dist > lat_min_horiz_dist {
         SET hclos     TO VDOT(horiz_vel, pred_to_pad:NORMALIZED).
-        SET hclos_tgt TO MIN(p5_max_approach_rate, horiz_dist * p5_approach_gain).
+        SET hclos_tgt TO target_hclosing_speed(horiz_dist, tof, alt_agl).
     }
     SET lat_pid:SETPOINT TO hclos_tgt.
     SET lat_tilt TO lat_pid:UPDATE(TIME:SECONDS, hclos).
@@ -319,8 +358,9 @@ UNTIL p5_burn_ready {
             SET p5_burn_ready TO TRUE.
         }
         IF NOT p5_burn_ready AND TIME:SECONDS >= next_print {
+            LOCAL actual_tilt IS actual_retro_tilt().
             log_line("  Alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(vs, 1) + " m/s  |  tof_to_p6: " + ROUND(tof, 1) + " s  |  thr: " + ROUND(p5_throttle, 2)).
-            log_line("    horiz: " + ROUND(to_pad_h:MAG) + " m  |  pred_miss: " + ROUND(horiz_dist) + " m  |  hclos: " + ROUND(hclos, 1) + " m/s  |  tgt_hclos: " + ROUND(hclos_tgt, 1) + " m/s  |  tilt_cmd: " + ROUND(lat_tilt, 1) + " deg").
+            log_line("    horiz: " + ROUND(to_pad_h:MAG) + " m  |  pred_miss: " + ROUND(pred_miss) + " m  |  guidance_miss: " + ROUND(horiz_dist) + " m  |  tol: " + ROUND(allowed_miss) + " m  |  eff_miss: " + ROUND(effective_miss) + " m  |  hclos: " + ROUND(hclos, 1) + " m/s  |  tgt_hclos: " + ROUND(hclos_tgt, 1) + " m/s  |  tilt_cmd: " + ROUND(lat_tilt, 1) + " deg  |  actual_tilt: " + ROUND(actual_tilt, 1) + " deg").
             SET next_print TO TIME:SECONDS + 2.
         }
     }
@@ -328,7 +368,7 @@ UNTIL p5_burn_ready {
 }
 
 // Phase 6 — Landing burn (pure retrograde, no lateral corrections)
-log_line("--- Phase 6: Landing burn ---").
+log_line("--- Phase 6: Landing burn / RCS trim ---").
 LOCK STEERING TO SHIP:SRFRETROGRADE.
 BRAKES ON.
 SET descent_pid TO PIDLOOP(
@@ -359,21 +399,26 @@ UNTIL SHIP:STATUS = "LANDED" {
         BREAK.
     }
 
-    LOCAL vs_p6      IS SHIP:VERTICALSPEED.
-    LOCAL horiz_dist IS VXCL(UP:FOREVECTOR, pad_geo:POSITION):MAG.
+    LOCAL vs_p6     IS SHIP:VERTICALSPEED.
+    LOCAL to_pad_h  IS VXCL(UP:FOREVECTOR, pad_geo:POSITION).
+    LOCAL horiz_vel IS VXCL(UP:FOREVECTOR, SHIP:VELOCITY:SURFACE).
+    LOCAL horiz_dist IS to_pad_h:MAG.
+    LOCAL rcs_world IS to_pad_h * p6_rcs_pos_gain - horiz_vel * p6_rcs_vel_gain.
+    LOCAL rcs_cmd IS set_rcs_translation_world(rcs_world).
     LOCAL target_vs IS target_descent_rate(alt_agl).
     SET descent_pid:SETPOINT TO target_vs.
     LOCAL hover IS (SHIP:MASS * g_land) / thrust_available.
     LOCAL pid_correction IS descent_pid:UPDATE(TIME:SECONDS, vs_p6).
     SET thrott_cmd TO clamp(hover + pid_correction, 0, 1).
     IF TIME:SECONDS >= next_print {
-        log_line("  Alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(vs_p6, 1) + " m/s  |  horiz: " + ROUND(horiz_dist) + " m  |  tgt: " + ROUND(target_vs, 1) + " m/s  |  thr: " + ROUND(thrott_cmd, 2)).
+        log_line("  Alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(vs_p6, 1) + " m/s  |  horiz: " + ROUND(horiz_dist) + " m  |  tgt: " + ROUND(target_vs, 1) + " m/s  |  thr: " + ROUND(thrott_cmd, 2) + "  |  rcs: " + ROUND(rcs_cmd:X, 2) + "," + ROUND(rcs_cmd:Y, 2) + "," + ROUND(rcs_cmd:Z, 2)).
         SET next_print TO TIME:SECONDS + 1.
     }
     WAIT 0.
 }
 
 SET thrott_cmd TO 0.
+SET SHIP:CONTROL:TRANSLATION TO V(0, 0, 0).
 SET STEERINGMANAGER:MAXSTOPPINGTIME TO original_max_stopping_time.
 UNLOCK THROTTLE.
 UNLOCK STEERING.
@@ -392,4 +437,5 @@ IF descent_aborted {
     log_line("  vs: " + ROUND(SHIP:VERTICALSPEED, 2) + " m/s  |  horiz spd: " + ROUND(land_hspd, 1) + " m/s").
     log_line("  pad offset: " + ROUND(land_offset, 1) + " m  |  flight time: " + ROUND(flight_time) + " s").
     log_line("  deflection: " + launch_deflect_deg + " deg hdg " + launch_deflect_hdg).
+    COPYPATH(log_path, "0:").
 }
