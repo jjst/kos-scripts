@@ -1,5 +1,5 @@
 // ============================================================
-//  boomerang.ks — bootstrap loader for local hop execution
+//  boomerang.ks — bootstrap loader for "boomerang" VTVL vessel.
 // ============================================================
 
 PRINT "=== boomerang.ks ===".
