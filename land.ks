@@ -14,7 +14,7 @@ SET entry_brakes_retract_speed_mps TO 1600.
 SET entry_aoa_enabled TO TRUE.
 SET entry_aoa_high_alt_meters TO 70000.
 SET entry_aoa_low_alt_meters TO 35000.
-SET entry_aoa_high_deg TO 15.
+SET entry_aoa_high_deg TO 50.
 SET entry_aoa_low_deg TO 5.
 SET entry_aoa_retract_speed_mps TO 1600.
 // Keep a small non-zero touchdown rate to avoid over-braking hover oscillation.
@@ -47,7 +47,7 @@ SET d2_speed_kp TO 0.03.
 // Descent phase handoff altitudes.
 SET powered_steering_alt_meters TO 5000.
 SET landing_burn_alt_meters TO 1000.
-SET guidance_start_range_meters TO 15000.
+SET guidance_start_range_meters TO 75000.
 SET wait_orbit_retro_alt_meters TO 70000.
 // Shared lateral miss corridor based on altitude above ground.
 SET handoff_tolerance_slope TO 0.4.   // extra meters allowed per sqrt-meter AGL
