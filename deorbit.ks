@@ -18,7 +18,6 @@ SET slow_burn_miss_meters TO 10000.
 SET min_deorbit_throttle TO 0.02.
 SET max_deorbit_twr TO 1.
 SET deorbit_miss_kp TO 0.0001.
-SET max_worsening_samples TO 3.
 SET burn_alignment_max_error_deg TO 1.
 SET burn_alignment_timeout TO 45.
 SET telemetry_interval TO 5.
@@ -174,7 +173,6 @@ check_line(ADDONS:TR:AVAILABLE, "Trajectories addon", "AVAILABLE = " + ADDONS:TR
 check_line(SHIP:AVAILABLETHRUST > 0, "Available thrust", ROUND(SHIP:AVAILABLETHRUST, 1) + " kN").
 check_line(min_deorbit_throttle >= 0 AND min_deorbit_throttle <= 1, "Minimum burn throttle", ROUND(min_deorbit_throttle, 2)).
 check_line(max_deorbit_twr > 0, "Maximum burn TWR", max_deorbit_twr).
-check_line(max_worsening_samples > 0, "Worsening sample limit", max_worsening_samples).
 
 IF preflight_failed {
     abort_deorbit("preflight checks failed.").
@@ -212,7 +210,6 @@ LOCAL had_impact IS FALSE.
 LOCAL success IS FALSE.
 LOCAL burn_used IS 0.
 LOCAL deorbit_throttle IS 1.
-LOCAL worsening_samples IS 0.
 LOCAL next_print IS TIME:SECONDS.
 LOCAL miss_pid IS PIDLOOP().
 SET miss_pid:KP TO deorbit_miss_kp.
@@ -235,14 +232,8 @@ UNTIL success {
         LOCAL miss IS target_miss_distance(impact_geo, pad_geo).
         IF miss < best_miss {
             SET best_miss TO miss.
-            SET worsening_samples TO 0.
         } ELSE IF best_miss < slow_burn_miss_meters AND miss > best_miss + impact_tolerance_meters {
-            SET worsening_samples TO worsening_samples + 1.
-            IF worsening_samples >= max_worsening_samples {
-                abort_deorbit("predicted impact worsened for " + worsening_samples + " samples; best miss was " + ROUND(best_miss) + " m.").
-            }
-        } ELSE {
-            SET worsening_samples TO 0.
+            abort_deorbit("predicted impact is worsening; best miss was " + ROUND(best_miss) + " m.").
         }
 
         IF miss <= impact_tolerance_meters {
@@ -253,7 +244,7 @@ UNTIL success {
         }
 
         IF TIME:SECONDS >= next_print {
-            log_line("  burn: " + ROUND(burn_used, 1) + " m/s  |  miss: " + ROUND(miss) + " m  |  best: " + ROUND(best_miss) + " m  |  worse: " + worsening_samples + "/" + max_worsening_samples + "  |  thr: " + ROUND(deorbit_throttle, 2) + "/" + ROUND(max_twr_throttle, 2) + "  |  impact: " + ROUND(impact_geo:LAT, 4) + ", " + ROUND(impact_geo:LNG, 4)).
+            log_line("  burn: " + ROUND(burn_used, 1) + " m/s  |  miss: " + ROUND(miss) + " m  |  best: " + ROUND(best_miss) + " m  |  thr: " + ROUND(deorbit_throttle, 2) + "/" + ROUND(max_twr_throttle, 2) + "  |  impact: " + ROUND(impact_geo:LAT, 4) + ", " + ROUND(impact_geo:LNG, 4)).
             SET next_print TO next_burn_telemetry_time().
         }
     } ELSE {
