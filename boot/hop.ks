@@ -199,8 +199,8 @@ BRAKES OFF.
 LOCK THROTTLE TO 0.
 LOCK STEERING TO HEADING(launch_deflect_hdg_deg, 90 - launch_deflect_deg).
 
-// Phase 1 — Countdown
-log_line("--- Phase 1: Countdown ---").
+// Countdown
+log_line("--- Countdown ---").
 FROM {LOCAL i IS 5.} UNTIL i = 0 STEP {SET i TO i - 1.} DO {
     log_line("T-" + i + "...").
     WAIT 1.
@@ -210,8 +210,8 @@ LOCK THROTTLE TO 1.0.
 STAGE.
 LOCAL start_time IS TIME:SECONDS.
 
-// Phase 2 — Vertical ascent
-log_line("--- Phase 2: Vertical ascent to " + ROUND(hop_altitude/1000, 1) + " km Ap ---").
+// Vertical ascent
+log_line("--- Vertical ascent to " + ROUND(hop_altitude/1000, 1) + " km Ap ---").
 LOCAL next_print IS TIME:SECONDS.
 UNTIL SHIP:APOAPSIS >= hop_altitude {
     LOCAL max_thrust IS SHIP:AVAILABLETHRUST.
@@ -229,9 +229,9 @@ UNTIL SHIP:APOAPSIS >= hop_altitude {
     WAIT 0.
 }
 
-// Phase 3 — Cutoff and coast
+// Cutoff and coast
 LOCK THROTTLE TO 0.
-log_line("--- Phase 3: Coasting ---").
+log_line("--- Coasting ---").
 log_line("  Cutoff  |  Ap: " + ROUND(SHIP:APOAPSIS/1000, 1) + " km  |  Pe: " + ROUND(SHIP:PERIAPSIS/1000, 1) + " km").
 UNTIL SHIP:VERTICALSPEED < d1_entry_vs {
     IF TIME:SECONDS >= next_print {
@@ -442,6 +442,6 @@ IF descent_aborted {
     log_line("  vs: " + ROUND(SHIP:VERTICALSPEED, 2) + " m/s  |  horiz spd: " + ROUND(land_hspd, 1) + " m/s").
     log_line("  pad offset: " + ROUND(land_offset, 1) + " m  |  flight time: " + ROUND(flight_time) + " s").
     log_line("  deflection: " + launch_deflect_deg + " deg hdg " + launch_deflect_hdg_deg).
-    // Retrieval model: archived logs are only available after a successful landing.
-    COPYPATH(log_path, "0:").
 }
+// Archive the log whenever the script survives long enough to run this.
+COPYPATH(log_path, "0:").
