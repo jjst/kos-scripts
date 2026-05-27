@@ -8,6 +8,9 @@
 SET gear_deploy_alt   TO 500.
 SET telemetry_interval TO 5.
 SET wait_telemetry_interval TO 20.
+SET entry_brakes_enabled TO TRUE.
+SET entry_brakes_deploy_alt_meters TO 70000.
+SET entry_brakes_retract_speed TO 1700.
 // Keep a small non-zero touchdown rate to avoid over-braking hover oscillation.
 SET touchdown_speed   TO 2.
 // PID gains for powered descent vertical-speed control.
@@ -300,6 +303,7 @@ check_line(target_body = SHIP:BODY:NAME, "Target body", "target " + target_body 
 check_line(SHIP:AVAILABLETHRUST > 0, "Available thrust", ROUND(SHIP:AVAILABLETHRUST, 1) + " kN").
 check_line(guidance_start_range_meters > 0, "Guidance range", ROUND(guidance_start_range_meters/1000, 1) + " km").
 check_line(powered_steering_alt_meters > landing_burn_alt_meters, "Descent handoff altitudes", ROUND(powered_steering_alt_meters) + " m -> " + ROUND(landing_burn_alt_meters) + " m").
+check_line(entry_brakes_retract_speed > 0, "Entry brake retract speed", ROUND(entry_brakes_retract_speed) + " m/s").
 info_line("Landing target coordinates", ROUND(pad_geo:LAT, 5) + ", " + ROUND(pad_geo:LNG, 5)).
 IF preflight_failed {
     abort_land("preflight checks failed.").
@@ -312,14 +316,32 @@ LOCAL next_print IS TIME:SECONDS.
 
 LOCK STEERING TO wait_retrograde_steering().
 log_line("--- Waiting for landing target range ---").
+LOCAL entry_brakes_deployed IS FALSE.
 UNTIL VXCL(UP:FOREVECTOR, pad_geo:POSITION):MAG < guidance_start_range_meters {
+    LOCAL surface_speed IS SHIP:VELOCITY:SURFACE:MAG.
+    IF entry_brakes_enabled {
+        IF NOT entry_brakes_deployed AND SHIP:ALTITUDE < entry_brakes_deploy_alt_meters AND surface_speed > entry_brakes_retract_speed {
+            BRAKES ON.
+            SET entry_brakes_deployed TO TRUE.
+            log_line("  Entry brakes deployed  |  alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  speed: " + ROUND(surface_speed, 1) + " m/s").
+        } ELSE IF entry_brakes_deployed AND surface_speed <= entry_brakes_retract_speed {
+            BRAKES OFF.
+            SET entry_brakes_deployed TO FALSE.
+            log_line("  Entry brakes retracted  |  alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  speed: " + ROUND(surface_speed, 1) + " m/s").
+        }
+    }
+
     IF TIME:SECONDS >= next_print {
         LOCAL to_pad_h IS VXCL(UP:FOREVECTOR, pad_geo:POSITION).
         LOCAL retro_mode IS "surface".
+        LOCAL brake_mode IS "off".
+        IF entry_brakes_deployed {
+            SET brake_mode TO "on".
+        }
         IF SHIP:ALTITUDE > wait_orbit_retro_alt_meters {
             SET retro_mode TO "orbit".
         }
-        log_line("  Range: " + ROUND(to_pad_h:MAG/1000, 1) + " km  |  Alt: " + ROUND(ALT:RADAR/1000, 1) + " km AGL  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s  |  retro: " + retro_mode).
+        log_line("  Range: " + ROUND(to_pad_h:MAG/1000, 1) + " km  |  Alt: " + ROUND(ALT:RADAR/1000, 1) + " km AGL  |  spd: " + ROUND(surface_speed, 1) + " m/s  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s  |  brakes: " + brake_mode + "  |  retro: " + retro_mode).
         SET next_print TO TIME:SECONDS + wait_telemetry_interval.
     }
     WAIT 0.
