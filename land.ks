@@ -47,7 +47,7 @@ SET d2_speed_kp TO 0.03.
 // Descent phase handoff altitudes.
 SET powered_steering_alt_meters TO 5000.
 SET landing_burn_alt_meters TO 1000.
-SET guidance_start_range_meters TO 75000.
+SET guidance_start_range_meters TO 200000.
 SET wait_orbit_retro_alt_meters TO 70000.
 // Shared lateral miss corridor based on altitude above ground.
 SET handoff_tolerance_slope TO 0.4.   // extra meters allowed per sqrt-meter AGL
