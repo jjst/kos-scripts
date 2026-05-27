@@ -13,6 +13,8 @@ SET max_deorbit_burn_mps TO 200.
 SET min_parking_alt_meters TO 70000.
 SET max_parking_alt_meters TO 150000.
 SET max_parking_eccentricity TO 0.1.
+SET min_deorbit_phase_angle_deg TO 90.
+SET max_deorbit_phase_angle_deg TO 150.
 SET slow_burn_miss_meters TO 10000.
 SET min_deorbit_throttle TO 0.1.
 SET burn_alignment_max_error_deg TO 5.
@@ -77,6 +79,32 @@ FUNCTION orbit_retrograde_error {
     RETURN VANG(SHIP:FACING:FOREVECTOR, retro_vec).
 }
 
+FUNCTION orbit_plane_projection {
+    PARAMETER vec, plane_normal.
+    RETURN vec - (plane_normal * VDOT(vec, plane_normal)).
+}
+
+FUNCTION target_phase_angle {
+    PARAMETER target_geo.
+    LOCAL ship_radial IS SHIP:POSITION - SHIP:BODY:POSITION.
+    LOCAL target_radial IS target_geo:POSITION - SHIP:BODY:POSITION.
+    LOCAL orbit_normal IS VCRS(ship_radial, SHIP:VELOCITY:ORBIT):NORMALIZED.
+    LOCAL ship_plane IS orbit_plane_projection(ship_radial, orbit_normal).
+    LOCAL target_plane IS orbit_plane_projection(target_radial, orbit_normal).
+
+    IF ship_plane:MAG <= 0 OR target_plane:MAG <= 0 {
+        RETURN -1.
+    }
+
+    SET ship_plane TO ship_plane:NORMALIZED.
+    SET target_plane TO target_plane:NORMALIZED.
+    LOCAL angle IS VANG(ship_plane, target_plane).
+    IF VDOT(VCRS(ship_plane, target_plane), orbit_normal) < 0 {
+        SET angle TO 360 - angle.
+    }
+    RETURN angle.
+}
+
 FUNCTION check_line {
     PARAMETER ok, label, detail.
     LOCAL mark IS "[x]".
@@ -112,6 +140,7 @@ IF EXISTS(land_target_path) {
 }
 
 LOCAL pad_geo IS LATLNG(target_lat, target_lng).
+LOCAL deorbit_phase_angle IS target_phase_angle(pad_geo).
 log_line("Target: " + ROUND(pad_geo:LAT, 5) + ", " + ROUND(pad_geo:LNG, 5) + " on " + target_body).
 log_line("Target source: " + target_source).
 
@@ -120,6 +149,7 @@ check_line(target_body = SHIP:BODY:NAME, "Target body", "target " + target_body 
 check_line(SHIP:APOAPSIS >= min_parking_alt_meters AND SHIP:APOAPSIS <= max_parking_alt_meters, "Parking Ap", ROUND(SHIP:APOAPSIS/1000, 1) + " km within " + ROUND(min_parking_alt_meters/1000) + "-" + ROUND(max_parking_alt_meters/1000) + " km").
 check_line(SHIP:PERIAPSIS >= min_parking_alt_meters AND SHIP:PERIAPSIS <= max_parking_alt_meters, "Parking Pe", ROUND(SHIP:PERIAPSIS/1000, 1) + " km within " + ROUND(min_parking_alt_meters/1000) + "-" + ROUND(max_parking_alt_meters/1000) + " km").
 check_line(SHIP:OBT:ECCENTRICITY <= max_parking_eccentricity, "Parking eccentricity", ROUND(SHIP:OBT:ECCENTRICITY, 4) + " <= " + max_parking_eccentricity).
+check_line(deorbit_phase_angle >= min_deorbit_phase_angle_deg AND deorbit_phase_angle <= max_deorbit_phase_angle_deg, "Deorbit phase angle", ROUND(deorbit_phase_angle, 1) + " deg within " + ROUND(min_deorbit_phase_angle_deg) + "-" + ROUND(max_deorbit_phase_angle_deg) + " deg ahead of target").
 check_line(ADDONS:TR:AVAILABLE, "Trajectories addon", "AVAILABLE = " + ADDONS:TR:AVAILABLE).
 check_line(SHIP:AVAILABLETHRUST > 0, "Available thrust", ROUND(SHIP:AVAILABLETHRUST, 1) + " kN").
 check_line(max_deorbit_burn_mps > 0, "Burn cap", ROUND(max_deorbit_burn_mps) + " m/s").
