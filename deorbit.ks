@@ -21,7 +21,6 @@ SET max_deorbit_twr TO 0.25.
 SET deorbit_miss_kp TO 0.00001.
 SET burn_alignment_max_error_deg TO 1.
 SET burn_alignment_timeout TO 45.
-SET entry_brakes_enabled TO TRUE.
 SET telemetry_interval TO 5.
 SET burn_telemetry_interval TO 1.
 SET log_path TO "deorbit.log".
@@ -202,15 +201,9 @@ check_line(SHIP:AVAILABLETHRUST > 0, "Available thrust", ROUND(SHIP:AVAILABLETHR
 check_line(min_deorbit_throttle >= 0 AND min_deorbit_throttle <= 1, "Minimum burn throttle", ROUND(min_deorbit_throttle, 2)).
 check_line(max_deorbit_twr > 0, "Maximum burn TWR", max_deorbit_twr).
 check_line(aim_long_distance_meters >= 0, "Aim-long offset", ROUND(aim_long_distance_meters/1000, 1) + " km").
-info_line("Entry brakes", "enabled for Trajectories prediction = " + entry_brakes_enabled).
 
 IF preflight_failed {
     abort_deorbit("preflight checks failed.").
-}
-
-IF entry_brakes_enabled {
-    BRAKES ON.
-    log_line("Entry brakes deployed before Trajectories targeting.").
 }
 
 ADDONS:TR:SETTARGET(aim_geo).
