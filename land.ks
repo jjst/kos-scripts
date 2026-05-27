@@ -60,6 +60,9 @@ SET d2_lat_max_tilt      TO 30.    // degrees
 SET lat_min_horiz_dist TO 10.
 // Landing target written by launch.ks.
 SET land_target_path TO "1:/land-target.json".
+SET fallback_target_body TO "Kerbin".
+SET fallback_target_lat TO -0.0972.
+SET fallback_target_lng TO -74.5577.
 // Terminal output is mirrored to this file with LOG.
 SET log_path TO "land.log".
 // ------------------------------------------------------------
@@ -227,25 +230,31 @@ FUNCTION target_descent_rate {
 
 CLEARSCREEN.
 log_line("=== land.ks ===").
-IF NOT EXISTS(land_target_path) {
-    log_line("FATAL: missing landing target file: " + land_target_path).
-    log_line("Run launch.ks first so it can save the launch position.").
-    WAIT 5.
-    SHUTDOWN.
+LOCAL target_body IS fallback_target_body.
+LOCAL target_lat IS fallback_target_lat.
+LOCAL target_lng IS fallback_target_lng.
+LOCAL target_source IS "fallback KSC launchpad".
+IF EXISTS(land_target_path) {
+    LOCAL target_data IS READJSON(land_target_path).
+    SET target_body TO target_data["body"].
+    SET target_lat TO target_data["lat"].
+    SET target_lng TO target_data["lng"].
+    SET target_source TO land_target_path.
+} ELSE {
+    log_line("WARN: missing landing target file: " + land_target_path + ".").
+    log_line("      Using fallback KSC launchpad coordinates.").
 }
 
-LOCAL target_data IS READJSON(land_target_path).
-LOCAL target_body IS target_data["body"].
-LOCAL same_body IS target_body = SHIP:BODY:NAME.
-IF NOT same_body {
+IF NOT target_body = SHIP:BODY:NAME {
     log_line("WARN: landing target body is " + target_body + ", current body is " + SHIP:BODY:NAME + ".").
 }
-LOCAL pad_geo  IS LATLNG(target_data["lat"], target_data["lng"]).
+LOCAL pad_geo  IS LATLNG(target_lat, target_lng).
 LOCAL lat_tilt IS 0.
 LOCAL lat_pid  IS PIDLOOP(d1_miss_kp, d1_miss_ki, d1_miss_kd,
                            -d1_lat_max_tilt * 2, d1_lat_max_tilt * 2).
 log_line("Gear deploy  : " + gear_deploy_alt + " m AGL").
 log_line("Target       : " + ROUND(pad_geo:LAT, 5) + ", " + ROUND(pad_geo:LNG, 5) + " on " + target_body).
+log_line("Target source: " + target_source).
 log_line("Guidance range: " + ROUND(guidance_start_range_meters/1000, 1) + " km").
 log_line("Wait attitude: orbit retro above " + ROUND(wait_orbit_retro_alt_meters/1000, 1) + " km, surface retro below.").
 

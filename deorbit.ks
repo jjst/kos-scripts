@@ -5,6 +5,9 @@
 // --- CONFIG (edit these) ------------------------------------
 SET land_target_path TO "1:/land-target.json".
 SET land_script_path TO "1:/land.ks".
+SET fallback_target_body TO "Kerbin".
+SET fallback_target_lat TO -0.0972.
+SET fallback_target_lng TO -74.5577.
 SET impact_tolerance_meters TO 2000.
 SET max_deorbit_burn_mps TO 200.
 SET min_parking_alt_meters TO 70000.
@@ -70,18 +73,27 @@ FUNCTION deorbit_burn_mps {
 CLEARSCREEN.
 log_line("=== deorbit.ks ===").
 
-IF NOT EXISTS(land_target_path) {
-    abort_deorbit("missing landing target file: " + land_target_path).
+LOCAL target_body IS fallback_target_body.
+LOCAL target_lat IS fallback_target_lat.
+LOCAL target_lng IS fallback_target_lng.
+LOCAL target_source IS "fallback KSC launchpad".
+IF EXISTS(land_target_path) {
+    LOCAL target_data IS READJSON(land_target_path).
+    SET target_body TO target_data["body"].
+    SET target_lat TO target_data["lat"].
+    SET target_lng TO target_data["lng"].
+    SET target_source TO land_target_path.
+} ELSE {
+    log_line("WARN: missing landing target file: " + land_target_path + ".").
+    log_line("      Using fallback KSC launchpad coordinates.").
 }
 
-LOCAL target_data IS READJSON(land_target_path).
-LOCAL target_body IS target_data["body"].
-LOCAL same_body IS target_body = SHIP:BODY:NAME.
-IF NOT same_body {
+IF NOT target_body = SHIP:BODY:NAME {
     abort_deorbit("landing target body is " + target_body + ", current body is " + SHIP:BODY:NAME + ".").
 }
-LOCAL pad_geo IS LATLNG(target_data["lat"], target_data["lng"]).
+LOCAL pad_geo IS LATLNG(target_lat, target_lng).
 log_line("Target: " + ROUND(pad_geo:LAT, 5) + ", " + ROUND(pad_geo:LNG, 5) + " on " + target_body).
+log_line("Target source: " + target_source).
 
 IF SHIP:APOAPSIS < min_parking_alt_meters OR SHIP:APOAPSIS > max_parking_alt_meters {
     abort_deorbit("apoapsis outside parking bounds: " + ROUND(SHIP:APOAPSIS/1000, 1) + " km.").
