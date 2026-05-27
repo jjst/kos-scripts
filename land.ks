@@ -328,6 +328,7 @@ info_line("Landing target coordinates", ROUND(pad_geo:LAT, 5) + ", " + ROUND(pad
 IF preflight_failed {
     abort_land("preflight checks failed.").
 }
+transmit_log().
 
 SAS OFF.
 LOCK THROTTLE TO 0.
@@ -372,11 +373,13 @@ UNTIL VXCL(UP:FOREVECTOR, pad_geo:POSITION):MAG < guidance_start_range_meters {
         }
         log_line("  Range: " + ROUND(to_pad_h:MAG/1000, 1) + " km  |  hdg: " + ROUND(pad_geo:HEADING, 1) + "  |  brg: " + ROUND(pad_geo:BEARING, 1) + "  |  Alt: " + ROUND(ALT:RADAR/1000, 1) + " km AGL  |  spd: " + ROUND(surface_speed, 1) + " m/s  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s").
         log_line("    brakes: " + brake_mode + "  |  retro: " + retro_mode + "  |  aoa: " + aoa_mode + "  |  cmd: " + ROUND(aoa_cmd, 1) + " deg  |  actual: " + ROUND(actual_retro_tilt(), 1) + " deg").
+        transmit_log().
         SET next_print TO TIME:SECONDS + wait_telemetry_interval.
     }
     WAIT 0.
 }
 log_line("  Guidance start  |  range: " + ROUND(VXCL(UP:FOREVECTOR, pad_geo:POSITION):MAG) + " m  |  hdg: " + ROUND(pad_geo:HEADING, 1) + "  |  brg: " + ROUND(pad_geo:BEARING, 1) + "  |  alt: " + ROUND(ALT:RADAR) + " m AGL").
+transmit_log().
 
 // Descent Phase 1 — Descending: PID lateral guidance until 5 km handoff
 LOCAL original_max_stopping_time IS STEERINGMANAGER:MAXSTOPPINGTIME.
@@ -419,6 +422,7 @@ UNTIL ALT:RADAR < powered_steering_alt_meters {
     WAIT 0.
 }
 log_line("  DESCENT PHASE 2 handoff  |  alt: " + ROUND(ALT:RADAR) + " m  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s").
+transmit_log().
 
 // Descent Phase 2 — Powered descent and launchpad steering
 log_line("--- DESCENT PHASE 2: Powered descent / launchpad steering ---").
@@ -472,6 +476,7 @@ UNTIL ALT:RADAR <= landing_burn_alt_meters {
     WAIT 0.
 }
 log_line("  DESCENT PHASE 3 handoff  |  alt: " + ROUND(ALT:RADAR) + " m  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s").
+transmit_log().
 
 // Descent Phase 3 — Landing burn (retrograde with RCS trim)
 log_line("--- DESCENT PHASE 3: Landing burn / RCS trim ---").
