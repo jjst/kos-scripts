@@ -7,7 +7,6 @@
 // --- CONFIG (edit these) ------------------------------------
 SET hop_altitude      TO 20000.
 SET max_twr           TO 2.5.
-SET burn_safety       TO 1.2.
 SET gear_deploy_alt   TO 500.
 SET telemetry_interval TO 5.
 // Keep a small non-zero touchdown rate to avoid over-braking hover oscillation.
@@ -37,7 +36,7 @@ SET d3_hvel_limit_slope TO 0.5.
 SET d2_target_speed TO 150.
 // Proportional gain for Descent Phase 2 speed hold.
 SET d2_speed_kp TO 0.03.
-// Descent phase handoff altitudes used as bounded prediction horizons.
+// Descent phase handoff altitudes.
 SET powered_steering_alt_meters TO 5000.
 SET landing_burn_alt_meters TO 1000.
 // Shared lateral miss corridor based on altitude above ground.
@@ -233,7 +232,7 @@ LOCAL lat_pid  IS PIDLOOP(d1_miss_kp, d1_miss_ki, d1_miss_kd,
 CLEARSCREEN.
 log_line("=== hop.ks ===").
 log_line("Hop altitude : " + ROUND(hop_altitude/1000, 1) + " km  |  max TWR: " + max_twr).
-log_line("Burn safety  : " + burn_safety + "  |  gear at: " + gear_deploy_alt + " m AGL").
+log_line("Gear deploy  : " + gear_deploy_alt + " m AGL").
 log_line("Launch deflect: " + launch_deflect_deg + " deg toward hdg " + launch_deflect_hdg_deg + " deg").
 log_line(" ").
 log_line("Press ENTER to begin launch sequence.").
@@ -343,9 +342,8 @@ SET lat_pid TO PIDLOOP(d2_lat_kp, d2_lat_ki, d2_lat_kd,
 BRAKES ON.
 LOCK THROTTLE TO 0.
 LOCAL d2_target_vs IS -(d2_target_speed).
-LOCAL d2_burn_ready IS FALSE.
 SET next_print TO TIME:SECONDS.
-UNTIL d2_burn_ready {
+UNTIL ALT:RADAR <= landing_burn_alt_meters {
     LOCAL alt_agl IS ALT:RADAR.
     LOCAL vs IS SHIP:VERTICALSPEED.
     LOCAL g_d2 IS SHIP:BODY:MU / (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
@@ -373,27 +371,22 @@ UNTIL d2_burn_ready {
 
     IF SHIP:AVAILABLETHRUST <= 0 {
         log_line("  FATAL: no thrust in DESCENT PHASE 2 — forcing DESCENT PHASE 3.").
-        SET d2_burn_ready TO TRUE.
+        BREAK.
     }
-    IF NOT d2_burn_ready {
-        LOCAL hover IS (SHIP:MASS * g_d2) / SHIP:AVAILABLETHRUST.
-        LOCAL speed_err IS d2_target_vs - vs.
-        LOCAL d2_throttle IS clamp(hover + d2_speed_kp * speed_err, 0, 1).
-        LOCK THROTTLE TO d2_throttle.
+    LOCAL hover IS (SHIP:MASS * g_d2) / SHIP:AVAILABLETHRUST.
+    LOCAL speed_err IS d2_target_vs - vs.
+    LOCAL d2_throttle IS clamp(hover + d2_speed_kp * speed_err, 0, 1).
+    LOCK THROTTLE TO d2_throttle.
 
-        IF alt_agl <= landing_burn_alt_meters {
-            log_line("  DESCENT PHASE 3 trigger  |  alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(vs, 1) + " m/s").
-            SET d2_burn_ready TO TRUE.
-        }
-        IF NOT d2_burn_ready AND TIME:SECONDS >= next_print {
-            LOCAL actual_tilt IS actual_retro_tilt().
-            log_line("  Alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(vs, 1) + " m/s  |  tof_to_d3: " + ROUND(tof, 1) + " s  |  thr: " + ROUND(d2_throttle, 2)).
-            log_line("    horiz: " + ROUND(to_pad_h:MAG) + " m  |  pred_miss: " + ROUND(pred_miss) + " m  |  guidance_miss: " + ROUND(guidance_miss) + " m  |  tol: " + ROUND(allowed_miss) + " m  |  eff_miss: " + ROUND(effective_miss) + " m  |  hclos: " + ROUND(hclos, 1) + " m/s  |  tgt_hclos: " + ROUND(hclos_tgt, 1) + " m/s  |  tilt_cmd: " + ROUND(lat_tilt, 1) + " deg  |  actual_tilt: " + ROUND(actual_tilt, 1) + " deg").
-            mark_telemetry_logged().
-        }
+    IF TIME:SECONDS >= next_print {
+        LOCAL actual_tilt IS actual_retro_tilt().
+        log_line("  Alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(vs, 1) + " m/s  |  tof_to_d3: " + ROUND(tof, 1) + " s  |  thr: " + ROUND(d2_throttle, 2)).
+        log_line("    horiz: " + ROUND(to_pad_h:MAG) + " m  |  pred_miss: " + ROUND(pred_miss) + " m  |  guidance_miss: " + ROUND(guidance_miss) + " m  |  tol: " + ROUND(allowed_miss) + " m  |  eff_miss: " + ROUND(effective_miss) + " m  |  hclos: " + ROUND(hclos, 1) + " m/s  |  tgt_hclos: " + ROUND(hclos_tgt, 1) + " m/s  |  tilt_cmd: " + ROUND(lat_tilt, 1) + " deg  |  actual_tilt: " + ROUND(actual_tilt, 1) + " deg").
+        mark_telemetry_logged().
     }
     WAIT 0.
 }
+log_line("  DESCENT PHASE 3 handoff  |  alt: " + ROUND(ALT:RADAR) + " m  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s").
 
 // Descent Phase 3 — Landing burn (retrograde with RCS trim)
 log_line("--- DESCENT PHASE 3: Landing burn / RCS trim ---").
