@@ -7,6 +7,7 @@
 // --- CONFIG (edit these) ------------------------------------
 SET gear_deploy_alt   TO 500.
 SET telemetry_interval TO 5.
+SET wait_telemetry_interval TO 20.
 // Keep a small non-zero touchdown rate to avoid over-braking hover oscillation.
 SET touchdown_speed   TO 2.
 // PID gains for powered descent vertical-speed control.
@@ -319,7 +320,7 @@ UNTIL VXCL(UP:FOREVECTOR, pad_geo:POSITION):MAG < guidance_start_range_meters {
             SET retro_mode TO "orbit".
         }
         log_line("  Range: " + ROUND(to_pad_h:MAG/1000, 1) + " km  |  Alt: " + ROUND(ALT:RADAR/1000, 1) + " km AGL  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s  |  retro: " + retro_mode).
-        SET next_print TO next_telemetry_time().
+        SET next_print TO TIME:SECONDS + wait_telemetry_interval.
     }
     WAIT 0.
 }
