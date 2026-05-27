@@ -342,6 +342,7 @@ SET lat_pid TO PIDLOOP(d2_lat_kp, d2_lat_ki, d2_lat_kd,
 BRAKES ON.
 LOCK THROTTLE TO 0.
 LOCAL d2_target_vs IS -(d2_target_speed).
+LOCAL d2_thrust_abort IS FALSE.
 SET next_print TO TIME:SECONDS.
 UNTIL ALT:RADAR <= landing_burn_alt_meters {
     LOCAL alt_agl IS ALT:RADAR.
@@ -371,6 +372,7 @@ UNTIL ALT:RADAR <= landing_burn_alt_meters {
 
     IF SHIP:AVAILABLETHRUST <= 0 {
         log_line("  FATAL: no thrust in DESCENT PHASE 2 — forcing DESCENT PHASE 3.").
+        SET d2_thrust_abort TO TRUE.
         BREAK.
     }
     LOCAL hover IS (SHIP:MASS * g_d2) / SHIP:AVAILABLETHRUST.
@@ -386,7 +388,9 @@ UNTIL ALT:RADAR <= landing_burn_alt_meters {
     }
     WAIT 0.
 }
-log_line("  DESCENT PHASE 3 handoff  |  alt: " + ROUND(ALT:RADAR) + " m  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s").
+IF NOT d2_thrust_abort {
+    log_line("  DESCENT PHASE 3 handoff  |  alt: " + ROUND(ALT:RADAR) + " m  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s").
+}
 
 // Descent Phase 3 — Landing burn (retrograde with RCS trim)
 log_line("--- DESCENT PHASE 3: Landing burn / RCS trim ---").
