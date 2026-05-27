@@ -73,7 +73,12 @@ FUNCTION abort_deorbit {
 
 FUNCTION target_miss_distance {
     PARAMETER impact_geo, target_geo.
-    RETURN (impact_geo:POSITION - target_geo:POSITION):MAG.
+    LOCAL impact_radial IS impact_geo:POSITION - SHIP:BODY:POSITION.
+    LOCAL target_radial IS target_geo:POSITION - SHIP:BODY:POSITION.
+    IF impact_radial:MAG <= 0 OR target_radial:MAG <= 0 {
+        RETURN 999999999.
+    }
+    RETURN SHIP:BODY:RADIUS * VANG(impact_radial, target_radial) * 3.14159265 / 180.
 }
 
 FUNCTION deorbit_burn_mps {
@@ -223,6 +228,7 @@ LOCAL success IS FALSE.
 LOCAL burn_used IS 0.
 LOCAL deorbit_throttle IS 1.
 LOCAL next_print IS TIME:SECONDS.
+LOCAL worsening_logged IS FALSE.
 LOCAL miss_pid IS PIDLOOP().
 SET miss_pid:KP TO deorbit_miss_kp.
 SET miss_pid:MINOUTPUT TO min_deorbit_throttle.
@@ -244,8 +250,10 @@ UNTIL success {
         LOCAL miss IS target_miss_distance(impact_geo, pad_geo).
         IF miss < best_miss {
             SET best_miss TO miss.
-        } ELSE IF best_miss < slow_burn_miss_meters AND miss > best_miss + impact_tolerance_meters {
-            abort_deorbit("predicted impact is worsening; best miss was " + ROUND(best_miss) + " m.").
+            SET worsening_logged TO FALSE.
+        } ELSE IF NOT worsening_logged AND best_miss < slow_burn_miss_meters AND miss > best_miss + impact_tolerance_meters {
+            warn_line("Predicted miss worsening", "current " + ROUND(miss) + " m; best " + ROUND(best_miss) + " m; continuing burn").
+            SET worsening_logged TO TRUE.
         }
 
         LOCAL miss_outside_tolerance IS MAX(0, miss - impact_tolerance_meters).
