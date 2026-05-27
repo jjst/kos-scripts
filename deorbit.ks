@@ -21,7 +21,7 @@ SET min_deorbit_throttle TO 0.01.
 SET max_deorbit_twr TO 0.5.
 SET deorbit_miss_kp TO 0.00001.
 SET burn_alignment_max_error_deg TO 1.
-SET burn_alignment_timeout TO 45.
+SET burn_alignment_timeout TO 90.
 SET telemetry_interval TO 5.
 SET burn_telemetry_interval TO 1.
 SET log_path TO "deorbit.log".
@@ -217,8 +217,13 @@ SET deorbit_phase_angle TO target_phase_angle(aim_geo).
 IF ABS(deorbit_phase_angle - target_deorbit_phase_angle_deg) > deorbit_phase_start_tolerance_deg {
     log_line("--- Warping to deorbit phase ---").
     log_line("  Current phase: " + ROUND(deorbit_phase_angle, 1) + " deg  |  target: " + ROUND(target_deorbit_phase_angle_deg, 1) + " +/- " + ROUND(deorbit_phase_start_tolerance_deg, 1) + " deg").
+    LOCAL phase_next_print IS TIME:SECONDS.
     UNTIL ABS(deorbit_phase_angle - target_deorbit_phase_angle_deg) <= deorbit_phase_start_tolerance_deg {
         SET WARP TO deorbit_phase_warp_rate.
+        IF TIME:SECONDS >= phase_next_print {
+            log_line("  Phase: " + ROUND(deorbit_phase_angle, 1) + " deg  |  target: " + ROUND(target_deorbit_phase_angle_deg, 1) + " +/- " + ROUND(deorbit_phase_start_tolerance_deg, 1) + " deg").
+            SET phase_next_print TO TIME:SECONDS + telemetry_interval.
+        }
         WAIT 1.
         SET deorbit_phase_angle TO target_phase_angle(aim_geo).
     }
