@@ -15,6 +15,8 @@ SET max_parking_alt_meters TO 150000.
 SET max_parking_eccentricity TO 0.1.
 SET slow_burn_miss_meters TO 10000.
 SET min_deorbit_throttle TO 0.1.
+SET burn_alignment_max_error_deg TO 5.
+SET burn_alignment_timeout TO 45.
 SET telemetry_interval TO 5.
 SET log_path TO "deorbit.log".
 // ------------------------------------------------------------
@@ -70,6 +72,11 @@ FUNCTION deorbit_burn_mps {
     RETURN MAX(0, initial_speed - SHIP:VELOCITY:ORBIT:MAG).
 }
 
+FUNCTION orbit_retrograde_error {
+    LOCAL retro_vec IS SHIP:VELOCITY:ORBIT:NORMALIZED * -1.
+    RETURN VANG(SHIP:FACING:FOREVECTOR, retro_vec).
+}
+
 FUNCTION check_line {
     PARAMETER ok, label, detail.
     LOCAL mark IS "[x]".
@@ -79,6 +86,11 @@ FUNCTION check_line {
         SET preflight_failed TO TRUE.
     }
     log_line(mark + " " + label + " - " + detail).
+}
+
+FUNCTION warn_line {
+    PARAMETER label, detail.
+    log_line("[!] " + label + " - " + detail).
 }
 
 CLEARSCREEN.
@@ -96,8 +108,7 @@ IF EXISTS(land_target_path) {
     SET target_lng TO target_data["lng"].
     SET target_source TO land_target_path.
 } ELSE {
-    log_line("WARN: missing landing target file: " + land_target_path + ".").
-    log_line("      Using fallback KSC launchpad coordinates.").
+    warn_line("Landing target file", "missing " + land_target_path + "; using fallback KSC launchpad coordinates").
 }
 
 LOCAL pad_geo IS LATLNG(target_lat, target_lng).
@@ -128,7 +139,20 @@ log_line("Limits: miss <= " + ROUND(impact_tolerance_meters) + " m  |  burn <= "
 SAS OFF.
 LOCK STEERING TO RETROGRADE.
 LOCK THROTTLE TO 0.
-WAIT 1.
+log_line("--- Aligning for deorbit burn ---").
+LOCAL align_start IS TIME:SECONDS.
+LOCAL align_next_print IS TIME:SECONDS.
+UNTIL orbit_retrograde_error() <= burn_alignment_max_error_deg {
+    IF TIME:SECONDS - align_start > burn_alignment_timeout {
+        abort_deorbit("could not align retrograde within " + burn_alignment_timeout + " s; error " + ROUND(orbit_retrograde_error(), 1) + " deg.").
+    }
+    IF TIME:SECONDS >= align_next_print {
+        log_line("  retrograde error: " + ROUND(orbit_retrograde_error(), 1) + " deg  |  target <= " + burn_alignment_max_error_deg + " deg").
+        SET align_next_print TO TIME:SECONDS + telemetry_interval.
+    }
+    WAIT 0.
+}
+log_line("  Aligned retrograde  |  error: " + ROUND(orbit_retrograde_error(), 1) + " deg").
 
 LOCAL start_speed IS SHIP:VELOCITY:ORBIT:MAG.
 LOCAL best_miss IS 999999999.

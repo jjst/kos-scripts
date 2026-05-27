@@ -64,6 +64,38 @@ FUNCTION log_line {
     LOG msg TO log_path.
 }
 
+FUNCTION check_line {
+    PARAMETER ok, label, detail.
+    LOCAL mark IS "[x]".
+    IF ok {
+        SET mark TO "[✓]".
+    } ELSE {
+        SET preflight_failed TO TRUE.
+    }
+    log_line(mark + " " + label + " - " + detail).
+}
+
+FUNCTION info_line {
+    PARAMETER label, detail.
+    log_line("[i] " + label + " - " + detail).
+}
+
+FUNCTION warn_line {
+    PARAMETER label, detail.
+    log_line("[!] " + label + " - " + detail).
+}
+
+FUNCTION abort_launch {
+    PARAMETER msg.
+    LOCK THROTTLE TO 0.
+    UNLOCK THROTTLE.
+    UNLOCK STEERING.
+    log_line("ABORT: " + msg).
+    transmit_log().
+    WAIT 5.
+    SHUTDOWN.
+}
+
 FUNCTION transmit_log {
     LOCAL recovered_on_kerbin IS FALSE.
     IF SHIP:BODY:NAME = "Kerbin" {
@@ -177,18 +209,25 @@ FUNCTION prompt_number_or_default {
     RETURN raw_value:TONUMBER().
 }
 
-// Preflight sensor validation
-log_line("--- Preflight: Sensor check ---").
+// Preflight checks
+LOCAL preflight_failed IS FALSE.
+log_line("--- Preflight checks ---").
 LOCAL use_pid IS sensors_available().
 SET twr_pid TO PIDLOOP(twr_kp, twr_ki, twr_kd).
 SET twr_pid:MAXOUTPUT TO 0.5.
 SET twr_pid:MINOUTPUT TO -0.5.
 IF use_pid {
-    log_line("  [OK] Sensors detected — PID throttle control active.").
-    log_line("       Kp=" + twr_kp + "  Ki=" + twr_ki + "  Kd=" + twr_kd).
+    info_line("Throttle mode", "sensor PID active; Kp=" + twr_kp + " Ki=" + twr_ki + " Kd=" + twr_kd).
 } ELSE {
-    log_line("  [WARN] No gravioli/accelerometer detected.").
-    log_line("         Using calculated TWR throttle (fallback).").
+    warn_line("Throttle mode", "sensor PID unavailable; using calculated TWR fallback").
+}
+check_line(SHIP:AVAILABLETHRUST > 0, "Available thrust", ROUND(SHIP:AVAILABLETHRUST, 1) + " kN").
+check_line(max_twr > 0, "Max TWR config", max_twr).
+check_line(target_apoapsis > 0, "Target apoapsis config", ROUND(target_apoapsis/1000, 1) + " km default").
+check_line(turn_end_alt > turn_start_alt, "Gravity turn config", ROUND(turn_start_alt) + " m -> " + ROUND(turn_end_alt/1000, 1) + " km").
+check_line(land_target_path:LENGTH > 0, "Landing target path", land_target_path).
+IF preflight_failed {
+    abort_launch("preflight checks failed.").
 }
 transmit_log().
 PRINT " ".

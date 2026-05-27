@@ -83,6 +83,38 @@ FUNCTION log_line {
     LOG msg TO log_path.
 }
 
+FUNCTION check_line {
+    PARAMETER ok, label, detail.
+    LOCAL mark IS "[x]".
+    IF ok {
+        SET mark TO "[✓]".
+    } ELSE {
+        SET preflight_failed TO TRUE.
+    }
+    log_line(mark + " " + label + " - " + detail).
+}
+
+FUNCTION info_line {
+    PARAMETER label, detail.
+    log_line("[i] " + label + " - " + detail).
+}
+
+FUNCTION warn_line {
+    PARAMETER label, detail.
+    log_line("[!] " + label + " - " + detail).
+}
+
+FUNCTION abort_land {
+    PARAMETER msg.
+    LOCK THROTTLE TO 0.
+    UNLOCK THROTTLE.
+    UNLOCK STEERING.
+    log_line("ABORT: " + msg).
+    transmit_log().
+    WAIT 5.
+    SHUTDOWN.
+}
+
 FUNCTION mark_telemetry_logged {
     SET next_print TO TIME:SECONDS + telemetry_interval.
 }
@@ -230,11 +262,13 @@ FUNCTION target_descent_rate {
 
 CLEARSCREEN.
 log_line("=== land.ks ===").
+LOCAL preflight_failed IS FALSE.
 LOCAL target_body IS fallback_target_body.
 LOCAL target_lat IS fallback_target_lat.
 LOCAL target_lng IS fallback_target_lng.
 LOCAL target_source IS "fallback KSC launchpad".
-IF EXISTS(land_target_path) {
+LOCAL target_file_found IS EXISTS(land_target_path).
+IF target_file_found {
     LOCAL target_data IS READJSON(land_target_path).
     SET target_body TO target_data["body"].
     SET target_lat TO target_data["lat"].
@@ -245,9 +279,6 @@ IF EXISTS(land_target_path) {
     log_line("      Using fallback KSC launchpad coordinates.").
 }
 
-IF NOT target_body = SHIP:BODY:NAME {
-    log_line("WARN: landing target body is " + target_body + ", current body is " + SHIP:BODY:NAME + ".").
-}
 LOCAL pad_geo  IS LATLNG(target_lat, target_lng).
 LOCAL lat_tilt IS 0.
 LOCAL lat_pid  IS PIDLOOP(d1_miss_kp, d1_miss_ki, d1_miss_kd,
@@ -257,6 +288,21 @@ log_line("Target       : " + ROUND(pad_geo:LAT, 5) + ", " + ROUND(pad_geo:LNG, 5
 log_line("Target source: " + target_source).
 log_line("Guidance range: " + ROUND(guidance_start_range_meters/1000, 1) + " km").
 log_line("Wait attitude: orbit retro above " + ROUND(wait_orbit_retro_alt_meters/1000, 1) + " km, surface retro below.").
+
+log_line("--- Preflight checks ---").
+IF target_file_found {
+    info_line("Landing target file", target_source).
+} ELSE {
+    warn_line("Landing target file", "missing; using " + target_source).
+}
+check_line(target_body = SHIP:BODY:NAME, "Target body", "target " + target_body + ", current " + SHIP:BODY:NAME).
+check_line(SHIP:AVAILABLETHRUST > 0, "Available thrust", ROUND(SHIP:AVAILABLETHRUST, 1) + " kN").
+check_line(guidance_start_range_meters > 0, "Guidance range", ROUND(guidance_start_range_meters/1000, 1) + " km").
+check_line(powered_steering_alt_meters > landing_burn_alt_meters, "Descent handoff altitudes", ROUND(powered_steering_alt_meters) + " m -> " + ROUND(landing_burn_alt_meters) + " m").
+info_line("Landing target coordinates", ROUND(pad_geo:LAT, 5) + ", " + ROUND(pad_geo:LNG, 5)).
+IF preflight_failed {
+    abort_land("preflight checks failed.").
+}
 
 SAS OFF.
 LOCK THROTTLE TO 0.
