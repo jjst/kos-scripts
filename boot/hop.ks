@@ -300,16 +300,10 @@ log_line("--- DESCENT PHASE 1: Descending ---").
 // Jettison fairing / pretend payload before descent so reentry aero matches
 // the post-deployment vehicle.
 STAGE.
-LOCAL gear_deployed IS FALSE.
+RCS ON.
 SET next_print TO TIME:SECONDS.
 UNTIL ALT:RADAR < d1_handoff_alt {
     LOCAL alt_agl IS ALT:RADAR.
-
-    IF NOT gear_deployed AND alt_agl < gear_deploy_alt {
-        GEAR ON.
-        SET gear_deployed TO TRUE.
-        log_line("  Gear down  |  alt: " + ROUND(alt_agl) + " m AGL").
-    }
 
     LOCAL to_pad_h  IS VXCL(UP:FOREVECTOR, pad_geo:POSITION).
     LOCAL horiz_vel IS VXCL(UP:FOREVECTOR, SHIP:VELOCITY:SURFACE).
@@ -355,12 +349,6 @@ UNTIL d2_burn_ready {
     LOCAL alt_agl IS ALT:RADAR.
     LOCAL vs IS SHIP:VERTICALSPEED.
     LOCAL g_d2 IS SHIP:BODY:MU / (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
-
-    IF NOT gear_deployed AND alt_agl < gear_deploy_alt {
-        GEAR ON.
-        SET gear_deployed TO TRUE.
-        log_line("  Gear down (d2)  |  alt: " + ROUND(alt_agl) + " m AGL").
-    }
 
     LOCAL to_pad_h   IS VXCL(UP:FOREVECTOR, pad_geo:POSITION).
     LOCAL horiz_vel  IS VXCL(UP:FOREVECTOR, SHIP:VELOCITY:SURFACE).
@@ -423,8 +411,8 @@ UNTIL d2_burn_ready {
 log_line("--- DESCENT PHASE 3: Landing burn / RCS trim ---").
 // Hold retrograde for braking, then switch to vertical-up at gear deploy
 // altitude so the final touchdown attitude does not chase tiny retrograde shifts.
+LOCAL gear_deployed IS FALSE.
 LOCK STEERING TO d3_steering_direction().
-BRAKES ON.
 RCS ON.
 SET descent_pid TO PIDLOOP(
     descent_kp,
