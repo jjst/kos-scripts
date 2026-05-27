@@ -32,8 +32,11 @@ PRINT "  1) launch.ks".
 PRINT "  2) deorbit.ks".
 PRINT "  3) land.ks".
 PRINT "Press RETURN to load nothing.".
+TERMINAL:INPUT:CLEAR().
 WAIT UNTIL TERMINAL:INPUT:HASCHAR.
 LOCAL choice IS TERMINAL:INPUT:GETCHAR().
+WAIT 0.
+TERMINAL:INPUT:CLEAR().
 
 IF choice = "1" {
     PRINT "Launching local launch.ks...".
