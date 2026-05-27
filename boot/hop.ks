@@ -300,8 +300,6 @@ log_line("--- DESCENT PHASE 1: Descending ---").
 // Jettison fairing / pretend payload before descent so reentry aero matches
 // the post-deployment vehicle.
 STAGE.
-RCS ON.
-// BRAKES ON.  // Disabled for airbrake-off comparison run.
 LOCAL gear_deployed IS FALSE.
 SET next_print TO TIME:SECONDS.
 UNTIL ALT:RADAR < d1_handoff_alt {
@@ -427,6 +425,7 @@ log_line("--- DESCENT PHASE 3: Landing burn / RCS trim ---").
 // altitude so the final touchdown attitude does not chase tiny retrograde shifts.
 LOCK STEERING TO d3_steering_direction().
 BRAKES ON.
+RCS ON.
 SET descent_pid TO PIDLOOP(
     descent_kp,
     descent_ki,
