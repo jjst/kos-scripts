@@ -9,10 +9,11 @@ SET fallback_target_body TO "Kerbin".
 SET fallback_target_lat TO -0.0972.
 SET fallback_target_lng TO -74.5577.
 SET impact_tolerance_meters TO 10000.
-SET aim_long_distance_meters TO 600000.
+SET aim_long_distance_meters TO 500000.
 SET min_parking_alt_meters TO 70000.
 SET max_parking_alt_meters TO 150000.
 SET max_parking_eccentricity TO 0.1.
+SET land_handoff_alt_meters TO 70000.
 SET target_deorbit_phase_angle_deg TO 180.
 SET deorbit_phase_start_tolerance_deg TO 5.
 SET deorbit_phase_warp_rate TO 3.
@@ -24,6 +25,7 @@ SET burn_alignment_max_error_deg TO 1.
 SET burn_alignment_timeout TO 90.
 SET telemetry_interval TO 5.
 SET burn_telemetry_interval TO 1.
+SET land_handoff_telemetry_interval TO 30.
 SET log_path TO "deorbit.log".
 // ------------------------------------------------------------
 
@@ -202,6 +204,7 @@ check_line(SHIP:AVAILABLETHRUST > 0, "Available thrust", ROUND(SHIP:AVAILABLETHR
 check_line(min_deorbit_throttle >= 0 AND min_deorbit_throttle <= 1, "Minimum burn throttle", ROUND(min_deorbit_throttle, 2)).
 check_line(max_deorbit_twr > 0, "Maximum burn TWR", max_deorbit_twr).
 check_line(aim_long_distance_meters >= 0, "Aim-long offset", ROUND(aim_long_distance_meters/1000, 1) + " km").
+check_line(land_handoff_alt_meters > 0, "Land handoff altitude", ROUND(land_handoff_alt_meters/1000, 1) + " km").
 check_line(deorbit_phase_start_tolerance_deg > 0, "Deorbit phase tolerance", ROUND(deorbit_phase_start_tolerance_deg, 1) + " deg").
 
 IF preflight_failed {
@@ -332,15 +335,17 @@ log_line("  final impact: " + ROUND(final_impact_lat, 5) + ", " + ROUND(final_im
 transmit_log().
 
 PRINT " ".
-PRINT "Auto-running land.ks in 30 seconds. Press any key to abort.".
-TERMINAL:INPUT:CLEAR().
-LOCAL land_countdown_end IS TIME:SECONDS + 30.
-UNTIL TIME:SECONDS >= land_countdown_end {
+PRINT "Auto-running land.ks below " + ROUND(land_handoff_alt_meters/1000, 1) + " km. Press any key to abort.".
+LOCAL handoff_next_print IS TIME:SECONDS.
+UNTIL SHIP:ALTITUDE <= land_handoff_alt_meters {
     IF TERMINAL:INPUT:HASCHAR {
-        TERMINAL:INPUT:CLEAR().
         log_line("Land handoff aborted by user.").
         transmit_log().
         SHUTDOWN.
+    }
+    IF TIME:SECONDS >= handoff_next_print {
+        log_line("  Waiting for land handoff  |  alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  target <= " + ROUND(land_handoff_alt_meters/1000, 1) + " km  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s").
+        SET handoff_next_print TO TIME:SECONDS + land_handoff_telemetry_interval.
     }
     WAIT 1.
 }
