@@ -9,7 +9,6 @@ SET fallback_target_body TO "Kerbin".
 SET fallback_target_lat TO -0.0972.
 SET fallback_target_lng TO -74.5577.
 SET impact_tolerance_meters TO 2000.
-SET max_deorbit_burn_mps TO 200.
 SET min_parking_alt_meters TO 70000.
 SET max_parking_alt_meters TO 150000.
 SET max_parking_eccentricity TO 0.1.
@@ -17,6 +16,7 @@ SET min_deorbit_phase_angle_deg TO 90.
 SET max_deorbit_phase_angle_deg TO 150.
 SET slow_burn_miss_meters TO 10000.
 SET min_deorbit_throttle TO 0.1.
+SET deorbit_miss_kp TO 0.0001.
 SET burn_alignment_max_error_deg TO 5.
 SET burn_alignment_timeout TO 45.
 SET telemetry_interval TO 5.
@@ -152,7 +152,7 @@ check_line(SHIP:OBT:ECCENTRICITY <= max_parking_eccentricity, "Parking eccentric
 check_line(deorbit_phase_angle >= min_deorbit_phase_angle_deg AND deorbit_phase_angle <= max_deorbit_phase_angle_deg, "Deorbit phase angle", ROUND(deorbit_phase_angle, 1) + " deg within " + ROUND(min_deorbit_phase_angle_deg) + "-" + ROUND(max_deorbit_phase_angle_deg) + " deg ahead of target").
 check_line(ADDONS:TR:AVAILABLE, "Trajectories addon", "AVAILABLE = " + ADDONS:TR:AVAILABLE).
 check_line(SHIP:AVAILABLETHRUST > 0, "Available thrust", ROUND(SHIP:AVAILABLETHRUST, 1) + " kN").
-check_line(max_deorbit_burn_mps > 0, "Burn cap", ROUND(max_deorbit_burn_mps) + " m/s").
+check_line(min_deorbit_throttle >= 0 AND min_deorbit_throttle <= 1, "Minimum burn throttle", ROUND(min_deorbit_throttle, 2)).
 
 IF preflight_failed {
     abort_deorbit("preflight checks failed.").
@@ -164,7 +164,7 @@ IF ADDONS:TR:ISVERTWOTWO {
 }
 
 log_line("Orbit: Ap " + ROUND(SHIP:APOAPSIS/1000, 1) + " km  |  Pe " + ROUND(SHIP:PERIAPSIS/1000, 1) + " km  |  ecc " + ROUND(SHIP:OBT:ECCENTRICITY, 4)).
-log_line("Limits: miss <= " + ROUND(impact_tolerance_meters) + " m  |  burn <= " + ROUND(max_deorbit_burn_mps) + " m/s").
+log_line("Limits: miss <= " + ROUND(impact_tolerance_meters) + " m").
 
 SAS OFF.
 LOCK STEERING TO RETROGRADE.
@@ -191,6 +191,11 @@ LOCAL success IS FALSE.
 LOCAL burn_used IS 0.
 LOCAL deorbit_throttle IS 1.
 LOCAL next_print IS TIME:SECONDS.
+LOCAL miss_pid IS PIDLOOP().
+SET miss_pid:KP TO deorbit_miss_kp.
+SET miss_pid:MINOUTPUT TO min_deorbit_throttle.
+SET miss_pid:MAXOUTPUT TO 1.
+SET miss_pid:SETPOINT TO 0.
 
 log_line("--- Deorbit burn ---").
 UNTIL success {
@@ -199,9 +204,6 @@ UNTIL success {
     }
 
     SET burn_used TO deorbit_burn_mps(start_speed).
-    IF burn_used > max_deorbit_burn_mps {
-        abort_deorbit("deorbit burn exceeded " + ROUND(max_deorbit_burn_mps) + " m/s; best miss was " + ROUND(best_miss) + " m.").
-    }
 
     IF ADDONS:TR:HASIMPACT {
         SET had_impact TO TRUE.
@@ -216,7 +218,7 @@ UNTIL success {
         IF miss <= impact_tolerance_meters {
             SET success TO TRUE.
         } ELSE {
-            SET deorbit_throttle TO clamp(miss / slow_burn_miss_meters, min_deorbit_throttle, 1).
+            SET deorbit_throttle TO clamp(miss_pid:UPDATE(TIME:SECONDS, -miss), min_deorbit_throttle, 1).
         }
 
         IF TIME:SECONDS >= next_print {
