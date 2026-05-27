@@ -13,8 +13,9 @@ SET aim_long_distance_meters TO 600000.
 SET min_parking_alt_meters TO 70000.
 SET max_parking_alt_meters TO 150000.
 SET max_parking_eccentricity TO 0.1.
-SET min_deorbit_phase_angle_deg TO 90.
-SET max_deorbit_phase_angle_deg TO 200.
+SET target_deorbit_phase_angle_deg TO 180.
+SET deorbit_phase_start_tolerance_deg TO 5.
+SET deorbit_phase_warp_rate TO 3.
 SET slow_burn_miss_meters TO 10000.
 SET min_deorbit_throttle TO 0.01.
 SET max_deorbit_twr TO 0.5.
@@ -195,12 +196,13 @@ check_line(target_body = SHIP:BODY:NAME, "Target body", "target " + target_body 
 check_line(SHIP:APOAPSIS >= min_parking_alt_meters AND SHIP:APOAPSIS <= max_parking_alt_meters, "Parking Ap", ROUND(SHIP:APOAPSIS/1000, 1) + " km within " + ROUND(min_parking_alt_meters/1000) + "-" + ROUND(max_parking_alt_meters/1000) + " km").
 check_line(SHIP:PERIAPSIS >= min_parking_alt_meters AND SHIP:PERIAPSIS <= max_parking_alt_meters, "Parking Pe", ROUND(SHIP:PERIAPSIS/1000, 1) + " km within " + ROUND(min_parking_alt_meters/1000) + "-" + ROUND(max_parking_alt_meters/1000) + " km").
 check_line(SHIP:OBT:ECCENTRICITY <= max_parking_eccentricity, "Parking eccentricity", ROUND(SHIP:OBT:ECCENTRICITY, 4) + " <= " + max_parking_eccentricity).
-check_line(deorbit_phase_angle >= min_deorbit_phase_angle_deg AND deorbit_phase_angle <= max_deorbit_phase_angle_deg, "Deorbit phase angle", ROUND(deorbit_phase_angle, 1) + " deg within " + ROUND(min_deorbit_phase_angle_deg) + "-" + ROUND(max_deorbit_phase_angle_deg) + " deg ahead of target").
+check_line(deorbit_phase_angle >= 0, "Deorbit phase angle", ROUND(deorbit_phase_angle, 1) + " deg; burn target " + ROUND(target_deorbit_phase_angle_deg) + " +/- " + ROUND(deorbit_phase_start_tolerance_deg) + " deg").
 check_line(ADDONS:TR:AVAILABLE, "Trajectories addon", "AVAILABLE = " + ADDONS:TR:AVAILABLE).
 check_line(SHIP:AVAILABLETHRUST > 0, "Available thrust", ROUND(SHIP:AVAILABLETHRUST, 1) + " kN").
 check_line(min_deorbit_throttle >= 0 AND min_deorbit_throttle <= 1, "Minimum burn throttle", ROUND(min_deorbit_throttle, 2)).
 check_line(max_deorbit_twr > 0, "Maximum burn TWR", max_deorbit_twr).
 check_line(aim_long_distance_meters >= 0, "Aim-long offset", ROUND(aim_long_distance_meters/1000, 1) + " km").
+check_line(deorbit_phase_start_tolerance_deg > 0, "Deorbit phase tolerance", ROUND(deorbit_phase_start_tolerance_deg, 1) + " deg").
 
 IF preflight_failed {
     abort_deorbit("preflight checks failed.").
@@ -209,6 +211,19 @@ IF preflight_failed {
 ADDONS:TR:SETTARGET(aim_geo).
 IF ADDONS:TR:ISVERTWOTWO {
     SET ADDONS:TR:RETROGRADE TO TRUE.
+}
+
+SET deorbit_phase_angle TO target_phase_angle(aim_geo).
+IF ABS(deorbit_phase_angle - target_deorbit_phase_angle_deg) > deorbit_phase_start_tolerance_deg {
+    log_line("--- Warping to deorbit phase ---").
+    log_line("  Current phase: " + ROUND(deorbit_phase_angle, 1) + " deg  |  target: " + ROUND(target_deorbit_phase_angle_deg, 1) + " +/- " + ROUND(deorbit_phase_start_tolerance_deg, 1) + " deg").
+    UNTIL ABS(deorbit_phase_angle - target_deorbit_phase_angle_deg) <= deorbit_phase_start_tolerance_deg {
+        SET WARP TO deorbit_phase_warp_rate.
+        WAIT 1.
+        SET deorbit_phase_angle TO target_phase_angle(aim_geo).
+    }
+    SET WARP TO 0.
+    log_line("  Phase ready: " + ROUND(deorbit_phase_angle, 1) + " deg").
 }
 
 log_line("Orbit: Ap " + ROUND(SHIP:APOAPSIS/1000, 1) + " km  |  Pe " + ROUND(SHIP:PERIAPSIS/1000, 1) + " km  |  ecc " + ROUND(SHIP:OBT:ECCENTRICITY, 4)).
