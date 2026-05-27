@@ -70,8 +70,20 @@ FUNCTION deorbit_burn_mps {
     RETURN MAX(0, initial_speed - SHIP:VELOCITY:ORBIT:MAG).
 }
 
+FUNCTION check_line {
+    PARAMETER ok, label, detail.
+    LOCAL mark IS "[x]".
+    IF ok {
+        SET mark TO "[✓]".
+    } ELSE {
+        SET preflight_failed TO TRUE.
+    }
+    log_line(mark + " " + label + " - " + detail).
+}
+
 CLEARSCREEN.
 log_line("=== deorbit.ks ===").
+LOCAL preflight_failed IS FALSE.
 
 LOCAL target_body IS fallback_target_body.
 LOCAL target_lat IS fallback_target_lat.
@@ -88,24 +100,21 @@ IF EXISTS(land_target_path) {
     log_line("      Using fallback KSC launchpad coordinates.").
 }
 
-IF NOT target_body = SHIP:BODY:NAME {
-    abort_deorbit("landing target body is " + target_body + ", current body is " + SHIP:BODY:NAME + ".").
-}
 LOCAL pad_geo IS LATLNG(target_lat, target_lng).
 log_line("Target: " + ROUND(pad_geo:LAT, 5) + ", " + ROUND(pad_geo:LNG, 5) + " on " + target_body).
 log_line("Target source: " + target_source).
 
-IF SHIP:APOAPSIS < min_parking_alt_meters OR SHIP:APOAPSIS > max_parking_alt_meters {
-    abort_deorbit("apoapsis outside parking bounds: " + ROUND(SHIP:APOAPSIS/1000, 1) + " km.").
-}
-IF SHIP:PERIAPSIS < min_parking_alt_meters OR SHIP:PERIAPSIS > max_parking_alt_meters {
-    abort_deorbit("periapsis outside parking bounds: " + ROUND(SHIP:PERIAPSIS/1000, 1) + " km.").
-}
-IF SHIP:OBT:ECCENTRICITY > max_parking_eccentricity {
-    abort_deorbit("orbit eccentricity too high: " + ROUND(SHIP:OBT:ECCENTRICITY, 4) + ".").
-}
-IF NOT ADDONS:TR:AVAILABLE {
-    abort_deorbit("Trajectories addon is not available.").
+log_line("--- Preflight checks ---").
+check_line(target_body = SHIP:BODY:NAME, "Target body", "target " + target_body + ", current " + SHIP:BODY:NAME).
+check_line(SHIP:APOAPSIS >= min_parking_alt_meters AND SHIP:APOAPSIS <= max_parking_alt_meters, "Parking Ap", ROUND(SHIP:APOAPSIS/1000, 1) + " km within " + ROUND(min_parking_alt_meters/1000) + "-" + ROUND(max_parking_alt_meters/1000) + " km").
+check_line(SHIP:PERIAPSIS >= min_parking_alt_meters AND SHIP:PERIAPSIS <= max_parking_alt_meters, "Parking Pe", ROUND(SHIP:PERIAPSIS/1000, 1) + " km within " + ROUND(min_parking_alt_meters/1000) + "-" + ROUND(max_parking_alt_meters/1000) + " km").
+check_line(SHIP:OBT:ECCENTRICITY <= max_parking_eccentricity, "Parking eccentricity", ROUND(SHIP:OBT:ECCENTRICITY, 4) + " <= " + max_parking_eccentricity).
+check_line(ADDONS:TR:AVAILABLE, "Trajectories addon", "AVAILABLE = " + ADDONS:TR:AVAILABLE).
+check_line(SHIP:AVAILABLETHRUST > 0, "Available thrust", ROUND(SHIP:AVAILABLETHRUST, 1) + " kN").
+check_line(max_deorbit_burn_mps > 0, "Burn cap", ROUND(max_deorbit_burn_mps) + " m/s").
+
+IF preflight_failed {
+    abort_deorbit("preflight checks failed.").
 }
 
 ADDONS:TR:SETTARGET(pad_geo).
