@@ -249,7 +249,8 @@ SET STEERINGMANAGER:MAXSTOPPINGTIME TO descent_max_stopping_time.
 LOCAL pred_to_pad IS VXCL(UP:FOREVECTOR, pad_geo:POSITION).
 LOCK STEERING TO pad_steer_direction(pred_to_pad, lat_tilt, lat_min_horiz_dist).
 log_line("--- DESCENT PHASE 1: Descending ---").
-// Advance staging at descent start to arm the descent hardware on this test vehicle.
+// Jettison fairing / pretend payload before descent so reentry aero matches
+// the post-deployment vehicle.
 STAGE.
 RCS ON.
 BRAKES ON.
