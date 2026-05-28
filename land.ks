@@ -1,5 +1,5 @@
 // ============================================================
-//  land.ks — VTVL descent and landing guidance
+//  land.ks — descent and landing guidance after reentry
 // ============================================================
 //  Performs PID-guided descent with active guidance back to the
 //  launch position saved by launch.ks.
@@ -7,28 +7,6 @@
 // --- CONFIG (edit these) ------------------------------------
 SET gear_deploy_alt   TO 500.
 SET telemetry_interval TO 5.
-SET entry_telemetry_interval TO 20.
-SET entry_brakes_enabled TO TRUE.
-SET entry_brakes_deploy_alt_meters TO 70000.
-SET entry_brakes_retract_speed_mps TO 1200.
-SET entry_aoa_enabled TO TRUE.
-SET entry_aoa_high_alt_meters TO 70000.
-SET entry_aoa_low_alt_meters TO 35000.
-SET entry_aoa_high_deg TO 50.
-SET entry_aoa_low_deg TO 5.
-SET entry_aoa_retract_speed_mps TO 1200.
-SET entry_aoa_pid_enabled TO TRUE.
-SET entry_aoa_min_deg TO -45.
-SET entry_aoa_max_deg TO 60.
-SET entry_aoa_prediction_alt_meters TO 35000.
-SET entry_aoa_pid_kp TO 0.00015.
-SET entry_aoa_pid_ki TO 0.
-SET entry_aoa_pid_kd TO 0.
-SET entry_aoa_commanded_deg TO 0.
-SET entry_aoa_base_deg_current TO 0.
-SET entry_aoa_pid_delta_deg_current TO 0.
-SET entry_aoa_pred_miss_meters_current TO 0.
-SET entry_aoa_along_error_meters_current TO 0.
 // Keep a small non-zero touchdown rate to avoid over-braking hover oscillation.
 SET touchdown_speed   TO 2.
 // PID gains for powered descent vertical-speed control.
@@ -59,8 +37,6 @@ SET d2_speed_kp TO 0.03.
 // Descent phase handoff altitudes.
 SET powered_steering_alt_meters TO 5000.
 SET landing_burn_alt_meters TO 1000.
-SET guidance_start_range_meters TO 200000.
-SET entry_orbit_retro_alt_meters TO 70000.
 // Shared lateral miss corridor based on altitude above ground.
 SET handoff_tolerance_slope TO 0.4.   // extra meters allowed per sqrt-meter AGL
 // Keep correcting this fraction of predicted miss even inside the corridor.
@@ -199,19 +175,6 @@ FUNCTION actual_retro_tilt {
     RETURN VANG(SHIP:FACING:FOREVECTOR, SHIP:SRFRETROGRADE:FOREVECTOR).
 }
 
-FUNCTION actual_entry_aoa {
-    LOCAL srfret IS SHIP:SRFRETROGRADE:FOREVECTOR.
-    LOCAL axis IS VCRS(UP:FOREVECTOR, srfret).
-    LOCAL angle IS VANG(SHIP:FACING:FOREVECTOR, srfret).
-    IF axis:MAG <= 0.01 {
-        RETURN angle.
-    }
-    IF VDOT(VCRS(srfret, SHIP:FACING:FOREVECTOR), axis:NORMALIZED) < 0 {
-        RETURN -angle.
-    }
-    RETURN angle.
-}
-
 FUNCTION roll_rate_deg {
     RETURN VDOT(SHIP:ANGULARVEL, SHIP:FACING:FOREVECTOR) * 57.2958.
 }
@@ -236,46 +199,6 @@ FUNCTION d3_steering_direction {
 FUNCTION roll_error_deg {
     PARAMETER roll_ref.
     RETURN VANG(SHIP:FACING:TOPVECTOR, roll_ref).
-}
-
-FUNCTION entry_retrograde_steering {
-    IF SHIP:ALTITUDE > entry_orbit_retro_alt_meters {
-        RETURN RETROGRADE.
-    }
-    IF entry_aoa_active() {
-        LOCAL srfret IS SHIP:SRFRETROGRADE:FOREVECTOR.
-        LOCAL axis IS VCRS(UP:FOREVECTOR, srfret).
-        IF axis:MAG > 0.01 {
-            RETURN ANGLEAXIS(entry_aoa_command(), axis:NORMALIZED) * srfret.
-        }
-    }
-    RETURN SHIP:SRFRETROGRADE.
-}
-
-FUNCTION entry_aoa_active {
-    RETURN entry_aoa_enabled AND
-           SHIP:ALTITUDE < entry_aoa_high_alt_meters AND
-           SHIP:VELOCITY:SURFACE:MAG > entry_aoa_retract_speed_mps.
-}
-
-FUNCTION entry_aoa_base_command {
-    IF SHIP:ALTITUDE >= entry_aoa_high_alt_meters {
-        RETURN entry_aoa_high_deg.
-    }
-    IF SHIP:ALTITUDE <= entry_aoa_low_alt_meters {
-        RETURN entry_aoa_low_deg.
-    }
-
-    LOCAL t IS (SHIP:ALTITUDE - entry_aoa_low_alt_meters) /
-              (entry_aoa_high_alt_meters - entry_aoa_low_alt_meters).
-    RETURN lerp(entry_aoa_low_deg, entry_aoa_high_deg, t).
-}
-
-FUNCTION entry_aoa_command {
-    IF NOT entry_aoa_active() {
-        RETURN 0.
-    }
-    RETURN entry_aoa_commanded_deg.
 }
 
 FUNCTION capped_hvel_target {
@@ -354,10 +277,7 @@ LOCAL lat_pid  IS PIDLOOP(d1_miss_kp, d1_miss_ki, d1_miss_kd,
 log_line("Gear deploy  : " + gear_deploy_alt + " m AGL").
 log_line("Target       : " + ROUND(pad_geo:LAT, 5) + ", " + ROUND(pad_geo:LNG, 5) + " on " + target_body).
 log_line("Target source: " + target_source).
-log_line("Guidance range: " + ROUND(guidance_start_range_meters/1000, 1) + " km").
-log_line("Entry attitude: orbit retro above " + ROUND(entry_orbit_retro_alt_meters/1000, 1) + " km, surface retro below.").
-log_line("Entry AoA    : " + entry_aoa_high_deg + " deg @ " + ROUND(entry_aoa_high_alt_meters/1000, 1) + " km -> " + entry_aoa_low_deg + " deg @ " + ROUND(entry_aoa_low_alt_meters/1000, 1) + " km while faster than " + ROUND(entry_aoa_retract_speed_mps) + " m/s.").
-log_line("Entry AoA PID: " + entry_aoa_min_deg + " to " + entry_aoa_max_deg + " deg  |  gate " + ROUND(entry_aoa_prediction_alt_meters/1000, 1) + " km  |  Kp " + entry_aoa_pid_kp).
+log_line("Expected handoff: reentry.ks should deliver <= 25 km altitude and <= 1200 m/s before starting descent.").
 
 log_line("--- Preflight checks ---").
 IF target_file_found {
@@ -367,14 +287,7 @@ IF target_file_found {
 }
 check_line(target_body = SHIP:BODY:NAME, "Target body", "target " + target_body + ", current " + SHIP:BODY:NAME).
 check_line(SHIP:AVAILABLETHRUST > 0, "Available thrust", ROUND(SHIP:AVAILABLETHRUST, 1) + " kN").
-check_line(guidance_start_range_meters > 0, "Guidance range", ROUND(guidance_start_range_meters/1000, 1) + " km").
 check_line(powered_steering_alt_meters > landing_burn_alt_meters, "Descent handoff altitudes", ROUND(powered_steering_alt_meters) + " m -> " + ROUND(landing_burn_alt_meters) + " m").
-check_line(entry_brakes_retract_speed_mps > 0, "Entry brake retract speed", ROUND(entry_brakes_retract_speed_mps) + " m/s").
-check_line(entry_aoa_high_alt_meters > entry_aoa_low_alt_meters, "Entry AoA altitude ramp", ROUND(entry_aoa_high_alt_meters/1000, 1) + " km -> " + ROUND(entry_aoa_low_alt_meters/1000, 1) + " km").
-check_line(entry_aoa_high_deg >= entry_aoa_low_deg AND entry_aoa_low_deg >= 0, "Entry AoA angle ramp", ROUND(entry_aoa_high_deg, 1) + " deg -> " + ROUND(entry_aoa_low_deg, 1) + " deg").
-check_line(entry_aoa_retract_speed_mps > 0, "Entry AoA retract speed", ROUND(entry_aoa_retract_speed_mps) + " m/s").
-check_line(entry_aoa_min_deg < entry_aoa_max_deg, "Entry AoA command limits", ROUND(entry_aoa_min_deg, 1) + " to " + ROUND(entry_aoa_max_deg, 1) + " deg").
-check_line(entry_aoa_prediction_alt_meters > 0, "Entry AoA prediction gate", ROUND(entry_aoa_prediction_alt_meters/1000, 1) + " km").
 info_line("Landing target coordinates", ROUND(pad_geo:LAT, 5) + ", " + ROUND(pad_geo:LNG, 5)).
 IF preflight_failed {
     abort_land("preflight checks failed.").
@@ -385,91 +298,8 @@ SAS OFF.
 LOCK THROTTLE TO 0.
 LOCAL start_time IS TIME:SECONDS.
 LOCAL next_print IS TIME:SECONDS.
-LOCAL entry_aoa_pid IS PIDLOOP().
-SET entry_aoa_pid:KP TO entry_aoa_pid_kp.
-SET entry_aoa_pid:KI TO entry_aoa_pid_ki.
-SET entry_aoa_pid:KD TO entry_aoa_pid_kd.
-SET entry_aoa_pid:MINOUTPUT TO entry_aoa_min_deg - entry_aoa_high_deg.
-SET entry_aoa_pid:MAXOUTPUT TO entry_aoa_max_deg - entry_aoa_low_deg.
-SET entry_aoa_pid:SETPOINT TO 0.
-LOCAL entry_aoa_negative_logged IS FALSE.
-
-LOCK STEERING TO entry_retrograde_steering().
-log_line("--- ENTRY GUIDANCE: Range and energy control ---").
-LOCAL entry_brakes_deployed IS entry_brakes_enabled AND SHIP:VELOCITY:SURFACE:MAG > entry_brakes_retract_speed_mps.
-IF entry_brakes_deployed {
-    BRAKES ON.
-    log_line("  Entry brakes armed  |  speed: " + ROUND(SHIP:VELOCITY:SURFACE:MAG, 1) + " m/s").
-}
-UNTIL VXCL(UP:FOREVECTOR, pad_geo:POSITION):MAG < guidance_start_range_meters {
-    LOCAL surface_speed IS SHIP:VELOCITY:SURFACE:MAG.
-    LOCAL to_pad_h IS VXCL(UP:FOREVECTOR, pad_geo:POSITION).
-    LOCAL horiz_vel_wait IS VXCL(UP:FOREVECTOR, SHIP:VELOCITY:SURFACE).
-    LOCAL g_wait IS SHIP:BODY:MU / (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
-    LOCAL entry_alt_delta IS SHIP:ALTITUDE - entry_aoa_prediction_alt_meters.
-    LOCAL entry_pred_vec IS predict_miss_vec(to_pad_h, horiz_vel_wait, SHIP:VERTICALSPEED, g_wait, entry_alt_delta).
-    SET entry_aoa_pred_miss_meters_current TO entry_pred_vec:MAG.
-    SET entry_aoa_along_error_meters_current TO 0.
-    IF horiz_vel_wait:MAG > 1 {
-        SET entry_aoa_along_error_meters_current TO VDOT(entry_pred_vec, horiz_vel_wait:NORMALIZED).
-    }
-
-    IF entry_aoa_active() {
-        SET entry_aoa_base_deg_current TO entry_aoa_base_command().
-        IF entry_aoa_pid_enabled {
-            SET entry_aoa_pid_delta_deg_current TO entry_aoa_pid:UPDATE(TIME:SECONDS, entry_aoa_along_error_meters_current).
-        } ELSE {
-            SET entry_aoa_pid_delta_deg_current TO 0.
-        }
-        SET entry_aoa_commanded_deg TO clamp(entry_aoa_base_deg_current + entry_aoa_pid_delta_deg_current, entry_aoa_min_deg, entry_aoa_max_deg).
-        IF entry_aoa_commanded_deg < 0 AND NOT entry_aoa_negative_logged {
-            log_line("  Entry AoA negative command  |  cmd: " + ROUND(entry_aoa_commanded_deg, 1) + " deg  |  along: " + ROUND(entry_aoa_along_error_meters_current) + " m").
-            SET entry_aoa_negative_logged TO TRUE.
-        } ELSE IF entry_aoa_commanded_deg >= 0 {
-            SET entry_aoa_negative_logged TO FALSE.
-        }
-    } ELSE {
-        SET entry_aoa_base_deg_current TO 0.
-        SET entry_aoa_pid_delta_deg_current TO 0.
-        SET entry_aoa_commanded_deg TO 0.
-        SET entry_aoa_negative_logged TO FALSE.
-    }
-
-    IF entry_brakes_enabled {
-        IF NOT entry_brakes_deployed AND SHIP:ALTITUDE < entry_brakes_deploy_alt_meters AND surface_speed > entry_brakes_retract_speed_mps {
-            BRAKES ON.
-            SET entry_brakes_deployed TO TRUE.
-            log_line("  Entry brakes deployed  |  alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  speed: " + ROUND(surface_speed, 1) + " m/s").
-        } ELSE IF entry_brakes_deployed AND surface_speed <= entry_brakes_retract_speed_mps {
-            BRAKES OFF.
-            SET entry_brakes_deployed TO FALSE.
-            log_line("  Entry brakes retracted  |  alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  speed: " + ROUND(surface_speed, 1) + " m/s").
-        }
-    }
-
-    IF TIME:SECONDS >= next_print {
-        LOCAL retro_mode IS "surface".
-        LOCAL brake_mode IS "off".
-        LOCAL aoa_mode IS "off".
-        LOCAL aoa_cmd IS 0.
-        IF entry_brakes_deployed {
-            SET brake_mode TO "on".
-        }
-        IF SHIP:ALTITUDE > entry_orbit_retro_alt_meters {
-            SET retro_mode TO "orbit".
-        } ELSE IF entry_aoa_active() {
-            SET aoa_mode TO "on".
-            SET aoa_cmd TO entry_aoa_commanded_deg.
-        }
-        log_line("  Range: " + ROUND(to_pad_h:MAG/1000, 1) + " km  |  hdg: " + ROUND(pad_geo:HEADING, 1) + "  |  brg: " + ROUND(pad_geo:BEARING, 1) + "  |  Alt: " + ROUND(ALT:RADAR/1000, 1) + " km AGL  |  spd: " + ROUND(surface_speed, 1) + " m/s  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s").
-        log_line("    brakes: " + brake_mode + "  |  retro: " + retro_mode + "  |  aoa: " + aoa_mode + "  |  base: " + ROUND(entry_aoa_base_deg_current, 1) + " deg  |  delta: " + ROUND(entry_aoa_pid_delta_deg_current, 1) + " deg  |  cmd: " + ROUND(aoa_cmd, 1) + " deg  |  actual: " + ROUND(actual_entry_aoa(), 1) + " deg").
-        log_line("    gate: " + ROUND(entry_aoa_prediction_alt_meters/1000, 1) + " km  |  pred_miss: " + ROUND(entry_aoa_pred_miss_meters_current) + " m  |  along: " + ROUND(entry_aoa_along_error_meters_current) + " m").
-        transmit_log().
-        SET next_print TO TIME:SECONDS + entry_telemetry_interval.
-    }
-    WAIT 0.
-}
-log_line("  Guidance start  |  range: " + ROUND(VXCL(UP:FOREVECTOR, pad_geo:POSITION):MAG) + " m  |  hdg: " + ROUND(pad_geo:HEADING, 1) + "  |  brg: " + ROUND(pad_geo:BEARING, 1) + "  |  alt: " + ROUND(ALT:RADAR) + " m AGL").
+log_line("--- DESCENT HANDOFF ---").
+log_line("  range: " + ROUND(VXCL(UP:FOREVECTOR, pad_geo:POSITION):MAG/1000, 1) + " km  |  alt: " + ROUND(ALT:RADAR/1000, 1) + " km AGL  |  spd: " + ROUND(SHIP:VELOCITY:SURFACE:MAG, 1) + " m/s  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s").
 transmit_log().
 
 // Descent Phase 1 — Descending: PID lateral guidance until 5 km handoff
