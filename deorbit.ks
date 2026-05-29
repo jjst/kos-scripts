@@ -14,8 +14,8 @@ SET min_parking_alt_meters TO 70000.
 SET max_parking_alt_meters TO 150000.
 SET max_parking_eccentricity TO 0.1.
 SET reentry_handoff_alt_meters TO 70000.
-SET target_deorbit_phase_angle_deg TO 180.
-SET deorbit_phase_start_tolerance_deg TO 5.
+SET target_deorbit_phase_angle_deg TO 120.
+SET deorbit_phase_start_tolerance_deg TO 1.
 SET deorbit_phase_warp_rate TO 3.
 SET slow_burn_miss_meters TO 10000.
 SET min_deorbit_throttle TO 0.01.
