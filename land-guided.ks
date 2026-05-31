@@ -1,5 +1,5 @@
 // ============================================================
-//  land.ks — descent and landing guidance after reentry
+//  land-guided.ks — descent and landing guidance after reentry
 // ============================================================
 //  Performs PID-guided descent with active guidance back to the
 //  launch position saved by launch.ks.
@@ -252,7 +252,7 @@ FUNCTION target_descent_rate {
 }
 
 CLEARSCREEN.
-log_line("=== land.ks ===").
+log_line("=== land-guided.ks ===").
 LOCAL preflight_failed IS FALSE.
 LOCAL target_body IS fallback_target_body.
 LOCAL target_lat IS fallback_target_lat.

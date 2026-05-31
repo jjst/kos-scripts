@@ -2,7 +2,7 @@
 //  reentry.ks — atmospheric guidance and land handoff
 // ============================================================
 //  Manages the high-energy reentry profile, then hands off to
-//  land.ks only after the vessel reaches the descent envelope.
+//  land-guided.ks only after the vessel reaches the descent envelope.
 
 // --- CONFIG (edit these) ------------------------------------
 SET entry_telemetry_interval TO 20.
@@ -16,7 +16,7 @@ SET reentry_handoff_alt_meters TO 25000.
 SET reentry_handoff_speed_mps TO 1200.
 SET reentry_handoff_range_meters TO 10000.
 SET reentry_handoff_tolerance_meters TO 2500.
-SET land_script_path TO "1:/land.ks".
+SET land_script_path TO "1:/land-guided.ks".
 SET land_unguided_script_path TO "1:/land-unguided.ks".
 SET land_target_path TO "1:/land-target.json".
 SET fallback_target_body TO "Kerbin".
