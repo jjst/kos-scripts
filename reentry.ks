@@ -224,6 +224,20 @@ UNTIL SHIP:ALTITUDE <= reentry_handoff_alt_meters {
         }
     }
 
+    LOCAL ab_angle IS airbrake_base_angle.
+    IF ADDONS:TR:AVAILABLE AND ADDONS:TR:HASIMPACT {
+        LOCAL impact_geo IS ADDONS:TR:IMPACTPOS.
+        LOCAL horiz_vel IS VXCL(UP:FOREVECTOR, SHIP:VELOCITY:SURFACE).
+        LOCAL to_pad_from_impact_h IS VXCL(UP:FOREVECTOR, pad_geo:POSITION) - VXCL(UP:FOREVECTOR, impact_geo:POSITION).
+        LOCAL along_miss IS 0.
+        IF horiz_vel:MAG > 1 {
+            SET along_miss TO VDOT(to_pad_from_impact_h, horiz_vel:NORMALIZED).
+        }
+        LOCAL ab_correction IS airbrake_pid:UPDATE(TIME:SECONDS, along_miss).
+        SET ab_angle TO clamp(airbrake_base_angle + ab_correction, airbrake_min_angle, airbrake_base_angle).
+    }
+    set_airbrake_angle(ab_angle).
+
     IF TIME:SECONDS >= next_print {
         LOCAL retro_mode IS "surface".
         LOCAL brake_mode IS "off".
@@ -239,12 +253,8 @@ UNTIL SHIP:ALTITUDE <= reentry_handoff_alt_meters {
             IF horiz_vel:MAG > 1 {
                 SET along_miss TO VDOT(to_pad_from_impact_h, horiz_vel:NORMALIZED).
             }
-            LOCAL ab_correction IS airbrake_pid:UPDATE(TIME:SECONDS, along_miss).
-            LOCAL ab_angle IS clamp(airbrake_base_angle + ab_correction, airbrake_min_angle, airbrake_base_angle).
-            set_airbrake_angle(ab_angle).
             log_line("    TR impact: " + ROUND(impact_geo:LAT, 4) + ", " + ROUND(impact_geo:LNG, 4) + "  |  miss: " + ROUND(tr_miss/1000, 2) + " km  |  along: " + ROUND(along_miss/1000, 2) + " km  |  ab: " + ROUND(ab_angle, 1) + " deg").
         } ELSE {
-            set_airbrake_angle(airbrake_base_angle).
             log_line("    TR impact: no prediction").
         }
         transmit_log().
