@@ -18,14 +18,17 @@ FUNCTION transmit_log {
 CLEARSCREEN.
 log_line("=== test_airbrake.ks ===").
 
-LOCAL surfaces IS SHIP:CONTROLSURFACES.
-log_line("Control surfaces: " + surfaces:LENGTH).
-FOR s IN surfaces {
+LOCAL airbrakes IS LIST().
+FOR s IN SHIP:CONTROLSURFACES {
+    IF s:PART:TAG = "airbrake" { airbrakes:ADD(s). }
+}
+log_line("Airbrakes tagged 'airbrake': " + airbrakes:LENGTH).
+FOR s IN airbrakes {
     log_line("  " + s:PART:NAME + "  |  auth: " + ROUND(s:AUTHORITY, 1) + "  |  deployed: " + s:DEPLOYED).
 }
 
 log_line(" ").
-FOR s IN surfaces {
+FOR s IN airbrakes {
     log_line("--- " + s:PART:NAME + " ---").
     FOR pmodname IN s:PART:MODULES {
         LOCAL pmod IS s:PART:GETMODULE(pmodname).
@@ -47,19 +50,19 @@ UNTIL FALSE {
     IF TERMINAL:INPUT:HASCHAR {
         LOCAL c IS TERMINAL:INPUT:GETCHAR().
         IF c = "0" {
-            FOR s IN surfaces { SET s:AUTHORITY TO 0. }
+            FOR s IN airbrakes { SET s:AUTHORITY TO 0. }
             log_line("Authority -> 0").
         } ELSE IF c = "1" {
-            FOR s IN surfaces { SET s:AUTHORITY TO 25. }
+            FOR s IN airbrakes { SET s:AUTHORITY TO 25. }
             log_line("Authority -> 25").
         } ELSE IF c = "2" {
-            FOR s IN surfaces { SET s:AUTHORITY TO 50. }
+            FOR s IN airbrakes { SET s:AUTHORITY TO 50. }
             log_line("Authority -> 50").
         } ELSE IF c = "3" {
-            FOR s IN surfaces { SET s:AUTHORITY TO 75. }
+            FOR s IN airbrakes { SET s:AUTHORITY TO 75. }
             log_line("Authority -> 75").
         } ELSE IF c = "4" {
-            FOR s IN surfaces { SET s:AUTHORITY TO 100. }
+            FOR s IN airbrakes { SET s:AUTHORITY TO 100. }
             log_line("Authority -> 100").
         } ELSE IF c = "q" OR c = "Q" {
             BREAK.
