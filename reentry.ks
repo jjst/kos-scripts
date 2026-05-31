@@ -12,7 +12,6 @@ SET entry_brakes_retract_speed_mps TO 1200.
 SET entry_aoa_deg TO 13.
 SET entry_aoa_retract_speed_mps TO 1200.
 SET airbrake_pid_kp TO 0.003.
-SET airbrake_pid_kd TO 0.005.
 SET airbrake_base_angle TO 90.
 SET airbrake_min_angle TO 0.
 SET entry_orbit_retro_alt_meters TO 70000.
@@ -198,7 +197,6 @@ SAS OFF.
 LOCK THROTTLE TO 0.
 LOCAL next_print IS TIME:SECONDS.
 LOCAL airbrake_pid IS PIDLOOP(airbrake_pid_kp).
-SET airbrake_pid:KD TO airbrake_pid_kd.
 SET airbrake_pid:MINOUTPUT TO -airbrake_base_angle.
 SET airbrake_pid:MAXOUTPUT TO 0.
 SET airbrake_pid:SETPOINT TO 0.
