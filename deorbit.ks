@@ -26,6 +26,7 @@ SET telemetry_interval TO 5.
 SET warp_telemetry_interval TO 60.
 SET burn_telemetry_interval TO 1.
 SET reentry_handoff_telemetry_interval TO 30.
+SET reentry_coast_warp_rate TO 3.
 SET tr_descent_entry_aoa_deg TO 10.
 SET tr_descent_high_aoa_deg TO 10.
 SET tr_descent_low_aoa_deg TO 10.
@@ -322,6 +323,7 @@ transmit_log().
 
 PRINT " ".
 PRINT "Auto-running reentry.ks below " + ROUND(reentry_handoff_alt_meters/1000, 1) + " km. Press any key to abort.".
+SET WARP TO reentry_coast_warp_rate.
 LOCAL handoff_next_print IS TIME:SECONDS.
 UNTIL SHIP:ALTITUDE <= reentry_handoff_alt_meters {
     IF TERMINAL:INPUT:HASCHAR {
@@ -335,6 +337,7 @@ UNTIL SHIP:ALTITUDE <= reentry_handoff_alt_meters {
     }
     WAIT 1.
 }
+SET WARP TO 0.
 
 log_line("Running reentry script: " + reentry_script_path).
 RUNPATH(reentry_script_path).
