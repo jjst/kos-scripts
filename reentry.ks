@@ -134,6 +134,14 @@ FUNCTION entry_retrograde_steering {
         LOCAL srfret IS SHIP:SRFRETROGRADE:FOREVECTOR.
         LOCAL axis IS VCRS(UP:FOREVECTOR, srfret).
         IF axis:MAG > 0.01 {
+            LOCAL to_pad_h IS VXCL(UP:FOREVECTOR, pad_geo:POSITION).
+            LOCAL horiz_vel IS VXCL(UP:FOREVECTOR, SHIP:VELOCITY:SURFACE).
+            IF horiz_vel:MAG > 1 AND to_pad_h:MAG > 100 {
+                LOCAL cross_to_pad IS VXCL(horiz_vel:NORMALIZED, to_pad_h).
+                LOCAL blended IS axis:NORMALIZED + cross_to_pad / to_pad_h:MAG.
+                LOCAL corrected IS VXCL(srfret, blended).
+                IF corrected:MAG > 0.01 { SET axis TO corrected. }
+            }
             RETURN ANGLEAXIS(entry_aoa_command(), axis:NORMALIZED) * srfret.
         }
     }
