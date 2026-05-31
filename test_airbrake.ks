@@ -33,8 +33,6 @@ FOR p IN ab_parts {
             FOR fname IN pmod:ALLFIELDS {
                 log_line("      " + fname).
                 transmit_log().
-                log_line("        = " + pmod:GETFIELD(fname)).
-                transmit_log().
             }
         } ELSE {
             log_line("    Fields: (none)").
@@ -80,12 +78,7 @@ UNTIL FALSE {
 
         IF auth >= 0 {
             FOR p IN ab_parts {
-                FOR modname IN p:MODULES {
-                    LOCAL pmod IS p:GETMODULE(modname).
-                    IF pmod:HASFIELD("authority limiter") {
-                        pmod:SETFIELD("authority limiter", auth).
-                    }
-                }
+                p:GETMODULE("ModuleAeroSurface"):SETFIELD("authority limiter", auth).
             }
             log_line("Authority -> " + auth).
             transmit_log().
