@@ -316,6 +316,8 @@ UNTIL success {
 }
 
 LOCK THROTTLE TO 0.
+UNLOCK THROTTLE.
+UNLOCK STEERING.
 log_line("--- Deorbit achieved ---").
 log_line("  burn: " + ROUND(burn_used, 1) + " m/s  |  predicted miss: " + ROUND(best_miss) + " m").
 log_line("  final impact: " + ROUND(final_impact_lat, 5) + ", " + ROUND(final_impact_lng, 5)).
