@@ -3,7 +3,7 @@
 // ============================================================
 
 PRINT "=== boomerang.ks ===".
-PRINT "Syncing launch.ks, deorbit.ks, reentry.ks, and land-guided.ks to local volume...".
+PRINT "Syncing launch.ks, deorbit.ks, reentry.ks, land-guided.ks, and land-unguided.ks to local volume...".
 
 LOCAL launch_global_path IS "0:/launch.ks".
 LOCAL launch_local_path  IS "1:/launch.ks".
@@ -13,6 +13,8 @@ LOCAL reentry_global_path IS "0:/reentry.ks".
 LOCAL reentry_local_path  IS "1:/reentry.ks".
 LOCAL land_global_path   IS "0:/land-guided.ks".
 LOCAL land_local_path    IS "1:/land-guided.ks".
+LOCAL land_unguided_global_path IS "0:/land-unguided.ks".
+LOCAL land_unguided_local_path  IS "1:/land-unguided.ks".
 
 IF EXISTS(launch_local_path) {
     DELETEPATH(launch_local_path).
@@ -26,11 +28,15 @@ IF EXISTS(reentry_local_path) {
 IF EXISTS(land_local_path) {
     DELETEPATH(land_local_path).
 }
+IF EXISTS(land_unguided_local_path) {
+    DELETEPATH(land_unguided_local_path).
+}
 
 COPYPATH(launch_global_path, launch_local_path).
 COPYPATH(deorbit_global_path, deorbit_local_path).
 COPYPATH(reentry_global_path, reentry_local_path).
 COPYPATH(land_global_path, land_local_path).
+COPYPATH(land_unguided_global_path, land_unguided_local_path).
 
 PRINT " ".
 PRINT "Initial script:".
@@ -38,6 +44,7 @@ PRINT "  1) launch.ks".
 PRINT "  2) deorbit.ks".
 PRINT "  3) reentry.ks".
 PRINT "  4) land-guided.ks".
+PRINT "  5) land-unguided.ks".
 PRINT "Press RETURN to load nothing.".
 TERMINAL:INPUT:CLEAR().
 WAIT UNTIL TERMINAL:INPUT:HASCHAR.
@@ -57,6 +64,9 @@ IF choice = "1" {
 } ELSE IF choice = "4" {
     PRINT "Launching local land-guided.ks...".
     RUNPATH(land_local_path).
+} ELSE IF choice = "5" {
+    PRINT "Launching local land-unguided.ks...".
+    RUNPATH(land_unguided_local_path).
 } ELSE {
     PRINT "No initial script launched.".
 }
