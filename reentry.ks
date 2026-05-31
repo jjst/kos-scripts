@@ -250,7 +250,7 @@ UNTIL SHIP:ALTITUDE <= reentry_handoff_alt_meters {
             IF horiz_vel:MAG > 1 {
                 SET along_miss TO VDOT(to_pad_from_impact_h, horiz_vel:NORMALIZED).
             }
-            LOCAL ab_angle IS airbrake_pid:UPDATE(TIME:SECONDS, -along_miss).
+            LOCAL ab_angle IS airbrake_pid:UPDATE(TIME:SECONDS, along_miss).
             set_airbrake_angle(ab_angle).
             log_line("    TR impact: " + ROUND(impact_geo:LAT, 4) + ", " + ROUND(impact_geo:LNG, 4) + "  |  miss: " + ROUND(tr_miss/1000, 2) + " km  |  along: " + ROUND(along_miss/1000, 2) + " km  |  ab: " + ROUND(ab_angle, 1) + " deg").
         } ELSE {
