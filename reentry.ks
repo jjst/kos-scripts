@@ -86,8 +86,9 @@ FUNCTION abort_reentry {
 
 FUNCTION set_airbrake_angle {
     PARAMETER angle.
+    LOCAL quantized IS CEILING(angle / 5) * 5.
     FOR p IN SHIP:PARTSTAGGED("airbrake") {
-        p:GETMODULE("ModuleAeroSurface"):SETFIELD("deploy angle", angle).
+        p:GETMODULE("ModuleAeroSurface"):SETFIELD("deploy angle", quantized).
     }
 }
 
