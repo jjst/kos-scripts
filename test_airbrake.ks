@@ -33,10 +33,12 @@ FOR p IN ab_parts {
             }
         }
         IF pmod:ALLEVENTS:LENGTH > 0 {
-            log_line("    Events: " + pmod:ALLEVENTS).
+            log_line("    Events:").
+            FOR ename IN pmod:ALLEVENTS { log_line("      " + ename). }
         }
         IF pmod:ALLACTIONS:LENGTH > 0 {
-            log_line("    Actions: " + pmod:ALLACTIONS).
+            log_line("    Actions:").
+            FOR aname IN pmod:ALLACTIONS { log_line("      " + aname). }
         }
     }
 }
