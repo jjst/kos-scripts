@@ -62,25 +62,25 @@ FOR p IN ab_parts {
 }
 
 log_line(" ").
-log_line("Interactive: 1=auth25  2=auth50  3=auth75  4=auth100  0=auth0  Q=quit").
+log_line("Interactive: 1=10deg  2=30deg  3=60deg  4=90deg  0=0deg  Q=quit").
 BRAKES ON.
 TERMINAL:INPUT:CLEAR().
 UNTIL FALSE {
     IF TERMINAL:INPUT:HASCHAR {
         LOCAL c IS TERMINAL:INPUT:GETCHAR().
-        LOCAL auth IS -1.
-        IF c = "0" { SET auth TO 0. }
-        ELSE IF c = "1" { SET auth TO 25. }
-        ELSE IF c = "2" { SET auth TO 50. }
-        ELSE IF c = "3" { SET auth TO 75. }
-        ELSE IF c = "4" { SET auth TO 100. }
+        LOCAL angle IS -1.
+        IF c = "0" { SET angle TO 0. }
+        ELSE IF c = "1" { SET angle TO 10. }
+        ELSE IF c = "2" { SET angle TO 30. }
+        ELSE IF c = "3" { SET angle TO 60. }
+        ELSE IF c = "4" { SET angle TO 90. }
         ELSE IF c = "q" OR c = "Q" { BREAK. }
 
-        IF auth >= 0 {
+        IF angle >= 0 {
             FOR p IN ab_parts {
-                p:GETMODULE("ModuleAeroSurface"):SETFIELD("authority limiter", auth).
+                p:GETMODULE("ModuleAeroSurface"):SETFIELD("deploy angle", angle).
             }
-            log_line("Authority -> " + auth).
+            log_line("Deploy angle -> " + angle).
             transmit_log().
         }
     }
