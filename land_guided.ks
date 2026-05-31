@@ -1,12 +1,10 @@
 // ============================================================
-//  hop.ks — VTVL proof-of-concept vertical hop and landing
+//  land_guided.ks — descent and landing guidance after reentry
 // ============================================================
-//  Flies a straight-up hop, then performs a PID-guided powered
-//  descent with active guidance back to launchpad.
+//  Performs PID-guided descent with active guidance back to the
+//  launch position saved by launch.ks.
 
 // --- CONFIG (edit these) ------------------------------------
-SET hop_altitude      TO 20000.
-SET max_twr           TO 2.5.
 SET gear_deploy_alt   TO 500.
 SET telemetry_interval TO 5.
 // Keep a small non-zero touchdown rate to avoid over-braking hover oscillation.
@@ -44,10 +42,6 @@ SET handoff_tolerance_slope TO 0.4.   // extra meters allowed per sqrt-meter AGL
 // Keep correcting this fraction of predicted miss even inside the corridor.
 // The corridor softens guidance effort; it does not create a no-correction dead zone.
 SET handoff_min_effort_fraction TO 0.5.
-// Minimum downward speed (m/s, negative) before engaging Descent Phase 1 steering.
-// Avoids locking to SRFRETROGRADE at apoapsis when surface velocity is near-zero
-// and the retrograde vector is undefined/unstable.
-SET d1_entry_vs TO -50.
 // Lateral guidance PID — output is commanded tilt in degrees away from pad.
 // Aerodynamic force from tilt pushes the rocket toward the pad.
 // Descent Phase 1 controls handoff miss directly; the tilt clamp is the authority limit.
@@ -62,12 +56,13 @@ SET d2_lat_kd            TO 0.1.
 SET d2_lat_max_tilt      TO 30.    // degrees
 // Minimum horizontal distance (m) before applying lateral correction.
 SET lat_min_horiz_dist TO 10.
-// Launch deflection — tilts the ascent trajectory to seed a lateral drift for testing.
-// Set to 0 for a nominal straight-up hop.
-SET launch_deflect_deg TO 1.
-SET launch_deflect_hdg_deg TO 27.
+// Landing target written by launch.ks.
+SET land_target_path TO "1:/land-target.json".
+SET fallback_target_body TO "Kerbin".
+SET fallback_target_lat TO -0.0972.
+SET fallback_target_lng TO -74.5577.
 // Terminal output is mirrored to this file with LOG.
-SET log_path TO "hop.log".
+SET log_path TO "land.log".
 // ------------------------------------------------------------
 
 FUNCTION clamp {
@@ -86,8 +81,40 @@ FUNCTION log_line {
     LOG msg TO log_path.
 }
 
-FUNCTION mark_telemetry_logged {
-    SET next_print TO TIME:SECONDS + telemetry_interval.
+FUNCTION check_line {
+    PARAMETER ok, label, detail.
+    LOCAL mark IS "[x]".
+    IF ok {
+        SET mark TO "[✓]".
+    } ELSE {
+        SET preflight_failed TO TRUE.
+    }
+    log_line(mark + " " + label + " - " + detail).
+}
+
+FUNCTION info_line {
+    PARAMETER label, detail.
+    log_line("[i] " + label + " - " + detail).
+}
+
+FUNCTION warn_line {
+    PARAMETER label, detail.
+    log_line("[!] " + label + " - " + detail).
+}
+
+FUNCTION abort_land {
+    PARAMETER msg.
+    LOCK THROTTLE TO 0.
+    UNLOCK THROTTLE.
+    UNLOCK STEERING.
+    log_line("ABORT: " + msg).
+    transmit_log().
+    WAIT 5.
+    SHUTDOWN.
+}
+
+FUNCTION next_telemetry_time {
+    RETURN TIME:SECONDS + telemetry_interval.
 }
 
 FUNCTION pad_steer_direction {
@@ -224,71 +251,56 @@ FUNCTION target_descent_rate {
     RETURN -touchdown_speed.
 }
 
-LOCAL pad_geo  IS SHIP:GEOPOSITION.
+CLEARSCREEN.
+log_line("=== land_guided.ks ===").
+LOCAL preflight_failed IS FALSE.
+LOCAL target_body IS fallback_target_body.
+LOCAL target_lat IS fallback_target_lat.
+LOCAL target_lng IS fallback_target_lng.
+LOCAL target_source IS "fallback KSC launchpad".
+LOCAL target_file_found IS EXISTS(land_target_path).
+IF target_file_found {
+    LOCAL target_data IS READJSON(land_target_path).
+    SET target_body TO target_data["body"].
+    SET target_lat TO target_data["lat"].
+    SET target_lng TO target_data["lng"].
+    SET target_source TO land_target_path.
+} ELSE {
+    log_line("WARN: missing landing target file: " + land_target_path + ".").
+    log_line("      Using fallback KSC launchpad coordinates.").
+}
+
+LOCAL pad_geo  IS LATLNG(target_lat, target_lng).
 LOCAL lat_tilt IS 0.
 LOCAL lat_pid  IS PIDLOOP(d1_miss_kp, d1_miss_ki, d1_miss_kd,
                            -d1_lat_max_tilt * 2, d1_lat_max_tilt * 2).
-
-CLEARSCREEN.
-log_line("=== hop.ks ===").
-log_line("Hop altitude : " + ROUND(hop_altitude/1000, 1) + " km  |  max TWR: " + max_twr).
 log_line("Gear deploy  : " + gear_deploy_alt + " m AGL").
-log_line("Launch deflect: " + launch_deflect_deg + " deg toward hdg " + launch_deflect_hdg_deg + " deg").
-log_line(" ").
-log_line("Press ENTER to begin launch sequence.").
-WAIT UNTIL TERMINAL:INPUT:HASCHAR.
-TERMINAL:INPUT:GETCHAR().
+log_line("Target       : " + ROUND(pad_geo:LAT, 5) + ", " + ROUND(pad_geo:LNG, 5) + " on " + target_body).
+log_line("Target source: " + target_source).
+log_line("Expected handoff: reentry.ks should deliver <= 25 km altitude and <= 1200 m/s before starting descent.").
+
+log_line("--- Preflight checks ---").
+IF target_file_found {
+    info_line("Landing target file", target_source).
+} ELSE {
+    warn_line("Landing target file", "missing; using " + target_source).
+}
+check_line(target_body = SHIP:BODY:NAME, "Target body", "target " + target_body + ", current " + SHIP:BODY:NAME).
+check_line(SHIP:AVAILABLETHRUST > 0, "Available thrust", ROUND(SHIP:AVAILABLETHRUST, 1) + " kN").
+check_line(powered_steering_alt_meters > landing_burn_alt_meters, "Descent handoff altitudes", ROUND(powered_steering_alt_meters) + " m -> " + ROUND(landing_burn_alt_meters) + " m").
+info_line("Landing target coordinates", ROUND(pad_geo:LAT, 5) + ", " + ROUND(pad_geo:LNG, 5)).
+IF preflight_failed {
+    abort_land("preflight checks failed.").
+}
+transmit_log().
 
 SAS OFF.
-RCS OFF.
-GEAR OFF.
-BRAKES OFF.
 LOCK THROTTLE TO 0.
-LOCK STEERING TO HEADING(launch_deflect_hdg_deg, 90 - launch_deflect_deg).
-
-// Countdown
-log_line("--- Countdown ---").
-FROM {LOCAL i IS 5.} UNTIL i = 0 STEP {SET i TO i - 1.} DO {
-    log_line("T-" + i + "...").
-    WAIT 1.
-}
-log_line("Ignition!").
-LOCK THROTTLE TO 1.0.
-STAGE.
 LOCAL start_time IS TIME:SECONDS.
-
-// Vertical ascent
-log_line("--- Vertical ascent to " + ROUND(hop_altitude/1000, 1) + " km Ap ---").
 LOCAL next_print IS TIME:SECONDS.
-UNTIL SHIP:APOAPSIS >= hop_altitude {
-    LOCAL max_thrust IS SHIP:AVAILABLETHRUST.
-    LOCAL weight IS SHIP:MASS * SHIP:BODY:MU /
-                   (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
-    LOCAL twr_throttle IS (max_twr * weight) / max_thrust.
-    LOCAL actual_throttle IS MIN(1.0, twr_throttle).
-    LOCK THROTTLE TO actual_throttle.
-    IF TIME:SECONDS >= next_print {
-        LOCAL to_pad_h  IS VXCL(UP:FOREVECTOR, pad_geo:POSITION).
-        LOCAL horiz_dist IS to_pad_h:MAG.
-        log_line("  Alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  Ap: " + ROUND(SHIP:APOAPSIS/1000, 1) + " km  |  thr: " + ROUND(actual_throttle, 2) + "  |  horiz: " + ROUND(horiz_dist) + " m").
-        mark_telemetry_logged().
-    }
-    WAIT 0.
-}
-
-// Cutoff and coast
-LOCK THROTTLE TO 0.
-log_line("--- Coasting ---").
-log_line("  Cutoff  |  Ap: " + ROUND(SHIP:APOAPSIS/1000, 1) + " km  |  Pe: " + ROUND(SHIP:PERIAPSIS/1000, 1) + " km").
-UNTIL SHIP:VERTICALSPEED < d1_entry_vs {
-    IF TIME:SECONDS >= next_print {
-        LOCAL to_pad_h  IS VXCL(UP:FOREVECTOR, pad_geo:POSITION).
-        LOCAL horiz_dist IS to_pad_h:MAG.
-        log_line("  Alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s  |  horiz: " + ROUND(horiz_dist) + " m").
-        mark_telemetry_logged().
-    }
-    WAIT 0.
-}
+log_line("--- DESCENT HANDOFF ---").
+log_line("  range: " + ROUND(VXCL(UP:FOREVECTOR, pad_geo:POSITION):MAG/1000, 1) + " km  |  alt: " + ROUND(ALT:RADAR/1000, 1) + " km AGL  |  spd: " + ROUND(SHIP:VELOCITY:SURFACE:MAG, 1) + " m/s  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s").
+transmit_log().
 
 // Descent Phase 1 — Descending: PID lateral guidance until 5 km handoff
 LOCAL original_max_stopping_time IS STEERINGMANAGER:MAXSTOPPINGTIME.
@@ -296,9 +308,6 @@ SET STEERINGMANAGER:MAXSTOPPINGTIME TO descent_max_stopping_time.
 LOCAL pred_to_pad IS VXCL(UP:FOREVECTOR, pad_geo:POSITION).
 LOCK STEERING TO pad_steer_direction(pred_to_pad, lat_tilt, lat_min_horiz_dist).
 log_line("--- DESCENT PHASE 1: Descending ---").
-// Jettison fairing / pretend payload before descent so reentry aero matches
-// the post-deployment vehicle.
-STAGE.
 RCS ON.
 SET next_print TO TIME:SECONDS.
 UNTIL ALT:RADAR < powered_steering_alt_meters {
@@ -329,11 +338,12 @@ UNTIL ALT:RADAR < powered_steering_alt_meters {
         LOCAL actual_tilt IS actual_retro_tilt().
         log_line("  Alt: " + ROUND(alt_agl) + " m AGL  |  vs: " + ROUND(vs, 1) + " m/s  |  tof_to_d2: " + ROUND(tof, 1) + " s").
         log_line("    horiz: " + ROUND(to_pad_h:MAG) + " m  |  pred_miss: " + ROUND(pred_miss) + " m  |  tol: " + ROUND(allowed_miss) + " m  |  eff_miss: " + ROUND(effective_miss) + " m  |  miss_tilt: " + ROUND(miss_tilt, 1) + " deg  |  tilt_cmd: " + ROUND(lat_tilt, 1) + " deg  |  actual_tilt: " + ROUND(actual_tilt, 1) + " deg").
-        mark_telemetry_logged().
+        SET next_print TO next_telemetry_time().
     }
     WAIT 0.
 }
 log_line("  DESCENT PHASE 2 handoff  |  alt: " + ROUND(ALT:RADAR) + " m  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s").
+transmit_log().
 
 // Descent Phase 2 — Powered descent and launchpad steering
 log_line("--- DESCENT PHASE 2: Powered descent / launchpad steering ---").
@@ -382,11 +392,12 @@ UNTIL ALT:RADAR <= landing_burn_alt_meters {
         LOCAL actual_tilt IS actual_retro_tilt().
         log_line("  Alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(vs, 1) + " m/s  |  tof_to_d3: " + ROUND(tof, 1) + " s  |  thr: " + ROUND(d2_throttle, 2)).
         log_line("    horiz: " + ROUND(to_pad_h:MAG) + " m  |  pred_miss: " + ROUND(pred_miss) + " m  |  guidance_miss: " + ROUND(guidance_miss) + " m  |  tol: " + ROUND(allowed_miss) + " m  |  eff_miss: " + ROUND(effective_miss) + " m  |  hclos: " + ROUND(hclos, 1) + " m/s  |  tgt_hclos: " + ROUND(hclos_tgt, 1) + " m/s  |  tilt_cmd: " + ROUND(lat_tilt, 1) + " deg  |  actual_tilt: " + ROUND(actual_tilt, 1) + " deg").
-        mark_telemetry_logged().
+        SET next_print TO next_telemetry_time().
     }
     WAIT 0.
 }
 log_line("  DESCENT PHASE 3 handoff  |  alt: " + ROUND(ALT:RADAR) + " m  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s").
+transmit_log().
 
 // Descent Phase 3 — Landing burn (retrograde with RCS trim)
 log_line("--- DESCENT PHASE 3: Landing burn / RCS trim ---").
@@ -415,7 +426,7 @@ SET d3_rcs_top_pid:MAXOUTPUT TO 1.
 SET d3_rcs_star_pid:SETPOINT TO 0.
 SET d3_rcs_top_pid:SETPOINT TO 0.
 SET next_print TO TIME:SECONDS.
-UNTIL SHIP:STATUS = "LANDED" {
+UNTIL SHIP:STATUS = "LANDED" OR SHIP:STATUS = "SPLASHED" {
     LOCAL g_land IS SHIP:BODY:MU / (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
     LOCAL alt_agl IS ALT:RADAR.
     IF NOT gear_deployed AND alt_agl < gear_deploy_alt {
@@ -464,7 +475,7 @@ UNTIL SHIP:STATUS = "LANDED" {
         LOCAL roll_rate IS roll_rate_deg().
         log_line("  Alt: " + ROUND(alt_agl) + " m  |  vs: " + ROUND(vs_d3, 1) + " m/s  |  horiz: " + ROUND(horiz_dist) + " m  |  hspd: " + ROUND(hspd, 1) + " m/s  |  tgt_hspd: " + ROUND(tgt_hspd, 1) + " m/s  |  max_hspd: " + ROUND(max_hspd, 1) + " m/s  |  tgt: " + ROUND(target_vs, 1) + " m/s  |  thr: " + ROUND(thrott_cmd, 2) + "  |  rcs: " + ROUND(rcs_cmd:X, 2) + "," + ROUND(rcs_cmd:Y, 2) + "," + ROUND(rcs_cmd:Z, 2)).
         log_line("    facing: " + ROUND(SHIP:FACING:PITCH, 1) + "," + ROUND(SHIP:FACING:YAW, 1) + "," + ROUND(SHIP:FACING:ROLL, 1) + " deg  |  steer_err: " + ROUND(steer_err, 1) + " deg  |  roll_err: " + ROUND(roll_err, 1) + " deg  |  roll_rate: " + ROUND(roll_rate, 1) + " deg/s").
-        mark_telemetry_logged().
+        SET next_print TO next_telemetry_time().
     }
     WAIT 0.
 }
@@ -483,11 +494,13 @@ IF descent_aborted {
     log_line("--- Descent aborted ---").
     log_line("  vs: " + ROUND(SHIP:VERTICALSPEED, 2) + " m/s  |  horiz spd: " + ROUND(land_hspd, 1) + " m/s  |  status: " + SHIP:STATUS).
     log_line("  pad offset: " + ROUND(land_offset, 1) + " m  |  flight time: " + ROUND(flight_time) + " s").
-    log_line("  deflection: " + launch_deflect_deg + " deg hdg " + launch_deflect_hdg_deg).
+} ELSE IF SHIP:STATUS = "SPLASHED" {
+    log_line("--- Splashed down! ---").
+    log_line("  vs: " + ROUND(SHIP:VERTICALSPEED, 2) + " m/s  |  horiz spd: " + ROUND(land_hspd, 1) + " m/s").
+    log_line("  pad offset: " + ROUND(land_offset, 1) + " m  |  flight time: " + ROUND(flight_time) + " s").
 } ELSE {
     log_line("--- Landed! ---").
     log_line("  vs: " + ROUND(SHIP:VERTICALSPEED, 2) + " m/s  |  horiz spd: " + ROUND(land_hspd, 1) + " m/s").
     log_line("  pad offset: " + ROUND(land_offset, 1) + " m  |  flight time: " + ROUND(flight_time) + " s").
-    log_line("  deflection: " + launch_deflect_deg + " deg hdg " + launch_deflect_hdg_deg).
 }
 transmit_log().
