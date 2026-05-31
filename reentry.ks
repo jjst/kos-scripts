@@ -17,6 +17,7 @@ SET reentry_handoff_speed_mps TO 1200.
 SET reentry_handoff_range_meters TO 10000.
 SET reentry_handoff_tolerance_meters TO 2500.
 SET land_script_path TO "1:/land.ks".
+SET land_unguided_script_path TO "1:/land-unguided.ks".
 SET land_target_path TO "1:/land-target.json".
 SET fallback_target_body TO "Kerbin".
 SET fallback_target_lat TO -0.0972.
@@ -261,4 +262,7 @@ IF handoff_ok {
     RUNPATH(land_script_path).
 }
 
-abort_reentry("handoff outside envelope at " + ROUND(SHIP:ALTITUDE) + " m  |  spd " + ROUND(handoff_speed_mps_current, 1) + " m/s  |  ahead " + ROUND(handoff_along_meters) + " m  |  cross " + ROUND(handoff_cross_meters) + " m.").
+log_line("Handoff outside envelope — falling back to unguided landing.").
+log_line("  alt: " + ROUND(SHIP:ALTITUDE) + " m  |  spd: " + ROUND(handoff_speed_mps_current, 1) + " m/s  |  ahead: " + ROUND(handoff_along_meters) + " m  |  cross: " + ROUND(handoff_cross_meters) + " m").
+transmit_log().
+RUNPATH(land_unguided_script_path).
