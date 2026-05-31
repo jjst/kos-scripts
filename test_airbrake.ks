@@ -1,4 +1,4 @@
-// test_airbrake.ks — probe airbrake pmodule fields and test angle control
+// test_airbrake.ks — probe airbrake module fields and test angle control
 SET log_path TO "test_airbrake.log".
 
 FUNCTION log_line {
@@ -18,25 +18,25 @@ FUNCTION transmit_log {
 CLEARSCREEN.
 log_line("=== test_airbrake.ks ===").
 
-LOCAL airbrakes IS LIST().
-FOR s IN SHIP:CONTROLSURFACES {
-    IF s:PART:TAG = "airbrake" { airbrakes:ADD(s). }
-}
-log_line("Airbrakes tagged 'airbrake': " + airbrakes:LENGTH).
-FOR s IN airbrakes {
-    log_line("  " + s:PART:NAME + "  |  auth: " + ROUND(s:AUTHORITY, 1) + "  |  deployed: " + s:DEPLOYED).
-}
+LOCAL ab_parts IS SHIP:PARTSTAGGED("airbrake").
+log_line("Parts tagged 'airbrake': " + ab_parts:LENGTH).
 
-log_line(" ").
-FOR s IN airbrakes {
-    log_line("--- " + s:PART:NAME + " ---").
-    FOR pmodname IN s:PART:MODULES {
-        LOCAL pmod IS s:PART:GETMODULE(pmodname).
-        IF pmod:ALLFIELDNAMES:LENGTH > 0 {
-            log_line("  Module: " + pmodname).
-            FOR fname IN pmod:ALLFIELDNAMES {
-                log_line("    " + fname + " = " + pmod:GETFIELD(fname)).
+FOR p IN ab_parts {
+    log_line("--- " + p:NAME + " (tag: " + p:TAG + ") ---").
+    FOR modname IN p:MODULES {
+        LOCAL pmod IS p:GETMODULE(modname).
+        log_line("  Module: " + modname).
+        IF pmod:ALLFIELDS:LENGTH > 0 {
+            log_line("    Fields:").
+            FOR fname IN pmod:ALLFIELDS {
+                log_line("      " + fname + " = " + pmod:GETFIELD(fname)).
             }
+        }
+        IF pmod:ALLEVENTS:LENGTH > 0 {
+            log_line("    Events: " + pmod:ALLEVENTS).
+        }
+        IF pmod:ALLACTIONS:LENGTH > 0 {
+            log_line("    Actions: " + pmod:ALLACTIONS).
         }
     }
 }
@@ -49,25 +49,26 @@ TERMINAL:INPUT:CLEAR().
 UNTIL FALSE {
     IF TERMINAL:INPUT:HASCHAR {
         LOCAL c IS TERMINAL:INPUT:GETCHAR().
-        IF c = "0" {
-            FOR s IN airbrakes { SET s:AUTHORITY TO 0. }
-            log_line("Authority -> 0").
-        } ELSE IF c = "1" {
-            FOR s IN airbrakes { SET s:AUTHORITY TO 25. }
-            log_line("Authority -> 25").
-        } ELSE IF c = "2" {
-            FOR s IN airbrakes { SET s:AUTHORITY TO 50. }
-            log_line("Authority -> 50").
-        } ELSE IF c = "3" {
-            FOR s IN airbrakes { SET s:AUTHORITY TO 75. }
-            log_line("Authority -> 75").
-        } ELSE IF c = "4" {
-            FOR s IN airbrakes { SET s:AUTHORITY TO 100. }
-            log_line("Authority -> 100").
-        } ELSE IF c = "q" OR c = "Q" {
-            BREAK.
+        LOCAL auth IS -1.
+        IF c = "0" { SET auth TO 0. }
+        ELSE IF c = "1" { SET auth TO 25. }
+        ELSE IF c = "2" { SET auth TO 50. }
+        ELSE IF c = "3" { SET auth TO 75. }
+        ELSE IF c = "4" { SET auth TO 100. }
+        ELSE IF c = "q" OR c = "Q" { BREAK. }
+
+        IF auth >= 0 {
+            FOR p IN ab_parts {
+                FOR modname IN p:MODULES {
+                    LOCAL pmod IS p:GETMODULE(modname).
+                    IF pmod:HASFIELD("authority limiter") {
+                        pmod:SETFIELD("authority limiter", auth).
+                    }
+                }
+            }
+            log_line("Authority -> " + auth).
+            transmit_log().
         }
-        transmit_log().
     }
     WAIT 0.
 }
