@@ -9,7 +9,7 @@ SET entry_telemetry_interval TO 20.
 SET entry_brakes_enabled TO TRUE.
 SET entry_brakes_deploy_alt_meters TO 70000.
 SET entry_brakes_retract_speed_mps TO 1200.
-SET entry_aoa_deg TO 10.
+SET entry_aoa_deg TO 15.
 SET entry_aoa_retract_speed_mps TO 1200.
 SET entry_orbit_retro_alt_meters TO 70000.
 SET reentry_handoff_alt_meters TO 25000.
