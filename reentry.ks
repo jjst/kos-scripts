@@ -82,6 +82,16 @@ FUNCTION abort_reentry {
     SHUTDOWN.
 }
 
+FUNCTION target_miss_distance {
+    PARAMETER impact_geo, target_geo.
+    LOCAL impact_radial IS impact_geo:POSITION - SHIP:BODY:POSITION.
+    LOCAL target_radial IS target_geo:POSITION - SHIP:BODY:POSITION.
+    IF impact_radial:MAG <= 0 OR target_radial:MAG <= 0 {
+        RETURN 999999999.
+    }
+    RETURN SHIP:BODY:RADIUS * VANG(impact_radial, target_radial) * 3.14159265 / 180.
+}
+
 FUNCTION actual_entry_aoa {
     LOCAL srfret IS SHIP:SRFRETROGRADE:FOREVECTOR.
     LOCAL axis IS VCRS(UP:FOREVECTOR, srfret).
@@ -215,6 +225,13 @@ UNTIL SHIP:ALTITUDE <= reentry_handoff_alt_meters {
         IF entry_brakes_deployed { SET brake_mode TO "on". }
         IF SHIP:ALTITUDE > entry_orbit_retro_alt_meters { SET retro_mode TO "orbit". }
         log_line("  Alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  spd: " + ROUND(surface_speed, 1) + " m/s  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s  |  brakes: " + brake_mode + "  |  retro: " + retro_mode + "  |  cmd: " + ROUND(entry_aoa_command(), 1) + " deg  |  actual: " + ROUND(actual_entry_aoa(), 1) + " deg").
+        IF ADDONS:TR:AVAILABLE AND ADDONS:TR:HASIMPACT {
+            LOCAL impact_geo IS ADDONS:TR:IMPACTPOS.
+            LOCAL tr_miss IS target_miss_distance(impact_geo, pad_geo).
+            log_line("    TR impact: " + ROUND(impact_geo:LAT, 4) + ", " + ROUND(impact_geo:LNG, 4) + "  |  miss: " + ROUND(tr_miss/1000, 2) + " km").
+        } ELSE {
+            log_line("    TR impact: no prediction").
+        }
         transmit_log().
         SET next_print TO TIME:SECONDS + entry_telemetry_interval.
     }
