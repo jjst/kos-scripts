@@ -23,26 +23,43 @@ log_line("Parts tagged 'airbrake': " + ab_parts:LENGTH).
 
 FOR p IN ab_parts {
     log_line("--- " + p:NAME + " (tag: " + p:TAG + ") ---").
+    transmit_log().
     FOR modname IN p:MODULES {
         LOCAL pmod IS p:GETMODULE(modname).
         log_line("  Module: " + modname).
+        transmit_log().
         IF pmod:ALLFIELDS:LENGTH > 0 {
             log_line("    Fields:").
             FOR fname IN pmod:ALLFIELDS {
                 log_line("      " + fname + " = " + pmod:GETFIELD(fname)).
+                transmit_log().
             }
+        } ELSE {
+            log_line("    Fields: (none)").
+            transmit_log().
         }
         IF pmod:ALLEVENTS:LENGTH > 0 {
             log_line("    Events:").
-            FOR ename IN pmod:ALLEVENTS { log_line("      " + ename). }
+            FOR ename IN pmod:ALLEVENTS {
+                log_line("      " + ename).
+                transmit_log().
+            }
+        } ELSE {
+            log_line("    Events: (none)").
+            transmit_log().
         }
         IF pmod:ALLACTIONS:LENGTH > 0 {
             log_line("    Actions:").
-            FOR aname IN pmod:ALLACTIONS { log_line("      " + aname). }
+            FOR aname IN pmod:ALLACTIONS {
+                log_line("      " + aname).
+                transmit_log().
+            }
+        } ELSE {
+            log_line("    Actions: (none)").
+            transmit_log().
         }
     }
 }
-transmit_log().
 
 log_line(" ").
 log_line("Interactive: 1=auth25  2=auth50  3=auth75  4=auth100  0=auth0  Q=quit").
