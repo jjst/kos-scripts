@@ -13,12 +13,6 @@ SET descent_kp TO 0.035.
 SET descent_ki TO 0.004.
 SET descent_kd TO 0.02.
 SET descent_min_rate TO -35.
-SET descent_profile_high_alt TO 400.
-SET descent_profile_mid_alt TO 200.
-SET descent_profile_low_alt TO 50.
-SET descent_profile_flare_alt TO 10.
-SET descent_profile_mid_rate TO -12.
-SET descent_profile_low_rate TO -6.
 SET descent_pid_min_output TO -0.6.
 SET descent_pid_max_output TO 0.6.
 SET descent_pid_epsilon TO 0.15.
@@ -58,25 +52,8 @@ FUNCTION transmit_log {
 
 FUNCTION target_descent_rate {
     PARAMETER alt_agl.
-    IF alt_agl > descent_profile_high_alt {
-        RETURN descent_min_rate.
-    }
-    IF alt_agl > descent_profile_mid_alt {
-        LOCAL t1 IS (alt_agl - descent_profile_mid_alt) /
-                    (descent_profile_high_alt - descent_profile_mid_alt).
-        RETURN lerp(descent_profile_mid_rate, descent_min_rate, t1).
-    }
-    IF alt_agl > descent_profile_low_alt {
-        LOCAL t2 IS (alt_agl - descent_profile_low_alt) /
-                    (descent_profile_mid_alt - descent_profile_low_alt).
-        RETURN lerp(descent_profile_low_rate, descent_profile_mid_rate, t2).
-    }
-    IF alt_agl > descent_profile_flare_alt {
-        LOCAL t3 IS (alt_agl - descent_profile_flare_alt) /
-                    (descent_profile_low_alt - descent_profile_flare_alt).
-        RETURN lerp(-touchdown_speed, descent_profile_low_rate, t3).
-    }
-    RETURN -touchdown_speed.
+    LOCAL t IS clamp(alt_agl / suicide_burn_alt_meters, 0, 1).
+    RETURN lerp(-touchdown_speed, descent_min_rate, t).
 }
 
 CLEARSCREEN.
