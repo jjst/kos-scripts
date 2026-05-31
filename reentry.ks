@@ -11,7 +11,9 @@ SET entry_brakes_deploy_alt_meters TO 70000.
 SET entry_brakes_retract_speed_mps TO 1200.
 SET entry_aoa_deg TO 13.
 SET entry_aoa_retract_speed_mps TO 1200.
-SET airbrake_pid_kp TO 0.003.
+SET airbrake_pid_kp TO 0.001.
+SET airbrake_pid_ki TO 0.000001.
+SET airbrake_pid_epsilon TO 500.
 SET airbrake_base_angle TO 90.
 SET airbrake_min_angle TO 0.
 SET entry_orbit_retro_alt_meters TO 70000.
@@ -196,9 +198,7 @@ transmit_log().
 SAS OFF.
 LOCK THROTTLE TO 0.
 LOCAL next_print IS TIME:SECONDS.
-LOCAL airbrake_pid IS PIDLOOP(airbrake_pid_kp).
-SET airbrake_pid:MINOUTPUT TO -airbrake_base_angle.
-SET airbrake_pid:MAXOUTPUT TO 0.
+LOCAL airbrake_pid IS PIDLOOP(airbrake_pid_kp, airbrake_pid_ki, 0, -airbrake_base_angle, 0, airbrake_pid_epsilon).
 SET airbrake_pid:SETPOINT TO 0.
 
 LOCK STEERING TO entry_retrograde_steering().
