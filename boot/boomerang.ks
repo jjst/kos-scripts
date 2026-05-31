@@ -2,49 +2,29 @@
 //  boomerang.ks - bootstrap loader for the boomerang vessel.
 // ============================================================
 
+LOCAL scripts IS LIST(
+    "launch.ks",
+    "deorbit.ks",
+    "reentry.ks",
+    "land-guided.ks",
+    "land-unguided.ks"
+).
+
 PRINT "=== boomerang.ks ===".
-PRINT "Syncing launch.ks, deorbit.ks, reentry.ks, land-guided.ks, and land-unguided.ks to local volume...".
-
-LOCAL launch_global_path IS "0:/launch.ks".
-LOCAL launch_local_path  IS "1:/launch.ks".
-LOCAL deorbit_global_path IS "0:/deorbit.ks".
-LOCAL deorbit_local_path  IS "1:/deorbit.ks".
-LOCAL reentry_global_path IS "0:/reentry.ks".
-LOCAL reentry_local_path  IS "1:/reentry.ks".
-LOCAL land_global_path   IS "0:/land-guided.ks".
-LOCAL land_local_path    IS "1:/land-guided.ks".
-LOCAL land_unguided_global_path IS "0:/land-unguided.ks".
-LOCAL land_unguided_local_path  IS "1:/land-unguided.ks".
-
-IF EXISTS(launch_local_path) {
-    DELETEPATH(launch_local_path).
+PRINT "Syncing scripts to local volume...".
+FOR script IN scripts {
+    LOCAL local_path IS "1:/" + script.
+    IF EXISTS(local_path) { DELETEPATH(local_path). }
+    COPYPATH("0:/" + script, local_path).
 }
-IF EXISTS(deorbit_local_path) {
-    DELETEPATH(deorbit_local_path).
-}
-IF EXISTS(reentry_local_path) {
-    DELETEPATH(reentry_local_path).
-}
-IF EXISTS(land_local_path) {
-    DELETEPATH(land_local_path).
-}
-IF EXISTS(land_unguided_local_path) {
-    DELETEPATH(land_unguided_local_path).
-}
-
-COPYPATH(launch_global_path, launch_local_path).
-COPYPATH(deorbit_global_path, deorbit_local_path).
-COPYPATH(reentry_global_path, reentry_local_path).
-COPYPATH(land_global_path, land_local_path).
-COPYPATH(land_unguided_global_path, land_unguided_local_path).
 
 PRINT " ".
 PRINT "Initial script:".
-PRINT "  1) launch.ks".
-PRINT "  2) deorbit.ks".
-PRINT "  3) reentry.ks".
-PRINT "  4) land-guided.ks".
-PRINT "  5) land-unguided.ks".
+LOCAL idx IS 1.
+FOR script IN scripts {
+    PRINT "  " + idx + ") " + script.
+    SET idx TO idx + 1.
+}
 PRINT "Press RETURN to load nothing.".
 TERMINAL:INPUT:CLEAR().
 WAIT UNTIL TERMINAL:INPUT:HASCHAR.
@@ -52,21 +32,11 @@ LOCAL choice IS TERMINAL:INPUT:GETCHAR().
 WAIT 0.
 TERMINAL:INPUT:CLEAR().
 
-IF choice = "1" {
-    PRINT "Launching local launch.ks...".
-    RUNPATH(launch_local_path).
-} ELSE IF choice = "2" {
-    PRINT "Launching local deorbit.ks...".
-    RUNPATH(deorbit_local_path).
-} ELSE IF choice = "3" {
-    PRINT "Launching local reentry.ks...".
-    RUNPATH(reentry_local_path).
-} ELSE IF choice = "4" {
-    PRINT "Launching local land-guided.ks...".
-    RUNPATH(land_local_path).
-} ELSE IF choice = "5" {
-    PRINT "Launching local land-unguided.ks...".
-    RUNPATH(land_unguided_local_path).
+LOCAL choice_num IS choice:TONUMBER(-1).
+IF choice_num >= 1 AND choice_num <= scripts:LENGTH {
+    LOCAL script IS scripts[choice_num - 1].
+    PRINT "Launching local " + script + "...".
+    RUNPATH("1:/" + script).
 } ELSE {
     PRINT "No initial script launched.".
 }
