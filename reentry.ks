@@ -15,10 +15,8 @@ SET airbrake_pid_kp TO 0.003.
 SET airbrake_base_angle TO 90.
 SET airbrake_min_angle TO 0.
 SET entry_orbit_retro_alt_meters TO 70000.
-SET reentry_handoff_alt_meters TO 25000.
-SET reentry_handoff_speed_mps TO 1200.
-SET reentry_handoff_range_meters TO 10000.
-SET reentry_handoff_tolerance_meters TO 2500.
+SET reentry_handoff_alt_meters TO 20000.
+SET reentry_handoff_tr_miss_meters TO 2000.
 SET land_script_path TO "1:/land_guided.ks".
 SET land_unguided_script_path TO "1:/land_unguided.ks".
 SET land_target_path TO "1:/land-target.json".
@@ -142,21 +140,6 @@ FUNCTION entry_retrograde_steering {
     RETURN SHIP:SRFRETROGRADE.
 }
 
-FUNCTION handoff_along_distance {
-    PARAMETER to_pad_h, horiz_vel.
-    IF horiz_vel:MAG <= 1 {
-        RETURN to_pad_h:MAG.
-    }
-    RETURN VDOT(to_pad_h, horiz_vel:NORMALIZED).
-}
-
-FUNCTION handoff_cross_distance {
-    PARAMETER to_pad_h, horiz_vel.
-    IF horiz_vel:MAG <= 1 {
-        RETURN 0.
-    }
-    RETURN VXCL(horiz_vel:NORMALIZED, to_pad_h):MAG.
-}
 
 CLEARSCREEN.
 log_line("=== reentry.ks ===").
@@ -182,7 +165,7 @@ log_line("Target       : " + ROUND(pad_geo:LAT, 5) + ", " + ROUND(pad_geo:LNG, 5
 log_line("Target source: " + target_source).
 log_line("Entry attitude: orbit retro above " + ROUND(entry_orbit_retro_alt_meters/1000, 1) + " km, surface retro below.").
 log_line("Entry AoA    : " + entry_aoa_deg + " deg fixed, retract below " + ROUND(entry_aoa_retract_speed_mps) + " m/s.").
-log_line("Handoff gate : " + ROUND(reentry_handoff_alt_meters/1000, 1) + " km alt  |  <= " + ROUND(reentry_handoff_speed_mps) + " m/s  |  " + ROUND(reentry_handoff_range_meters/1000, 1) + " km ahead of KSC +/- " + ROUND(reentry_handoff_tolerance_meters/1000, 1) + " km").
+log_line("Handoff gate : " + ROUND(reentry_handoff_alt_meters/1000, 1) + " km alt  |  TR miss <= " + ROUND(reentry_handoff_tr_miss_meters) + " m").
 
 log_line("--- Preflight checks ---").
 IF target_file_found {
@@ -195,9 +178,7 @@ check_line(entry_brakes_retract_speed_mps > 0, "Entry brake retract speed", ROUN
 check_line(entry_aoa_deg >= 0 AND entry_aoa_deg <= 90, "Entry AoA", ROUND(entry_aoa_deg, 1) + " deg").
 check_line(entry_aoa_retract_speed_mps > 0, "Entry AoA retract speed", ROUND(entry_aoa_retract_speed_mps) + " m/s").
 check_line(reentry_handoff_alt_meters > 0, "Reentry handoff altitude", ROUND(reentry_handoff_alt_meters/1000, 1) + " km").
-check_line(reentry_handoff_speed_mps > 0, "Reentry handoff speed", ROUND(reentry_handoff_speed_mps) + " m/s").
-check_line(reentry_handoff_range_meters > 0, "Reentry handoff range", ROUND(reentry_handoff_range_meters/1000, 1) + " km").
-check_line(reentry_handoff_tolerance_meters >= 0, "Reentry handoff tolerance", ROUND(reentry_handoff_tolerance_meters/1000, 1) + " km").
+check_line(reentry_handoff_tr_miss_meters > 0, "Reentry handoff TR miss", ROUND(reentry_handoff_tr_miss_meters) + " m").
 info_line("Landing target coordinates", ROUND(pad_geo:LAT, 5) + ", " + ROUND(pad_geo:LNG, 5)).
 IF preflight_failed {
     abort_reentry("preflight checks failed.").
@@ -264,25 +245,17 @@ UNTIL SHIP:ALTITUDE <= reentry_handoff_alt_meters {
     WAIT 0.
 }
 
-LOCAL handoff_to_pad_h IS VXCL(UP:FOREVECTOR, pad_geo:POSITION).
-LOCAL handoff_horiz_vel IS VXCL(UP:FOREVECTOR, SHIP:VELOCITY:SURFACE).
-LOCAL handoff_speed_mps_current IS SHIP:VELOCITY:SURFACE:MAG.
-LOCAL handoff_along_meters IS handoff_along_distance(handoff_to_pad_h, handoff_horiz_vel).
-LOCAL handoff_cross_meters IS handoff_cross_distance(handoff_to_pad_h, handoff_horiz_vel).
-LOCAL handoff_range_error_meters IS ABS(handoff_along_meters - reentry_handoff_range_meters).
-LOCAL handoff_ok IS SHIP:ALTITUDE <= reentry_handoff_alt_meters AND
-                   handoff_speed_mps_current <= reentry_handoff_speed_mps AND
-                   handoff_along_meters >= 0 AND
-                   handoff_range_error_meters <= reentry_handoff_tolerance_meters AND
-                   handoff_cross_meters <= reentry_handoff_tolerance_meters.
+LOCAL handoff_tr_miss IS 999999.
+IF ADDONS:TR:AVAILABLE AND ADDONS:TR:HASIMPACT {
+    SET handoff_tr_miss TO target_miss_distance(ADDONS:TR:IMPACTPOS, pad_geo).
+}
+LOCAL handoff_ok IS handoff_tr_miss <= reentry_handoff_tr_miss_meters.
 log_line("--- Reentry handoff ---").
-log_line("  alt: " + ROUND(SHIP:ALTITUDE) + " m  |  spd: " + ROUND(handoff_speed_mps_current, 1) + " m/s  |  ahead: " + ROUND(handoff_along_meters) + " m  |  ahead_err: " + ROUND(handoff_range_error_meters) + " m  |  cross: " + ROUND(handoff_cross_meters) + " m").
+log_line("  alt: " + ROUND(SHIP:ALTITUDE) + " m  |  spd: " + ROUND(SHIP:VELOCITY:SURFACE:MAG, 1) + " m/s  |  TR miss: " + ROUND(handoff_tr_miss) + " m").
 transmit_log().
 
 IF handoff_ok {
-    IF entry_brakes_deployed {
-        BRAKES OFF.
-    }
+    IF entry_brakes_deployed { BRAKES OFF. }
     set_airbrake_angle(0).
     log_line("Running land script: " + land_script_path).
     RUNPATH(land_script_path).
@@ -290,6 +263,6 @@ IF handoff_ok {
 
 set_airbrake_angle(0).
 log_line("Handoff outside envelope — falling back to unguided landing.").
-log_line("  alt: " + ROUND(SHIP:ALTITUDE) + " m  |  spd: " + ROUND(handoff_speed_mps_current, 1) + " m/s  |  ahead: " + ROUND(handoff_along_meters) + " m  |  cross: " + ROUND(handoff_cross_meters) + " m").
+log_line("  alt: " + ROUND(SHIP:ALTITUDE) + " m  |  spd: " + ROUND(SHIP:VELOCITY:SURFACE:MAG, 1) + " m/s  |  TR miss: " + ROUND(handoff_tr_miss) + " m").
 transmit_log().
 RUNPATH(land_unguided_script_path).
