@@ -12,7 +12,6 @@ SET entry_brakes_retract_speed_mps TO 1200.
 SET entry_aoa_deg TO 13.
 SET entry_aoa_retract_speed_mps TO 1200.
 SET airbrake_pid_kp TO 0.003.
-SET airbrake_smooth_alpha TO 0.1.
 SET airbrake_base_angle TO 90.
 SET airbrake_min_angle TO 0.
 SET entry_orbit_retro_alt_meters TO 70000.
