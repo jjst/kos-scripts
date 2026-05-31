@@ -12,8 +12,8 @@ SET entry_brakes_retract_speed_mps TO 1200.
 SET entry_aoa_deg TO 13.
 SET entry_aoa_retract_speed_mps TO 1200.
 SET airbrake_pid_kp TO 0.003.
+SET airbrake_base_angle TO 90.
 SET airbrake_min_angle TO 0.
-SET airbrake_max_angle TO 90.
 SET entry_orbit_retro_alt_meters TO 70000.
 SET reentry_handoff_alt_meters TO 25000.
 SET reentry_handoff_speed_mps TO 1200.
@@ -208,8 +208,8 @@ SAS OFF.
 LOCK THROTTLE TO 0.
 LOCAL next_print IS TIME:SECONDS.
 LOCAL airbrake_pid IS PIDLOOP(airbrake_pid_kp).
-SET airbrake_pid:MINOUTPUT TO airbrake_min_angle.
-SET airbrake_pid:MAXOUTPUT TO airbrake_max_angle.
+SET airbrake_pid:MINOUTPUT TO -airbrake_base_angle.
+SET airbrake_pid:MAXOUTPUT TO 0.
 SET airbrake_pid:SETPOINT TO 0.
 
 LOCK STEERING TO entry_retrograde_steering().
@@ -250,10 +250,12 @@ UNTIL SHIP:ALTITUDE <= reentry_handoff_alt_meters {
             IF horiz_vel:MAG > 1 {
                 SET along_miss TO VDOT(to_pad_from_impact_h, horiz_vel:NORMALIZED).
             }
-            LOCAL ab_angle IS airbrake_pid:UPDATE(TIME:SECONDS, along_miss).
+            LOCAL ab_correction IS airbrake_pid:UPDATE(TIME:SECONDS, along_miss).
+            LOCAL ab_angle IS clamp(airbrake_base_angle + ab_correction, airbrake_min_angle, airbrake_base_angle).
             set_airbrake_angle(ab_angle).
             log_line("    TR impact: " + ROUND(impact_geo:LAT, 4) + ", " + ROUND(impact_geo:LNG, 4) + "  |  miss: " + ROUND(tr_miss/1000, 2) + " km  |  along: " + ROUND(along_miss/1000, 2) + " km  |  ab: " + ROUND(ab_angle, 1) + " deg").
         } ELSE {
+            set_airbrake_angle(airbrake_base_angle).
             log_line("    TR impact: no prediction").
         }
         transmit_log().
