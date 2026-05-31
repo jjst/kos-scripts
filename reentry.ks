@@ -9,7 +9,6 @@ SET entry_telemetry_interval TO 20.
 SET entry_brakes_enabled TO TRUE.
 SET entry_brakes_deploy_alt_meters TO 70000.
 SET entry_brakes_retract_speed_mps TO 1200.
-SET entry_aoa_enabled TO TRUE.
 SET entry_aoa_deg TO 10.
 SET entry_aoa_retract_speed_mps TO 1200.
 SET entry_orbit_retro_alt_meters TO 70000.
@@ -97,8 +96,7 @@ FUNCTION actual_entry_aoa {
 }
 
 FUNCTION entry_aoa_active {
-    RETURN entry_aoa_enabled AND
-           SHIP:ALTITUDE < entry_orbit_retro_alt_meters AND
+    RETURN SHIP:ALTITUDE < entry_orbit_retro_alt_meters AND
            SHIP:VELOCITY:SURFACE:MAG > entry_aoa_retract_speed_mps.
 }
 
