@@ -14,9 +14,9 @@ SET min_parking_alt_meters TO 70000.
 SET max_parking_alt_meters TO 150000.
 SET max_parking_eccentricity TO 0.1.
 SET reentry_handoff_alt_meters TO 70000.
-SET target_deorbit_phase_angle_deg TO 120.
+SET target_deorbit_phase_angle_deg TO 180.
 SET deorbit_phase_start_tolerance_deg TO 1.
-SET deorbit_phase_warp_rate TO 3.
+SET deorbit_phase_warp_rate TO 4.
 SET slow_burn_miss_meters TO 10000.
 SET min_deorbit_throttle TO 0.01.
 SET max_deorbit_twr TO 0.5.
@@ -24,6 +24,7 @@ SET deorbit_miss_kp TO 0.00001.
 SET burn_alignment_max_error_deg TO 1.
 SET burn_alignment_timeout TO 90.
 SET telemetry_interval TO 5.
+SET warp_telemetry_interval TO 60.
 SET burn_telemetry_interval TO 1.
 SET reentry_handoff_telemetry_interval TO 30.
 SET log_path TO "deorbit.log".
@@ -225,7 +226,7 @@ IF ABS(deorbit_phase_angle - target_deorbit_phase_angle_deg) > deorbit_phase_sta
         SET WARP TO deorbit_phase_warp_rate.
         IF TIME:SECONDS >= phase_next_print {
             log_line("  Phase: " + ROUND(deorbit_phase_angle, 1) + " deg  |  target: " + ROUND(target_deorbit_phase_angle_deg, 1) + " +/- " + ROUND(deorbit_phase_start_tolerance_deg, 1) + " deg").
-            SET phase_next_print TO TIME:SECONDS + telemetry_interval.
+            SET phase_next_print TO TIME:SECONDS + warp_telemetry_interval.
         }
         WAIT 1.
         SET deorbit_phase_angle TO target_phase_angle(aim_geo).
