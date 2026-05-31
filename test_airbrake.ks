@@ -1,4 +1,4 @@
-// test_airbrake.ks — probe airbrake module fields and test angle control
+// test_airbrake.ks — probe airbrake pmodule fields and test angle control
 SET log_path TO "test_airbrake.log".
 
 FUNCTION log_line {
@@ -27,12 +27,12 @@ FOR s IN surfaces {
 log_line(" ").
 FOR s IN surfaces {
     log_line("--- " + s:PART:NAME + " ---").
-    FOR modname IN s:PART:MODULES {
-        LOCAL mod IS s:PART:GETMODULE(modname).
-        IF mod:ALLFIELDNAMES:LENGTH > 0 {
-            log_line("  Module: " + modname).
-            FOR fname IN mod:ALLFIELDNAMES {
-                log_line("    " + fname + " = " + mod:GETFIELD(fname)).
+    FOR pmodname IN s:PART:MODULES {
+        LOCAL pmod IS s:PART:GETMODULE(pmodname).
+        IF pmod:ALLFIELDNAMES:LENGTH > 0 {
+            log_line("  Module: " + pmodname).
+            FOR fname IN pmod:ALLFIELDNAMES {
+                log_line("    " + fname + " = " + pmod:GETFIELD(fname)).
             }
         }
     }
