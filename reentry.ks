@@ -212,14 +212,9 @@ UNTIL SHIP:ALTITUDE <= reentry_handoff_alt_meters {
     IF TIME:SECONDS >= next_print {
         LOCAL retro_mode IS "surface".
         LOCAL brake_mode IS "off".
-        LOCAL aoa_mode IS "off".
         IF entry_brakes_deployed { SET brake_mode TO "on". }
-        IF SHIP:ALTITUDE > entry_orbit_retro_alt_meters {
-            SET retro_mode TO "orbit".
-        } ELSE IF entry_aoa_active() {
-            SET aoa_mode TO "on".
-        }
-        log_line("  Alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  spd: " + ROUND(surface_speed, 1) + " m/s  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s  |  brakes: " + brake_mode + "  |  retro: " + retro_mode + "  |  aoa: " + aoa_mode + "  |  cmd: " + ROUND(entry_aoa_command(), 1) + " deg  |  actual: " + ROUND(actual_entry_aoa(), 1) + " deg").
+        IF SHIP:ALTITUDE > entry_orbit_retro_alt_meters { SET retro_mode TO "orbit". }
+        log_line("  Alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  spd: " + ROUND(surface_speed, 1) + " m/s  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s  |  brakes: " + brake_mode + "  |  retro: " + retro_mode + "  |  cmd: " + ROUND(entry_aoa_command(), 1) + " deg  |  actual: " + ROUND(actual_entry_aoa(), 1) + " deg").
         transmit_log().
         SET next_print TO TIME:SECONDS + entry_telemetry_interval.
     }
