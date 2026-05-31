@@ -11,6 +11,9 @@ SET entry_brakes_deploy_alt_meters TO 70000.
 SET entry_brakes_retract_speed_mps TO 1200.
 SET entry_aoa_deg TO 13.
 SET entry_aoa_retract_speed_mps TO 1200.
+SET airbrake_pid_kp TO 0.003.
+SET airbrake_min_angle TO 0.
+SET airbrake_max_angle TO 90.
 SET entry_orbit_retro_alt_meters TO 70000.
 SET reentry_handoff_alt_meters TO 25000.
 SET reentry_handoff_speed_mps TO 1200.
@@ -81,6 +84,13 @@ FUNCTION abort_reentry {
     transmit_log().
     WAIT 5.
     SHUTDOWN.
+}
+
+FUNCTION set_airbrake_angle {
+    PARAMETER angle.
+    FOR p IN SHIP:PARTSTAGGED("airbrake") {
+        p:GETMODULE("ModuleAeroSurface"):SETFIELD("deploy angle", angle).
+    }
 }
 
 FUNCTION target_miss_distance {
@@ -197,6 +207,10 @@ transmit_log().
 SAS OFF.
 LOCK THROTTLE TO 0.
 LOCAL next_print IS TIME:SECONDS.
+LOCAL airbrake_pid IS PIDLOOP(airbrake_pid_kp).
+SET airbrake_pid:MINOUTPUT TO airbrake_min_angle.
+SET airbrake_pid:MAXOUTPUT TO airbrake_max_angle.
+SET airbrake_pid:SETPOINT TO 0.
 
 LOCK STEERING TO entry_retrograde_steering().
 log_line("--- ENTRY GUIDANCE ---").
@@ -215,6 +229,7 @@ UNTIL SHIP:ALTITUDE <= reentry_handoff_alt_meters {
             log_line("  Entry brakes deployed  |  alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  speed: " + ROUND(surface_speed, 1) + " m/s").
         } ELSE IF entry_brakes_deployed AND surface_speed <= entry_brakes_retract_speed_mps {
             BRAKES OFF.
+            set_airbrake_angle(0).
             SET entry_brakes_deployed TO FALSE.
             log_line("  Entry brakes retracted  |  alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  speed: " + ROUND(surface_speed, 1) + " m/s").
         }
@@ -229,7 +244,15 @@ UNTIL SHIP:ALTITUDE <= reentry_handoff_alt_meters {
         IF ADDONS:TR:AVAILABLE AND ADDONS:TR:HASIMPACT {
             LOCAL impact_geo IS ADDONS:TR:IMPACTPOS.
             LOCAL tr_miss IS target_miss_distance(impact_geo, pad_geo).
-            log_line("    TR impact: " + ROUND(impact_geo:LAT, 4) + ", " + ROUND(impact_geo:LNG, 4) + "  |  miss: " + ROUND(tr_miss/1000, 2) + " km").
+            LOCAL horiz_vel IS VXCL(UP:FOREVECTOR, SHIP:VELOCITY:SURFACE).
+            LOCAL to_pad_from_impact_h IS VXCL(UP:FOREVECTOR, pad_geo:POSITION) - VXCL(UP:FOREVECTOR, impact_geo:POSITION).
+            LOCAL along_miss IS 0.
+            IF horiz_vel:MAG > 1 {
+                SET along_miss TO VDOT(to_pad_from_impact_h, horiz_vel:NORMALIZED).
+            }
+            LOCAL ab_angle IS airbrake_pid:UPDATE(TIME:SECONDS, -along_miss).
+            set_airbrake_angle(ab_angle).
+            log_line("    TR impact: " + ROUND(impact_geo:LAT, 4) + ", " + ROUND(impact_geo:LNG, 4) + "  |  miss: " + ROUND(tr_miss/1000, 2) + " km  |  along: " + ROUND(along_miss/1000, 2) + " km  |  ab: " + ROUND(ab_angle, 1) + " deg").
         } ELSE {
             log_line("    TR impact: no prediction").
         }
@@ -258,10 +281,12 @@ IF handoff_ok {
     IF entry_brakes_deployed {
         BRAKES OFF.
     }
+    set_airbrake_angle(0).
     log_line("Running land script: " + land_script_path).
     RUNPATH(land_script_path).
 }
 
+set_airbrake_angle(0).
 log_line("Handoff outside envelope — falling back to unguided landing.").
 log_line("  alt: " + ROUND(SHIP:ALTITUDE) + " m  |  spd: " + ROUND(handoff_speed_mps_current, 1) + " m/s  |  ahead: " + ROUND(handoff_along_meters) + " m  |  cross: " + ROUND(handoff_cross_meters) + " m").
 transmit_log().
