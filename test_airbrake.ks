@@ -31,7 +31,9 @@ FOR p IN ab_parts {
         IF pmod:ALLFIELDS:LENGTH > 0 {
             log_line("    Fields:").
             FOR fname IN pmod:ALLFIELDS {
-                log_line("      " + fname + " = " + pmod:GETFIELD(fname)).
+                log_line("      " + fname).
+                transmit_log().
+                log_line("        = " + pmod:GETFIELD(fname)).
                 transmit_log().
             }
         } ELSE {
