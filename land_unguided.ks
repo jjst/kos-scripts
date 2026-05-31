@@ -1,5 +1,5 @@
 // ============================================================
-//  land-unguided.ks — airbrake descent + PID-throttled landing burn
+//  land_unguided.ks — airbrake descent + PID-throttled landing burn
 // ============================================================
 //  Used when reentry handoff conditions aren't met. Airbrakes
 //  retrograde until suicide_burn_alt_meters, then PID-controls
@@ -17,7 +17,7 @@ SET descent_pid_min_output TO -0.6.
 SET descent_pid_max_output TO 0.6.
 SET descent_pid_epsilon TO 0.15.
 SET telemetry_interval TO 10.
-SET log_path TO "land-unguided.log".
+SET log_path TO "land_unguided.log".
 // ------------------------------------------------------------
 
 FUNCTION clamp {
@@ -57,7 +57,7 @@ FUNCTION target_descent_rate {
 }
 
 CLEARSCREEN.
-log_line("=== land-unguided.ks ===").
+log_line("=== land_unguided.ks ===").
 log_line("Unguided descent: airbrakes retrograde to " + ROUND(suicide_burn_alt_meters) + " m, then PID landing burn.").
 
 SAS OFF.

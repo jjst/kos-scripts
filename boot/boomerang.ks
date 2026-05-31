@@ -6,8 +6,8 @@ LOCAL scripts IS LIST(
     "launch.ks",
     "deorbit.ks",
     "reentry.ks",
-    "land-guided.ks",
-    "land-unguided.ks"
+    "land_guided.ks",
+    "land_unguided.ks"
 ).
 
 PRINT "=== boomerang.ks ===".
