@@ -83,7 +83,7 @@ FUNCTION target_miss_distance {
     IF impact_radial:MAG <= 0 OR target_radial:MAG <= 0 {
         RETURN 999999999.
     }
-    RETURN SHIP:BODY:RADIUS * VANG(impact_radial, target_radial) * 3.14159265 / 180.
+    RETURN SHIP:BODY:RADIUS * VANG(impact_radial, target_radial) * CONSTANT:PI / 180.
 }
 
 FUNCTION deorbit_burn_mps {

@@ -42,6 +42,20 @@ This performs syntax validation and static analysis (undeclared symbols, unused 
 
 The script communicates with the language server over LSP stdio — it exits 0 on clean, 1 on errors (or warnings in strict mode), 2 on timeout.
 
+## kOS built-in constants
+
+Use `CONSTANT:*` built-ins (e.g. `CONSTANT:PI`, `CONSTANT:E`, `CONSTANT:G`) instead of hard-coded numeric literals for mathematical and physical constants.
+This avoids precision drift from mistyped literals and makes the intent immediately clear.
+
+Example — converting degrees to radians:
+```ks
+// Preferred
+LOCAL deg_to_rad IS CONSTANT:PI / 180.
+
+// Avoid
+LOCAL deg_to_rad IS 3.14159265 / 180.
+```
+
 ## Naming conventions
 
 Use unit suffixes in variable names wherever relevant (for example `_m`, `_km`, `_s`, `_ms`, `_deg`, `_kg`).
