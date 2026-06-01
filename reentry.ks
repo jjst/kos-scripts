@@ -237,13 +237,14 @@ UNTIL SHIP:ALTITUDE <= reentry_handoff_alt_meters {
     WAIT 0.
 }
 
+LOCAL handoff_speed IS SHIP:VELOCITY:SURFACE:MAG.
 LOCAL handoff_tr_miss IS 999999.
 IF ADDONS:TR:AVAILABLE AND ADDONS:TR:HASIMPACT {
     SET handoff_tr_miss TO target_miss_distance(ADDONS:TR:IMPACTPOS, pad_geo).
 }
-LOCAL handoff_ok IS handoff_tr_miss <= reentry_handoff_tr_miss_meters.
-log_line("--- Reentry handoff ---").
-log_line("  alt: " + ROUND(SHIP:ALTITUDE) + " m  |  spd: " + ROUND(SHIP:VELOCITY:SURFACE:MAG, 1) + " m/s  |  TR miss: " + ROUND(handoff_tr_miss) + " m").
+LOCAL handoff_ok IS handoff_speed <= entry_brakes_retract_speed_mps AND handoff_tr_miss <= reentry_handoff_tr_miss_meters.
+log_line("--- Reentry handoff --- ").
+log_line("  alt: " + ROUND(SHIP:ALTITUDE) + " m  |  spd: " + ROUND(handoff_speed, 1) + " m/s  |  TR miss: " + ROUND(handoff_tr_miss) + " m").
 transmit_log().
 
 IF handoff_ok {
