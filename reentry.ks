@@ -21,7 +21,7 @@ SET entry_orbit_retro_alt_meters TO 70000.
 SET reentry_handoff_alt_meters TO 20000.
 SET reentry_guided_land_alt_meters TO 5000.
 SET reentry_handoff_speed_mps TO 1400.
-SET reentry_handoff_tr_miss_meters TO 2000.
+SET reentry_handoff_tr_miss_meters TO 2500.
 SET land_script_path TO "1:/land_guided.ks".
 SET land_unguided_script_path TO "1:/land_unguided.ks".
 SET pad_geo TO LATLNG(-0.0972, -74.5577).
@@ -260,9 +260,6 @@ IF NOT guide_ok {
 }
 
 log_line("Guide condition met at gate — monitoring to " + ROUND(reentry_guided_land_alt_meters/1000, 1) + " km.").
-BRAKES OFF.
-set_airbrake_angle(0).
-SET entry_brakes_deployed TO FALSE.
 SET next_print TO TIME:SECONDS.
 
 UNTIL SHIP:ALTITUDE <= reentry_guided_land_alt_meters {
