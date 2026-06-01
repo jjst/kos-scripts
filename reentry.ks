@@ -154,7 +154,7 @@ LOCAL preflight_failed IS FALSE.
 log_line("Target       : " + ROUND(pad_geo:LAT, 5) + ", " + ROUND(pad_geo:LNG, 5) + " on " + pad_geo:BODY:NAME).
 log_line("Entry attitude: orbit retro above " + ROUND(entry_orbit_retro_alt_meters/1000, 1) + " km, surface retro below.").
 log_line("Entry AoA    : " + entry_aoa_deg + " deg fixed, retract below " + ROUND(entry_aoa_retract_speed_mps) + " m/s.").
-log_line("Handoff gate : " + ROUND(reentry_handoff_alt_meters/1000, 1) + " km alt  |  TR miss <= " + ROUND(reentry_handoff_tr_miss_meters) + " m").
+log_line("Handoff gate : " + ROUND(reentry_handoff_alt_meters/1000, 1) + " km alt  |  spd <= " + ROUND(entry_brakes_retract_speed_mps) + " m/s  |  TR miss <= " + ROUND(reentry_handoff_tr_miss_meters) + " m").
 
 log_line("--- Preflight checks ---").
 check_line(pad_geo:BODY:NAME = SHIP:BODY:NAME, "Target body", "target " + pad_geo:BODY:NAME + ", current " + SHIP:BODY:NAME).
