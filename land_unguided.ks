@@ -6,7 +6,7 @@
 //  throttle to bring vertical speed to touchdown_speed.
 
 // --- CONFIG (edit these) ------------------------------------
-SET suicide_burn_alt_meters TO 1000.
+SET suicide_burn_safety_factor TO 1.25.
 SET gear_deploy_alt TO 500.
 SET touchdown_speed TO 2.
 SET descent_kp TO 0.035.
@@ -17,6 +17,7 @@ SET descent_pid_min_output TO -0.6.
 SET descent_pid_max_output TO 0.6.
 SET descent_pid_epsilon TO 0.15.
 SET telemetry_interval TO 10.
+SET rcs_horiz_threshold_mps TO 0.5.
 SET log_path TO "land_unguided.log".
 // ------------------------------------------------------------
 
@@ -50,6 +51,15 @@ FUNCTION transmit_log {
     RETURN FALSE.
 }
 
+FUNCTION suicide_burn_altitude {
+    LOCAL vs IS ABS(SHIP:VERTICALSPEED).
+    LOCAL g IS SHIP:BODY:MU / (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
+    IF SHIP:AVAILABLETHRUST <= 0 { RETURN 0. }
+    LOCAL net_decel IS SHIP:AVAILABLETHRUST / SHIP:MASS - g.
+    IF net_decel <= 0 { RETURN 0. }
+    RETURN suicide_burn_safety_factor * MAX(0, vs^2 - touchdown_speed^2) / (2 * net_decel).
+}
+
 FUNCTION target_descent_rate {
     PARAMETER alt_agl.
     LOCAL t IS clamp(alt_agl / suicide_burn_alt_meters, 0, 1).
@@ -58,7 +68,7 @@ FUNCTION target_descent_rate {
 
 CLEARSCREEN.
 log_line("=== land_unguided.ks ===").
-log_line("Unguided descent: airbrakes retrograde to " + ROUND(suicide_burn_alt_meters) + " m, then PID landing burn.").
+log_line("Unguided descent: airbrakes retrograde, computed suicide burn (factor " + suicide_burn_safety_factor + "), then PID landing burn.").
 
 SAS OFF.
 LOCK THROTTLE TO 0.
@@ -67,9 +77,11 @@ LOCK STEERING TO SRFRETROGRADE.
 
 log_line("--- Airbrake descent ---").
 LOCAL next_print IS TIME:SECONDS.
+LOCAL suicide_burn_alt_meters IS suicide_burn_altitude().
 UNTIL ALT:RADAR < suicide_burn_alt_meters {
+    SET suicide_burn_alt_meters TO suicide_burn_altitude().
     IF TIME:SECONDS >= next_print {
-        log_line("  Alt: " + ROUND(SHIP:ALTITUDE/1000, 2) + " km  |  AGL: " + ROUND(ALT:RADAR) + " m  |  spd: " + ROUND(SHIP:VELOCITY:SURFACE:MAG, 1) + " m/s  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s").
+        log_line("  Alt: " + ROUND(SHIP:ALTITUDE/1000, 2) + " km  |  AGL: " + ROUND(ALT:RADAR) + " m  |  spd: " + ROUND(SHIP:VELOCITY:SURFACE:MAG, 1) + " m/s  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s  |  burn_alt: " + ROUND(suicide_burn_alt_meters) + " m").
         transmit_log().
         SET next_print TO TIME:SECONDS + telemetry_interval.
     }
@@ -97,9 +109,24 @@ UNTIL SHIP:STATUS = "LANDED" OR SHIP:STATUS = "SPLASHED" {
 
     IF NOT gear_deployed AND alt_agl < gear_deploy_alt {
         GEAR ON.
+        RCS ON.
         LOCK STEERING TO UP.
         SET gear_deployed TO TRUE.
         log_line("  Gear down  |  AGL: " + ROUND(alt_agl) + " m").
+    }
+
+    IF gear_deployed {
+        LOCAL horiz_vel IS VXCL(UP:FOREVECTOR, SHIP:VELOCITY:SURFACE).
+        IF horiz_vel:MAG > rcs_horiz_threshold_mps {
+            LOCAL correction IS -horiz_vel:NORMALIZED.
+            SET SHIP:CONTROL:TRANSLATION TO V(
+                VDOT(correction, SHIP:FACING:STARVECTOR),
+                VDOT(correction, SHIP:FACING:TOPVECTOR),
+                VDOT(correction, SHIP:FACING:FOREVECTOR)
+            ).
+        } ELSE {
+            SET SHIP:CONTROL:TRANSLATION TO V(0, 0, 0).
+        }
     }
 
     IF SHIP:AVAILABLETHRUST <= 0 {
@@ -123,6 +150,8 @@ UNTIL SHIP:STATUS = "LANDED" OR SHIP:STATUS = "SPLASHED" {
 }
 
 SET thrott_cmd TO 0.
+SET SHIP:CONTROL:TRANSLATION TO V(0, 0, 0).
+RCS OFF.
 UNLOCK THROTTLE.
 UNLOCK STEERING.
 log_line("Landed  |  vs: " + ROUND(SHIP:VERTICALSPEED, 2) + " m/s  |  status: " + SHIP:STATUS).

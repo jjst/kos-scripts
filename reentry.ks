@@ -22,6 +22,10 @@ SET reentry_handoff_alt_meters TO 20000.
 SET reentry_guided_land_alt_meters TO 5000.
 SET reentry_handoff_speed_mps TO 1400.
 SET reentry_handoff_tr_miss_meters TO 2500.
+SET monitor_telemetry_interval TO 5.
+SET monitor_throttle_pid_kp TO 0.0005.
+SET monitor_throttle_pid_ki TO 0.00000005.
+SET monitor_throttle_pid_max_throttle TO 0.3.
 SET land_script_path TO "1:/land_guided.ks".
 SET land_unguided_script_path TO "1:/land_unguided.ks".
 SET pad_geo TO LATLNG(-0.0972, -74.5577).
@@ -173,7 +177,8 @@ IF preflight_failed {
 transmit_log().
 
 SAS OFF.
-LOCK THROTTLE TO 0.
+LOCAL monitor_throttle IS 0.
+LOCK THROTTLE TO monitor_throttle.
 LOCAL next_print IS TIME:SECONDS.
 LOCAL airbrake_pid IS PIDLOOP(airbrake_pid_kp, airbrake_pid_ki, 0, -airbrake_base_angle, 0, airbrake_pid_epsilon).
 SET airbrake_pid:SETPOINT TO 0.
@@ -260,15 +265,41 @@ IF NOT guide_ok {
 }
 
 log_line("Guide condition met at gate — monitoring to " + ROUND(reentry_guided_land_alt_meters/1000, 1) + " km.").
+LOCAL monitor_thr_pid IS PIDLOOP(monitor_throttle_pid_kp, monitor_throttle_pid_ki, 0, 0, monitor_throttle_pid_max_throttle).
+SET monitor_thr_pid:SETPOINT TO 0.
 SET next_print TO TIME:SECONDS.
 
 UNTIL SHIP:ALTITUDE <= reentry_guided_land_alt_meters {
-    LOCAL monitor_tr_miss IS 999999.
-    IF ADDONS:TR:AVAILABLE AND ADDONS:TR:HASIMPACT {
-        SET monitor_tr_miss TO target_miss_distance(ADDONS:TR:IMPACTPOS, pad_geo).
+    LOCAL surface_speed IS SHIP:VELOCITY:SURFACE:MAG.
+
+    IF entry_brakes_deployed AND surface_speed <= entry_brakes_retract_speed_mps {
+        BRAKES OFF.
+        set_airbrake_angle(0).
+        SET entry_brakes_deployed TO FALSE.
+        log_line("  [monitor] Entry brakes retracted  |  alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  spd: " + ROUND(surface_speed, 1) + " m/s").
     }
 
+    LOCAL monitor_tr_miss IS 999999.
+    LOCAL along_miss IS 0.
+    IF ADDONS:TR:AVAILABLE AND ADDONS:TR:HASIMPACT {
+        LOCAL impact_geo IS ADDONS:TR:IMPACTPOS.
+        SET monitor_tr_miss TO target_miss_distance(impact_geo, pad_geo).
+        LOCAL horiz_vel IS VXCL(UP:FOREVECTOR, SHIP:VELOCITY:SURFACE).
+        LOCAL to_pad_from_impact_h IS VXCL(UP:FOREVECTOR, pad_geo:POSITION) - VXCL(UP:FOREVECTOR, impact_geo:POSITION).
+        IF horiz_vel:MAG > 1 {
+            SET along_miss TO VDOT(to_pad_from_impact_h, horiz_vel:NORMALIZED).
+        }
+        IF entry_brakes_deployed {
+            SET airbrake_pid:KP TO airbrake_pid_kp * (airbrake_pid_gain_ref_alt_meters / MAX(SHIP:ALTITUDE, reentry_handoff_alt_meters)).
+            LOCAL ab_correction IS airbrake_pid:UPDATE(TIME:SECONDS, along_miss).
+            set_airbrake_angle(clamp(airbrake_base_angle + ab_correction, airbrake_min_angle, airbrake_base_angle)).
+        }
+    }
+
+    SET monitor_throttle TO monitor_thr_pid:UPDATE(TIME:SECONDS, along_miss).
+
     IF monitor_tr_miss > reentry_handoff_tr_miss_meters {
+        SET monitor_throttle TO 0.
         set_airbrake_angle(0).
         log_line("Guide condition lost (TR miss) — falling back to unguided landing.").
         log_line("  alt: " + ROUND(SHIP:ALTITUDE) + " m  |  TR miss: " + ROUND(monitor_tr_miss) + " m (limit " + ROUND(reentry_handoff_tr_miss_meters) + " m)").
@@ -277,14 +308,15 @@ UNTIL SHIP:ALTITUDE <= reentry_guided_land_alt_meters {
     }
 
     IF TIME:SECONDS >= next_print {
-        log_line("  [monitor] alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  spd: " + ROUND(SHIP:VELOCITY:SURFACE:MAG, 1) + " m/s  |  TR miss: " + ROUND(monitor_tr_miss) + " m").
+        log_line("  [monitor] alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  spd: " + ROUND(surface_speed, 1) + " m/s  |  TR miss: " + ROUND(monitor_tr_miss) + " m  |  along: " + ROUND(along_miss) + " m  |  thr: " + ROUND(monitor_throttle, 3)).
         transmit_log().
-        SET next_print TO TIME:SECONDS + entry_telemetry_interval.
+        SET next_print TO TIME:SECONDS + monitor_telemetry_interval.
     }
 
     WAIT 0.
 }
 
+SET monitor_throttle TO 0.
 IF entry_brakes_deployed { BRAKES OFF. }
 set_airbrake_angle(0).
 log_line("Handing off to guided landing at " + ROUND(SHIP:ALTITUDE) + " m: " + land_script_path).
