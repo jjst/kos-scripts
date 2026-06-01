@@ -1,11 +1,10 @@
 // ============================================================
-//  deorbit.ks - Trajectories-guided deorbit to saved landing target
+//  deorbit.ks - Trajectories-guided deorbit to landing target
 // ============================================================
 
 // --- CONFIG (edit these) ------------------------------------
 SET reentry_script_path TO "1:/reentry.ks".
 SET pad_geo TO LATLNG(-0.0972, -74.5577).
-SET impact_tolerance_meters TO 10000.
 SET min_parking_alt_meters TO 70000.
 SET max_parking_alt_meters TO 150000.
 SET max_parking_eccentricity TO 0.1.
