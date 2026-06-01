@@ -12,7 +12,6 @@ SET circularize_ecc_throttle_scale TO 0.05.
 SET ascent_min_throttle TO 0.2.
 SET apoapsis_cutoff_margin TO 100.
 SET telemetry_interval TO 5.
-SET land_target_path TO "1:/land-target.json".
 SET log_path TO "launch.log".
 // PID gains for sensor-based TWR control — tune for your rocket
 SET twr_kp TO 0.05.
@@ -162,15 +161,6 @@ FUNCTION sensors_available {
     RETURN has_acc AND has_grav.
 }
 
-FUNCTION save_landing_target {
-    LOCAL launch_geo IS SHIP:GEOPOSITION.
-    LOCAL target_data IS LEXICON().
-    target_data:ADD("lat", launch_geo:LAT).
-    target_data:ADD("lng", launch_geo:LNG).
-    target_data:ADD("body", SHIP:BODY:NAME).
-    WRITEJSON(target_data, land_target_path).
-}
-
 // ------------------------------------------------------------
 
 CLEARSCREEN.
@@ -225,7 +215,6 @@ check_line(SHIP:AVAILABLETHRUST > 0, "Available thrust", ROUND(SHIP:AVAILABLETHR
 check_line(max_twr > 0, "Max TWR config", max_twr).
 check_line(target_apoapsis > 0, "Target apoapsis config", ROUND(target_apoapsis/1000, 1) + " km default").
 check_line(turn_end_alt > turn_start_alt, "Gravity turn config", ROUND(turn_start_alt) + " m -> " + ROUND(turn_end_alt/1000, 1) + " km").
-check_line(land_target_path:LENGTH > 0, "Landing target path", land_target_path).
 IF preflight_failed {
     abort_launch("preflight checks failed.").
 }
@@ -240,8 +229,6 @@ SET target_apoapsis TO target_altitude_km * 1000.
 log_line("=== launch.ks ===").
 log_line("Target orbit : " + ROUND(target_apoapsis/1000, 0) + " km  |  azimuth: " + launch_azimuth + " deg").
 log_line("Max TWR      : " + max_twr + "  |  gravity turn: " + ROUND(turn_start_alt) + " m -> " + ROUND(turn_end_alt/1000, 0) + " km").
-save_landing_target().
-log_line("Landing target saved to " + land_target_path + ".").
 PRINT " ".
 
 PRINT "Press ENTER to begin launch sequence.".

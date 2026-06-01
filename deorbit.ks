@@ -3,11 +3,8 @@
 // ============================================================
 
 // --- CONFIG (edit these) ------------------------------------
-SET land_target_path TO "1:/land-target.json".
 SET reentry_script_path TO "1:/reentry.ks".
-SET fallback_target_body TO "Kerbin".
-SET fallback_target_lat TO -0.0972.
-SET fallback_target_lng TO -74.5577.
+SET pad_geo TO LATLNG(-0.0972, -74.5577).
 SET impact_tolerance_meters TO 10000.
 SET min_parking_alt_meters TO 70000.
 SET max_parking_alt_meters TO 150000.
@@ -163,27 +160,11 @@ CLEARSCREEN.
 log_line("=== deorbit.ks ===").
 LOCAL preflight_failed IS FALSE.
 
-LOCAL target_body IS fallback_target_body.
-LOCAL target_lat IS fallback_target_lat.
-LOCAL target_lng IS fallback_target_lng.
-LOCAL target_source IS "fallback KSC launchpad".
-IF EXISTS(land_target_path) {
-    LOCAL target_data IS READJSON(land_target_path).
-    SET target_body TO target_data["body"].
-    SET target_lat TO target_data["lat"].
-    SET target_lng TO target_data["lng"].
-    SET target_source TO land_target_path.
-} ELSE {
-    warn_line("Landing target file", "missing " + land_target_path + "; using fallback KSC launchpad coordinates").
-}
-
-LOCAL pad_geo IS LATLNG(target_lat, target_lng).
 LOCAL deorbit_phase_angle IS target_phase_angle(pad_geo).
-log_line("Landing target: " + ROUND(pad_geo:LAT, 5) + ", " + ROUND(pad_geo:LNG, 5) + " on " + target_body).
-log_line("Target source: " + target_source).
+log_line("Landing target: " + ROUND(pad_geo:LAT, 5) + ", " + ROUND(pad_geo:LNG, 5) + " on " + pad_geo:BODY:NAME).
 
 log_line("--- Preflight checks ---").
-check_line(target_body = SHIP:BODY:NAME, "Target body", "target " + target_body + ", current " + SHIP:BODY:NAME).
+check_line(pad_geo:BODY:NAME = SHIP:BODY:NAME, "Target body", "target " + pad_geo:BODY:NAME + ", current " + SHIP:BODY:NAME).
 check_line(SHIP:APOAPSIS >= min_parking_alt_meters AND SHIP:APOAPSIS <= max_parking_alt_meters, "Parking Ap", ROUND(SHIP:APOAPSIS/1000, 1) + " km within " + ROUND(min_parking_alt_meters/1000) + "-" + ROUND(max_parking_alt_meters/1000) + " km").
 check_line(SHIP:PERIAPSIS >= min_parking_alt_meters AND SHIP:PERIAPSIS <= max_parking_alt_meters, "Parking Pe", ROUND(SHIP:PERIAPSIS/1000, 1) + " km within " + ROUND(min_parking_alt_meters/1000) + "-" + ROUND(max_parking_alt_meters/1000) + " km").
 check_line(SHIP:OBT:ECCENTRICITY <= max_parking_eccentricity, "Parking eccentricity", ROUND(SHIP:OBT:ECCENTRICITY, 4) + " <= " + max_parking_eccentricity).

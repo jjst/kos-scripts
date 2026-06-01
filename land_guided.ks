@@ -56,11 +56,7 @@ SET d2_lat_kd            TO 0.1.
 SET d2_lat_max_tilt      TO 30.    // degrees
 // Minimum horizontal distance (m) before applying lateral correction.
 SET lat_min_horiz_dist TO 10.
-// Landing target written by launch.ks.
-SET land_target_path TO "1:/land-target.json".
-SET fallback_target_body TO "Kerbin".
-SET fallback_target_lat TO -0.0972.
-SET fallback_target_lng TO -74.5577.
+SET pad_geo TO LATLNG(-0.0972, -74.5577).
 // Terminal output is mirrored to this file with LOG.
 SET log_path TO "land.log".
 // ------------------------------------------------------------
@@ -254,38 +250,15 @@ FUNCTION target_descent_rate {
 CLEARSCREEN.
 log_line("=== land_guided.ks ===").
 LOCAL preflight_failed IS FALSE.
-LOCAL target_body IS fallback_target_body.
-LOCAL target_lat IS fallback_target_lat.
-LOCAL target_lng IS fallback_target_lng.
-LOCAL target_source IS "fallback KSC launchpad".
-LOCAL target_file_found IS EXISTS(land_target_path).
-IF target_file_found {
-    LOCAL target_data IS READJSON(land_target_path).
-    SET target_body TO target_data["body"].
-    SET target_lat TO target_data["lat"].
-    SET target_lng TO target_data["lng"].
-    SET target_source TO land_target_path.
-} ELSE {
-    log_line("WARN: missing landing target file: " + land_target_path + ".").
-    log_line("      Using fallback KSC launchpad coordinates.").
-}
-
-LOCAL pad_geo  IS LATLNG(target_lat, target_lng).
 LOCAL lat_tilt IS 0.
 LOCAL lat_pid  IS PIDLOOP(d1_miss_kp, d1_miss_ki, d1_miss_kd,
                            -d1_lat_max_tilt * 2, d1_lat_max_tilt * 2).
 log_line("Gear deploy  : " + gear_deploy_alt + " m AGL").
-log_line("Target       : " + ROUND(pad_geo:LAT, 5) + ", " + ROUND(pad_geo:LNG, 5) + " on " + target_body).
-log_line("Target source: " + target_source).
+log_line("Target       : " + ROUND(pad_geo:LAT, 5) + ", " + ROUND(pad_geo:LNG, 5) + " on " + pad_geo:BODY:NAME).
 log_line("Expected handoff: reentry.ks should deliver <= 25 km altitude and <= 1200 m/s before starting descent.").
 
 log_line("--- Preflight checks ---").
-IF target_file_found {
-    info_line("Landing target file", target_source).
-} ELSE {
-    warn_line("Landing target file", "missing; using " + target_source).
-}
-check_line(target_body = SHIP:BODY:NAME, "Target body", "target " + target_body + ", current " + SHIP:BODY:NAME).
+check_line(pad_geo:BODY:NAME = SHIP:BODY:NAME, "Target body", "target " + pad_geo:BODY:NAME + ", current " + SHIP:BODY:NAME).
 check_line(SHIP:AVAILABLETHRUST > 0, "Available thrust", ROUND(SHIP:AVAILABLETHRUST, 1) + " kN").
 check_line(powered_steering_alt_meters > landing_burn_alt_meters, "Descent handoff altitudes", ROUND(powered_steering_alt_meters) + " m -> " + ROUND(landing_burn_alt_meters) + " m").
 info_line("Landing target coordinates", ROUND(pad_geo:LAT, 5) + ", " + ROUND(pad_geo:LNG, 5)).

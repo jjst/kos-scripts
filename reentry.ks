@@ -21,10 +21,7 @@ SET reentry_handoff_alt_meters TO 20000.
 SET reentry_handoff_tr_miss_meters TO 2000.
 SET land_script_path TO "1:/land_guided.ks".
 SET land_unguided_script_path TO "1:/land_unguided.ks".
-SET land_target_path TO "1:/land-target.json".
-SET fallback_target_body TO "Kerbin".
-SET fallback_target_lat TO -0.0972.
-SET fallback_target_lng TO -74.5577.
+SET pad_geo TO LATLNG(-0.0972, -74.5577).
 SET log_path TO "reentry.log".
 // ------------------------------------------------------------
 
@@ -154,36 +151,13 @@ FUNCTION entry_retrograde_steering {
 CLEARSCREEN.
 log_line("=== reentry.ks ===").
 LOCAL preflight_failed IS FALSE.
-LOCAL target_body IS fallback_target_body.
-LOCAL target_lat IS fallback_target_lat.
-LOCAL target_lng IS fallback_target_lng.
-LOCAL target_source IS "fallback KSC launchpad".
-LOCAL target_file_found IS EXISTS(land_target_path).
-IF target_file_found {
-    LOCAL target_data IS READJSON(land_target_path).
-    SET target_body TO target_data["body"].
-    SET target_lat TO target_data["lat"].
-    SET target_lng TO target_data["lng"].
-    SET target_source TO land_target_path.
-} ELSE {
-    log_line("WARN: missing landing target file: " + land_target_path + ".").
-    log_line("      Using fallback KSC launchpad coordinates.").
-}
-
-LOCAL pad_geo IS LATLNG(target_lat, target_lng).
-log_line("Target       : " + ROUND(pad_geo:LAT, 5) + ", " + ROUND(pad_geo:LNG, 5) + " on " + target_body).
-log_line("Target source: " + target_source).
+log_line("Target       : " + ROUND(pad_geo:LAT, 5) + ", " + ROUND(pad_geo:LNG, 5) + " on " + pad_geo:BODY:NAME).
 log_line("Entry attitude: orbit retro above " + ROUND(entry_orbit_retro_alt_meters/1000, 1) + " km, surface retro below.").
 log_line("Entry AoA    : " + entry_aoa_deg + " deg fixed, retract below " + ROUND(entry_aoa_retract_speed_mps) + " m/s.").
 log_line("Handoff gate : " + ROUND(reentry_handoff_alt_meters/1000, 1) + " km alt  |  TR miss <= " + ROUND(reentry_handoff_tr_miss_meters) + " m").
 
 log_line("--- Preflight checks ---").
-IF target_file_found {
-    info_line("Landing target file", target_source).
-} ELSE {
-    warn_line("Landing target file", "missing; using " + target_source).
-}
-check_line(target_body = SHIP:BODY:NAME, "Target body", "target " + target_body + ", current " + SHIP:BODY:NAME).
+check_line(pad_geo:BODY:NAME = SHIP:BODY:NAME, "Target body", "target " + pad_geo:BODY:NAME + ", current " + SHIP:BODY:NAME).
 check_line(entry_brakes_retract_speed_mps > 0, "Entry brake retract speed", ROUND(entry_brakes_retract_speed_mps) + " m/s").
 check_line(entry_aoa_deg >= 0 AND entry_aoa_deg <= 90, "Entry AoA", ROUND(entry_aoa_deg, 1) + " deg").
 check_line(entry_aoa_retract_speed_mps > 0, "Entry AoA retract speed", ROUND(entry_aoa_retract_speed_mps) + " m/s").
