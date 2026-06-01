@@ -14,10 +14,13 @@ SET entry_aoa_retract_speed_mps TO 1200.
 SET airbrake_pid_kp TO 0.001.
 SET airbrake_pid_ki TO 0.000001.
 SET airbrake_pid_epsilon TO 500.
+SET airbrake_pid_gain_ref_alt_meters TO 100000.
 SET airbrake_base_angle TO 90.
 SET airbrake_min_angle TO 0.
 SET entry_orbit_retro_alt_meters TO 70000.
 SET reentry_handoff_alt_meters TO 20000.
+SET reentry_guided_land_alt_meters TO 5000.
+SET reentry_handoff_speed_mps TO 1400.
 SET reentry_handoff_tr_miss_meters TO 2000.
 SET land_script_path TO "1:/land_guided.ks".
 SET land_unguided_script_path TO "1:/land_unguided.ks".
@@ -154,7 +157,7 @@ LOCAL preflight_failed IS FALSE.
 log_line("Target       : " + ROUND(pad_geo:LAT, 5) + ", " + ROUND(pad_geo:LNG, 5) + " on " + pad_geo:BODY:NAME).
 log_line("Entry attitude: orbit retro above " + ROUND(entry_orbit_retro_alt_meters/1000, 1) + " km, surface retro below.").
 log_line("Entry AoA    : " + entry_aoa_deg + " deg fixed, retract below " + ROUND(entry_aoa_retract_speed_mps) + " m/s.").
-log_line("Handoff gate : " + ROUND(reentry_handoff_alt_meters/1000, 1) + " km alt  |  spd <= " + ROUND(entry_brakes_retract_speed_mps) + " m/s  |  TR miss <= " + ROUND(reentry_handoff_tr_miss_meters) + " m").
+log_line("Handoff gate : " + ROUND(reentry_handoff_alt_meters/1000, 1) + " km alt  |  spd <= " + ROUND(reentry_handoff_speed_mps) + " m/s  |  TR miss <= " + ROUND(reentry_handoff_tr_miss_meters) + " m  |  guided land at " + ROUND(reentry_guided_land_alt_meters/1000, 1) + " km").
 
 log_line("--- Preflight checks ---").
 check_line(pad_geo:BODY:NAME = SHIP:BODY:NAME, "Target body", "target " + pad_geo:BODY:NAME + ", current " + SHIP:BODY:NAME).
@@ -207,6 +210,7 @@ UNTIL SHIP:ALTITUDE <= reentry_handoff_alt_meters {
         IF horiz_vel:MAG > 1 {
             SET along_miss TO VDOT(to_pad_from_impact_h, horiz_vel:NORMALIZED).
         }
+        SET airbrake_pid:KP TO airbrake_pid_kp * (airbrake_pid_gain_ref_alt_meters / MAX(SHIP:ALTITUDE, reentry_handoff_alt_meters)).
         LOCAL ab_correction IS airbrake_pid:UPDATE(TIME:SECONDS, along_miss).
         SET ab_angle TO clamp(airbrake_base_angle + ab_correction, airbrake_min_angle, airbrake_base_angle).
     }
@@ -242,20 +246,50 @@ LOCAL handoff_tr_miss IS 999999.
 IF ADDONS:TR:AVAILABLE AND ADDONS:TR:HASIMPACT {
     SET handoff_tr_miss TO target_miss_distance(ADDONS:TR:IMPACTPOS, pad_geo).
 }
-LOCAL handoff_ok IS handoff_speed <= entry_brakes_retract_speed_mps AND handoff_tr_miss <= reentry_handoff_tr_miss_meters.
-log_line("--- Reentry handoff --- ").
+LOCAL guide_ok IS handoff_speed <= reentry_handoff_speed_mps AND handoff_tr_miss <= reentry_handoff_tr_miss_meters.
+log_line("--- Reentry handoff gate ---").
 log_line("  alt: " + ROUND(SHIP:ALTITUDE) + " m  |  spd: " + ROUND(handoff_speed, 1) + " m/s  |  TR miss: " + ROUND(handoff_tr_miss) + " m").
 transmit_log().
 
-IF handoff_ok {
-    IF entry_brakes_deployed { BRAKES OFF. }
+IF NOT guide_ok {
     set_airbrake_angle(0).
-    log_line("Running land script: " + land_script_path).
-    RUNPATH(land_script_path).
+    log_line("Outside guided envelope at gate — falling back to unguided landing.").
+    log_line("  spd: " + ROUND(handoff_speed, 1) + " m/s (limit " + ROUND(reentry_handoff_speed_mps) + ")  |  TR miss: " + ROUND(handoff_tr_miss) + " m (limit " + ROUND(reentry_handoff_tr_miss_meters) + " m)").
+    transmit_log().
+    RUNPATH(land_unguided_script_path).
 }
 
+log_line("Guide condition met at gate — monitoring to " + ROUND(reentry_guided_land_alt_meters/1000, 1) + " km.").
+BRAKES OFF.
 set_airbrake_angle(0).
-log_line("Handoff outside envelope — falling back to unguided landing.").
-log_line("  alt: " + ROUND(SHIP:ALTITUDE) + " m  |  spd: " + ROUND(SHIP:VELOCITY:SURFACE:MAG, 1) + " m/s  |  TR miss: " + ROUND(handoff_tr_miss) + " m").
+SET entry_brakes_deployed TO FALSE.
+SET next_print TO TIME:SECONDS.
+
+UNTIL SHIP:ALTITUDE <= reentry_guided_land_alt_meters {
+    LOCAL monitor_tr_miss IS 999999.
+    IF ADDONS:TR:AVAILABLE AND ADDONS:TR:HASIMPACT {
+        SET monitor_tr_miss TO target_miss_distance(ADDONS:TR:IMPACTPOS, pad_geo).
+    }
+
+    IF monitor_tr_miss > reentry_handoff_tr_miss_meters {
+        set_airbrake_angle(0).
+        log_line("Guide condition lost (TR miss) — falling back to unguided landing.").
+        log_line("  alt: " + ROUND(SHIP:ALTITUDE) + " m  |  TR miss: " + ROUND(monitor_tr_miss) + " m (limit " + ROUND(reentry_handoff_tr_miss_meters) + " m)").
+        transmit_log().
+        RUNPATH(land_unguided_script_path).
+    }
+
+    IF TIME:SECONDS >= next_print {
+        log_line("  [monitor] alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  spd: " + ROUND(SHIP:VELOCITY:SURFACE:MAG, 1) + " m/s  |  TR miss: " + ROUND(monitor_tr_miss) + " m").
+        transmit_log().
+        SET next_print TO TIME:SECONDS + entry_telemetry_interval.
+    }
+
+    WAIT 0.
+}
+
+IF entry_brakes_deployed { BRAKES OFF. }
+set_airbrake_angle(0).
+log_line("Handing off to guided landing at " + ROUND(SHIP:ALTITUDE) + " m: " + land_script_path).
 transmit_log().
-RUNPATH(land_unguided_script_path).
+RUNPATH(land_script_path).

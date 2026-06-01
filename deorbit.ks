@@ -305,6 +305,7 @@ transmit_log().
 
 PRINT " ".
 PRINT "Auto-running reentry.ks below " + ROUND(reentry_handoff_alt_meters/1000, 1) + " km. Press any key to abort.".
+WAIT 1.
 SET WARP TO reentry_coast_warp_rate.
 LOCAL handoff_next_print IS TIME:SECONDS.
 UNTIL SHIP:ALTITUDE <= reentry_handoff_alt_meters {
