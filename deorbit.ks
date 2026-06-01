@@ -205,7 +205,7 @@ IF ABS(deorbit_phase_angle - target_deorbit_phase_angle_deg) > deorbit_phase_sta
 }
 
 log_line("Orbit: Ap " + ROUND(SHIP:APOAPSIS/1000, 1) + " km  |  Pe " + ROUND(SHIP:PERIAPSIS/1000, 1) + " km  |  ecc " + ROUND(SHIP:OBT:ECCENTRICITY, 4)).
-log_line("Limits: miss <= " + ROUND(impact_tolerance_meters) + " m  |  TWR <= " + max_deorbit_twr).
+log_line("Limits: miss <= " + ROUND(slow_burn_miss_meters) + " m  |  TWR <= " + max_deorbit_twr).
 
 SAS OFF.
 LOCK STEERING TO RETROGRADE.
@@ -259,15 +259,15 @@ UNTIL success {
             SET final_impact_lat TO impact_geo:LAT.
             SET final_impact_lng TO impact_geo:LNG.
             SET worsening_logged TO FALSE.
-        } ELSE IF NOT worsening_logged AND best_miss < slow_burn_miss_meters AND miss > best_miss + impact_tolerance_meters {
+        } ELSE IF NOT worsening_logged AND best_miss < slow_burn_miss_meters AND miss > best_miss + slow_burn_miss_meters {
             warn_line("Predicted miss worsening", "current " + ROUND(miss) + " m; best " + ROUND(best_miss) + " m; continuing burn").
             SET worsening_logged TO TRUE.
         }
 
-        LOCAL miss_outside_tolerance IS MAX(0, miss - impact_tolerance_meters).
+        LOCAL miss_outside_tolerance IS MAX(0, miss - slow_burn_miss_meters).
         LOCAL pid_throttle IS 0.
 
-        IF miss <= impact_tolerance_meters {
+        IF miss <= slow_burn_miss_meters {
             SET deorbit_throttle TO 0.
             SET success TO TRUE.
         } ELSE {
