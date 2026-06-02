@@ -7,6 +7,7 @@
 
 // --- CONFIG (edit these) ------------------------------------
 SET suicide_burn_safety_factor TO 1.25.
+SET suicide_burn_max_alt TO 2000.
 SET gear_deploy_alt TO 500.
 SET touchdown_speed TO 2.
 SET descent_kp TO 0.035.
@@ -52,12 +53,12 @@ FUNCTION transmit_log {
 }
 
 FUNCTION suicide_burn_altitude {
-    LOCAL vs IS ABS(SHIP:VERTICALSPEED).
+    LOCAL vs IS SHIP:VELOCITY:SURFACE:MAG.
     LOCAL g IS SHIP:BODY:MU / (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
     IF SHIP:AVAILABLETHRUST <= 0 { RETURN 0. }
     LOCAL net_decel IS SHIP:AVAILABLETHRUST / SHIP:MASS - g.
     IF net_decel <= 0 { RETURN 0. }
-    RETURN suicide_burn_safety_factor * MAX(0, vs^2 - touchdown_speed^2) / (2 * net_decel).
+    RETURN MIN(suicide_burn_max_alt, suicide_burn_safety_factor * MAX(0, vs^2 - touchdown_speed^2) / (2 * net_decel)).
 }
 
 FUNCTION target_descent_rate {

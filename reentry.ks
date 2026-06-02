@@ -25,7 +25,7 @@ SET reentry_handoff_tr_miss_meters TO 2500.
 SET monitor_telemetry_interval TO 5.
 SET monitor_throttle_pid_kp TO 0.0005.
 SET monitor_throttle_pid_ki TO 0.00000005.
-SET monitor_throttle_pid_max_throttle TO 0.3.
+SET monitor_throttle_pid_max_throttle TO 1.0.
 SET land_script_path TO "1:/land_guided.ks".
 SET land_unguided_script_path TO "1:/land_unguided.ks".
 SET pad_geo TO LATLNG(-0.0972, -74.5577).
@@ -198,11 +198,6 @@ UNTIL SHIP:ALTITUDE <= reentry_handoff_alt_meters {
             BRAKES ON.
             SET entry_brakes_deployed TO TRUE.
             log_line("  Entry brakes deployed  |  alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  speed: " + ROUND(surface_speed, 1) + " m/s").
-        } ELSE IF entry_brakes_deployed AND surface_speed <= entry_brakes_retract_speed_mps {
-            BRAKES OFF.
-            set_airbrake_angle(0).
-            SET entry_brakes_deployed TO FALSE.
-            log_line("  Entry brakes retracted  |  alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  speed: " + ROUND(surface_speed, 1) + " m/s").
         }
     }
 
@@ -222,11 +217,7 @@ UNTIL SHIP:ALTITUDE <= reentry_handoff_alt_meters {
     set_airbrake_angle(ab_angle).
 
     IF TIME:SECONDS >= next_print {
-        LOCAL retro_mode IS "surface".
-        LOCAL brake_mode IS "off".
-        IF entry_brakes_deployed { SET brake_mode TO "on". }
-        IF SHIP:ALTITUDE > entry_orbit_retro_alt_meters { SET retro_mode TO "orbit". }
-        log_line("  Alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  spd: " + ROUND(surface_speed, 1) + " m/s  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s  |  brakes: " + brake_mode + "  |  retro: " + retro_mode + "  |  cmd: " + ROUND(entry_aoa_command(), 1) + " deg  |  actual: " + ROUND(actual_entry_aoa(), 1) + " deg").
+        log_line("  Alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  spd: " + ROUND(surface_speed, 1) + " m/s  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s  |  cmd: " + ROUND(entry_aoa_command(), 1) + " deg  |  actual: " + ROUND(actual_entry_aoa(), 1) + " deg").
         IF ADDONS:TR:AVAILABLE AND ADDONS:TR:HASIMPACT {
             LOCAL impact_geo IS ADDONS:TR:IMPACTPOS.
             LOCAL tr_miss IS target_miss_distance(impact_geo, pad_geo).
@@ -257,7 +248,7 @@ log_line("  alt: " + ROUND(SHIP:ALTITUDE) + " m  |  spd: " + ROUND(handoff_speed
 transmit_log().
 
 IF NOT guide_ok {
-    set_airbrake_angle(0).
+    set_airbrake_angle(90).
     log_line("Outside guided envelope at gate — falling back to unguided landing.").
     log_line("  spd: " + ROUND(handoff_speed, 1) + " m/s (limit " + ROUND(reentry_handoff_speed_mps) + ")  |  TR miss: " + ROUND(handoff_tr_miss) + " m (limit " + ROUND(reentry_handoff_tr_miss_meters) + " m)").
     transmit_log().
@@ -271,13 +262,6 @@ SET next_print TO TIME:SECONDS.
 
 UNTIL SHIP:ALTITUDE <= reentry_guided_land_alt_meters {
     LOCAL surface_speed IS SHIP:VELOCITY:SURFACE:MAG.
-
-    IF entry_brakes_deployed AND surface_speed <= entry_brakes_retract_speed_mps {
-        BRAKES OFF.
-        set_airbrake_angle(0).
-        SET entry_brakes_deployed TO FALSE.
-        log_line("  [monitor] Entry brakes retracted  |  alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  spd: " + ROUND(surface_speed, 1) + " m/s").
-    }
 
     LOCAL monitor_tr_miss IS 999999.
     LOCAL along_miss IS 0.
@@ -300,7 +284,7 @@ UNTIL SHIP:ALTITUDE <= reentry_guided_land_alt_meters {
 
     IF monitor_tr_miss > reentry_handoff_tr_miss_meters {
         SET monitor_throttle TO 0.
-        set_airbrake_angle(0).
+        set_airbrake_angle(90).
         log_line("Guide condition lost (TR miss) — falling back to unguided landing.").
         log_line("  alt: " + ROUND(SHIP:ALTITUDE) + " m  |  TR miss: " + ROUND(monitor_tr_miss) + " m (limit " + ROUND(reentry_handoff_tr_miss_meters) + " m)").
         transmit_log().
@@ -317,8 +301,7 @@ UNTIL SHIP:ALTITUDE <= reentry_guided_land_alt_meters {
 }
 
 SET monitor_throttle TO 0.
-IF entry_brakes_deployed { BRAKES OFF. }
-set_airbrake_angle(0).
+set_airbrake_angle(90).
 log_line("Handing off to guided landing at " + ROUND(SHIP:ALTITUDE) + " m: " + land_script_path).
 transmit_log().
 RUNPATH(land_script_path).
