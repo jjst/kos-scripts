@@ -21,7 +21,7 @@ SET entry_orbit_retro_alt_meters TO 70000.
 SET reentry_handoff_alt_meters TO 20000.
 SET reentry_guided_land_alt_meters TO 5000.
 SET reentry_handoff_speed_mps TO 1400.
-SET reentry_handoff_tr_miss_meters TO 2500.
+SET reentry_handoff_tr_miss_meters TO 5000.
 SET monitor_telemetry_interval TO 5.
 SET monitor_throttle_pid_kp TO 0.0005.
 SET monitor_throttle_pid_ki TO 0.00000005.
@@ -183,6 +183,13 @@ LOCAL next_print IS TIME:SECONDS.
 LOCAL airbrake_pid IS PIDLOOP(airbrake_pid_kp, airbrake_pid_ki, 0, -airbrake_base_angle, 0, airbrake_pid_epsilon).
 SET airbrake_pid:SETPOINT TO 0.
 
+FUNCTION monitor_steering {
+    IF ADDONS:TR:AVAILABLE AND ADDONS:TR:HASIMPACT {
+        RETURN ADDONS:TR:CORRECTEDVEC.
+    }
+    RETURN entry_retrograde_steering().
+}
+
 LOCK STEERING TO entry_retrograde_steering().
 log_line("--- ENTRY GUIDANCE ---").
 LOCAL entry_brakes_deployed IS entry_brakes_enabled AND SHIP:VELOCITY:SURFACE:MAG > entry_brakes_retract_speed_mps.
@@ -256,6 +263,7 @@ IF NOT guide_ok {
 }
 
 log_line("Guide condition met at gate — monitoring to " + ROUND(reentry_guided_land_alt_meters/1000, 1) + " km.").
+LOCK STEERING TO monitor_steering().
 LOCAL monitor_thr_pid IS PIDLOOP(monitor_throttle_pid_kp, monitor_throttle_pid_ki, 0, 0, monitor_throttle_pid_max_throttle).
 SET monitor_thr_pid:SETPOINT TO 0.
 SET next_print TO TIME:SECONDS.
@@ -273,11 +281,7 @@ UNTIL SHIP:ALTITUDE <= reentry_guided_land_alt_meters {
         IF horiz_vel:MAG > 1 {
             SET along_miss TO VDOT(to_pad_from_impact_h, horiz_vel:NORMALIZED).
         }
-        IF entry_brakes_deployed {
-            SET airbrake_pid:KP TO airbrake_pid_kp * (airbrake_pid_gain_ref_alt_meters / MAX(SHIP:ALTITUDE, reentry_handoff_alt_meters)).
-            LOCAL ab_correction IS airbrake_pid:UPDATE(TIME:SECONDS, along_miss).
-            set_airbrake_angle(clamp(airbrake_base_angle + ab_correction, airbrake_min_angle, airbrake_base_angle)).
-        }
+        set_airbrake_angle(90).
     }
 
     SET monitor_throttle TO monitor_thr_pid:UPDATE(TIME:SECONDS, along_miss).
