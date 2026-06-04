@@ -6,7 +6,7 @@
 //  throttle to bring vertical speed to touchdown_speed.
 
 // --- CONFIG (edit these) ------------------------------------
-SET suicide_burn_safety_factor TO 1.25.
+SET suicide_burn_safety_factor TO 1.1.
 SET suicide_burn_max_alt TO 2000.
 SET gear_deploy_alt TO 500.
 SET touchdown_speed TO 2.

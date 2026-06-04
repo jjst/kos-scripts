@@ -9,11 +9,13 @@ SET entry_telemetry_interval TO 20.
 SET entry_brakes_enabled TO TRUE.
 SET entry_brakes_deploy_alt_meters TO 70000.
 SET entry_brakes_retract_speed_mps TO 1200.
-SET entry_aoa_deg TO 13.
+SET entry_aoa_deg TO 10.
 SET entry_aoa_retract_speed_mps TO 1200.
+SET entry_roll_correction_gain TO 0.001.
 SET airbrake_pid_kp TO 0.001.
 SET airbrake_pid_ki TO 0.000001.
-SET airbrake_pid_epsilon TO 500.
+SET airbrake_pid_kd TO 0.
+SET airbrake_pid_epsilon TO 1000.
 SET airbrake_pid_gain_ref_alt_meters TO 100000.
 SET airbrake_base_angle TO 90.
 SET airbrake_min_angle TO 0.
@@ -23,9 +25,11 @@ SET reentry_guided_land_alt_meters TO 5000.
 SET reentry_handoff_speed_mps TO 1400.
 SET reentry_handoff_tr_miss_meters TO 5000.
 SET monitor_telemetry_interval TO 5.
-SET monitor_throttle_pid_kp TO 0.0005.
+SET monitor_throttle_pid_kp TO 0.0001.
 SET monitor_throttle_pid_ki TO 0.00000005.
+SET monitor_throttle_pid_kd TO 0.0002.
 SET monitor_throttle_pid_max_throttle TO 1.0.
+SET monitor_throttle_pid_epsilon TO 50.
 SET land_script_path TO "1:/land_guided.ks".
 SET land_unguided_script_path TO "1:/land_unguided.ks".
 SET pad_geo TO LATLNG(-0.0972, -74.5577).
@@ -140,11 +144,13 @@ FUNCTION entry_retrograde_steering {
         LOCAL srfret IS SHIP:SRFRETROGRADE:FOREVECTOR.
         LOCAL axis IS VCRS(UP:FOREVECTOR, srfret).
         IF axis:MAG > 0.01 {
-            LOCAL to_pad_h IS VXCL(UP:FOREVECTOR, pad_geo:POSITION).
             LOCAL horiz_vel IS VXCL(UP:FOREVECTOR, SHIP:VELOCITY:SURFACE).
-            IF horiz_vel:MAG > 1 AND to_pad_h:MAG > 100 {
-                LOCAL cross_to_pad IS VXCL(horiz_vel:NORMALIZED, to_pad_h).
-                LOCAL blended IS axis:NORMALIZED + cross_to_pad / to_pad_h:MAG.
+            IF horiz_vel:MAG > 1 AND ADDONS:TR:AVAILABLE AND ADDONS:TR:HASIMPACT {
+                LOCAL impact_geo IS ADDONS:TR:IMPACTPOS.
+                LOCAL to_pad_from_impact_h IS VXCL(UP:FOREVECTOR, pad_geo:POSITION) - VXCL(UP:FOREVECTOR, impact_geo:POSITION).
+                LOCAL cross_miss_v IS VXCL(horiz_vel:NORMALIZED, to_pad_from_impact_h).
+                LOCAL roll_dir IS VCRS(cross_miss_v:NORMALIZED, srfret:NORMALIZED).
+                LOCAL blended IS axis:NORMALIZED + roll_dir * (cross_miss_v:MAG * entry_roll_correction_gain).
                 LOCAL corrected IS VXCL(srfret, blended).
                 IF corrected:MAG > 0.01 { SET axis TO corrected. }
             }
@@ -180,7 +186,7 @@ SAS OFF.
 LOCAL monitor_throttle IS 0.
 LOCK THROTTLE TO monitor_throttle.
 LOCAL next_print IS TIME:SECONDS.
-LOCAL airbrake_pid IS PIDLOOP(airbrake_pid_kp, airbrake_pid_ki, 0, -airbrake_base_angle, 0, airbrake_pid_epsilon).
+LOCAL airbrake_pid IS PIDLOOP(airbrake_pid_kp, airbrake_pid_ki, airbrake_pid_kd, -airbrake_base_angle, 0, airbrake_pid_epsilon).
 SET airbrake_pid:SETPOINT TO 0.
 
 FUNCTION monitor_steering {
@@ -197,6 +203,8 @@ IF entry_brakes_deployed {
     BRAKES ON.
     log_line("  Entry brakes armed  |  speed: " + ROUND(SHIP:VELOCITY:SURFACE:MAG, 1) + " m/s").
 }
+LOCAL ab_angle IS airbrake_base_angle.
+LOCAL next_brake_update IS 0.
 UNTIL SHIP:ALTITUDE <= reentry_handoff_alt_meters {
     LOCAL surface_speed IS SHIP:VELOCITY:SURFACE:MAG.
 
@@ -208,8 +216,9 @@ UNTIL SHIP:ALTITUDE <= reentry_handoff_alt_meters {
         }
     }
 
-    LOCAL ab_angle IS airbrake_base_angle.
-    IF ADDONS:TR:AVAILABLE AND ADDONS:TR:HASIMPACT {
+    IF NOT (ADDONS:TR:AVAILABLE AND ADDONS:TR:HASIMPACT) {
+        SET ab_angle TO airbrake_base_angle.
+    } ELSE IF TIME:SECONDS >= next_brake_update {
         LOCAL impact_geo IS ADDONS:TR:IMPACTPOS.
         LOCAL horiz_vel IS VXCL(UP:FOREVECTOR, SHIP:VELOCITY:SURFACE).
         LOCAL to_pad_from_impact_h IS VXCL(UP:FOREVECTOR, pad_geo:POSITION) - VXCL(UP:FOREVECTOR, impact_geo:POSITION).
@@ -220,6 +229,7 @@ UNTIL SHIP:ALTITUDE <= reentry_handoff_alt_meters {
         SET airbrake_pid:KP TO airbrake_pid_kp * (airbrake_pid_gain_ref_alt_meters / MAX(SHIP:ALTITUDE, reentry_handoff_alt_meters)).
         LOCAL ab_correction IS airbrake_pid:UPDATE(TIME:SECONDS, along_miss).
         SET ab_angle TO clamp(airbrake_base_angle + ab_correction, airbrake_min_angle, airbrake_base_angle).
+        SET next_brake_update TO TIME:SECONDS + 2.
     }
     set_airbrake_angle(ab_angle).
 
@@ -231,10 +241,12 @@ UNTIL SHIP:ALTITUDE <= reentry_handoff_alt_meters {
             LOCAL horiz_vel IS VXCL(UP:FOREVECTOR, SHIP:VELOCITY:SURFACE).
             LOCAL to_pad_from_impact_h IS VXCL(UP:FOREVECTOR, pad_geo:POSITION) - VXCL(UP:FOREVECTOR, impact_geo:POSITION).
             LOCAL along_miss IS 0.
+            LOCAL lateral_miss IS 0.
             IF horiz_vel:MAG > 1 {
                 SET along_miss TO VDOT(to_pad_from_impact_h, horiz_vel:NORMALIZED).
+                SET lateral_miss TO VDOT(to_pad_from_impact_h, VCRS(UP:FOREVECTOR, horiz_vel:NORMALIZED)).
             }
-            log_line("    TR impact: " + ROUND(impact_geo:LAT, 4) + ", " + ROUND(impact_geo:LNG, 4) + "  |  miss: " + ROUND(tr_miss/1000, 2) + " km  |  along: " + ROUND(along_miss/1000, 2) + " km  |  ab: " + ROUND(ab_angle, 1) + " deg").
+            log_line("    TR impact: " + ROUND(impact_geo:LAT, 4) + ", " + ROUND(impact_geo:LNG, 4) + "  |  miss: " + ROUND(tr_miss/1000, 2) + " km  |  along: " + ROUND(along_miss/1000, 2) + " km  |  cross: " + ROUND(lateral_miss/1000, 2) + " km  |  ab: " + ROUND(ab_angle, 1) + " deg").
         } ELSE {
             log_line("    TR impact: no prediction").
         }
@@ -264,7 +276,7 @@ IF NOT guide_ok {
 
 log_line("Guide condition met at gate — monitoring to " + ROUND(reentry_guided_land_alt_meters/1000, 1) + " km.").
 LOCK STEERING TO monitor_steering().
-LOCAL monitor_thr_pid IS PIDLOOP(monitor_throttle_pid_kp, monitor_throttle_pid_ki, 0, 0, monitor_throttle_pid_max_throttle).
+LOCAL monitor_thr_pid IS PIDLOOP(monitor_throttle_pid_kp, monitor_throttle_pid_ki, monitor_throttle_pid_kd, 0, monitor_throttle_pid_max_throttle, monitor_throttle_pid_epsilon).
 SET monitor_thr_pid:SETPOINT TO 0.
 SET next_print TO TIME:SECONDS.
 
@@ -273,6 +285,7 @@ UNTIL SHIP:ALTITUDE <= reentry_guided_land_alt_meters {
 
     LOCAL monitor_tr_miss IS 999999.
     LOCAL along_miss IS 0.
+    LOCAL cross_miss IS 0.
     IF ADDONS:TR:AVAILABLE AND ADDONS:TR:HASIMPACT {
         LOCAL impact_geo IS ADDONS:TR:IMPACTPOS.
         SET monitor_tr_miss TO target_miss_distance(impact_geo, pad_geo).
@@ -280,6 +293,7 @@ UNTIL SHIP:ALTITUDE <= reentry_guided_land_alt_meters {
         LOCAL to_pad_from_impact_h IS VXCL(UP:FOREVECTOR, pad_geo:POSITION) - VXCL(UP:FOREVECTOR, impact_geo:POSITION).
         IF horiz_vel:MAG > 1 {
             SET along_miss TO VDOT(to_pad_from_impact_h, horiz_vel:NORMALIZED).
+            SET cross_miss TO VDOT(to_pad_from_impact_h, VCRS(UP:FOREVECTOR, horiz_vel:NORMALIZED)).
         }
         set_airbrake_angle(90).
     }
@@ -296,7 +310,7 @@ UNTIL SHIP:ALTITUDE <= reentry_guided_land_alt_meters {
     }
 
     IF TIME:SECONDS >= next_print {
-        log_line("  [monitor] alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  spd: " + ROUND(surface_speed, 1) + " m/s  |  TR miss: " + ROUND(monitor_tr_miss) + " m  |  along: " + ROUND(along_miss) + " m  |  thr: " + ROUND(monitor_throttle, 3)).
+        log_line("  [monitor] alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  spd: " + ROUND(surface_speed, 1) + " m/s  |  TR miss: " + ROUND(monitor_tr_miss) + " m  |  along: " + ROUND(along_miss) + " m  |  cross: " + ROUND(cross_miss) + " m  |  thr: " + ROUND(monitor_throttle, 3)).
         transmit_log().
         SET next_print TO TIME:SECONDS + monitor_telemetry_interval.
     }

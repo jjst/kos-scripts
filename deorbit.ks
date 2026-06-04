@@ -23,10 +23,10 @@ SET warp_telemetry_interval TO 60.
 SET burn_telemetry_interval TO 1.
 SET reentry_handoff_telemetry_interval TO 30.
 SET reentry_coast_warp_rate TO 3.
-SET tr_descent_entry_aoa_deg TO 13.
-SET tr_descent_high_aoa_deg TO 13.
-SET tr_descent_low_aoa_deg TO 20.
-SET tr_descent_final_aoa_deg TO 0.
+SET tr_descent_entry_aoa_deg TO 10.
+SET tr_descent_high_aoa_deg TO 10.
+SET tr_descent_low_aoa_deg TO 15.
+SET tr_descent_final_aoa_deg TO 15.
 SET log_path TO "deorbit.log".
 // ------------------------------------------------------------
 
