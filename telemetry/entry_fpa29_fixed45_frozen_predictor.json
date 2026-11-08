@@ -1,0 +1,1017 @@
+{
+  "schema": "empirical_airbrake_trajectories_predictor",
+  "schema_version": 2,
+  "generated_at": "2026-10-29T17:12:26.603Z",
+  "calibration_profile": {
+    "profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"airbrake_authority_limiter_percent\":0}",
+    "profile_id": "matched10"
+  },
+  "selected_runs": [
+    {
+      "run_id": "1785011593",
+      "mode": "off",
+      "status": "guided_landing_handoff",
+      "trajectories_descent_angles_deg": [
+        -170.00000206184046,
+        -170.00000206184046,
+        -170.00000206184046,
+        -170.00000206184046
+      ],
+      "trajectories_descent_modes": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "entry_aoa_deg": 10
+    },
+    {
+      "run_id": "1785012757",
+      "mode": "fixed30",
+      "status": "landing_abort",
+      "trajectories_descent_angles_deg": [
+        -170.00000206184046,
+        -170.00000206184046,
+        -170.00000206184046,
+        -170.00000206184046
+      ],
+      "trajectories_descent_modes": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "entry_aoa_deg": 10
+    },
+    {
+      "run_id": "1785013509",
+      "mode": "fixed45",
+      "status": "splashed",
+      "trajectories_descent_angles_deg": [
+        -170.00000206184046,
+        -170.00000206184046,
+        -170.00000206184046,
+        -170.00000206184046
+      ],
+      "trajectories_descent_modes": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "entry_aoa_deg": 10
+    },
+    {
+      "run_id": "1785014313",
+      "mode": "fixed50",
+      "status": "splashed",
+      "trajectories_descent_angles_deg": [
+        -170.00000206184046,
+        -170.00000206184046,
+        -170.00000206184046,
+        -170.00000206184046
+      ],
+      "trajectories_descent_modes": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "entry_aoa_deg": 10
+    },
+    {
+      "run_id": "1785016154",
+      "mode": "fixed60",
+      "status": "splashed",
+      "trajectories_descent_angles_deg": [
+        -170.00000206184046,
+        -170.00000206184046,
+        -170.00000206184046,
+        -170.00000206184046
+      ],
+      "trajectories_descent_modes": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "entry_aoa_deg": 10
+    },
+    {
+      "run_id": "1785016786",
+      "mode": "fixed",
+      "status": "splashed",
+      "trajectories_descent_angles_deg": [
+        -170.00000206184046,
+        -170.00000206184046,
+        -170.00000206184046,
+        -170.00000206184046
+      ],
+      "trajectories_descent_modes": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "entry_aoa_deg": 10
+    },
+    {
+      "run_id": "1785359750",
+      "mode": "fixed90",
+      "status": "splashed",
+      "trajectories_descent_angles_deg": [
+        -170.00000206184046,
+        -170.00000206184046,
+        -170.00000206184046,
+        -170.00000206184046
+      ],
+      "trajectories_descent_modes": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "entry_aoa_deg": 10
+    }
+  ],
+  "fit_rows": {
+    "unique": 336,
+    "force": 336,
+    "trajectories_response": 332,
+    "instrumented": 336
+  },
+  "domain": {
+    "calibrated_airbrake_angles_deg": [
+      30,
+      45,
+      50,
+      60,
+      70,
+      90
+    ],
+    "altitude_m": [
+      38577.133781435434,
+      59160.237170530425
+    ],
+    "mach": [
+      6.5449779079171595,
+      7.313422456628503
+    ],
+    "dynamic_pressure_kpa": [
+      0.10206011158164957,
+      2.8867032667058927
+    ],
+    "mass_t": [
+      20.046072006225586,
+      20.047308921813965
+    ],
+    "airbrake_count": [
+      4,
+      4
+    ]
+  },
+  "trajectories_domain": {
+    "altitude_m": [
+      38577.133781435434,
+      59160.237170530425
+    ],
+    "mach": [
+      6.5449779079171595,
+      7.313422456628503
+    ],
+    "dynamic_pressure_kpa": [
+      0.10206011158164957,
+      2.8867032667058927
+    ],
+    "mass_t": [
+      20.046072006225586,
+      20.047308921813965
+    ],
+    "airbrake_count": [
+      4,
+      4
+    ]
+  },
+  "descriptive": {
+    "fixed30": {
+      "count": 73,
+      "median_extra_cda_per_airbrake_m2": 0.5470466146920112,
+      "median_extra_deceleration_mps2": 0.07674695071049331
+    },
+    "fixed45": {
+      "count": 56,
+      "median_extra_cda_per_airbrake_m2": 1.7832123465334493,
+      "median_extra_deceleration_mps2": 0.1574235594923368
+    },
+    "fixed50": {
+      "count": 54,
+      "median_extra_cda_per_airbrake_m2": 2.1883747092932433,
+      "median_extra_deceleration_mps2": 0.19527668307062349
+    },
+    "fixed60": {
+      "count": 52,
+      "median_extra_cda_per_airbrake_m2": 2.5498933671731048,
+      "median_extra_deceleration_mps2": 0.21235982666112532
+    },
+    "fixed90": {
+      "count": 51,
+      "median_extra_cda_per_airbrake_m2": 2.9194809089660545,
+      "median_extra_deceleration_mps2": 0.2263872223860319
+    },
+    "fixed": {
+      "count": 50,
+      "median_extra_cda_per_airbrake_m2": 2.856873210841384,
+      "median_extra_deceleration_mps2": 0.22464686249588284
+    }
+  },
+  "extra_drag_model": {
+    "angle_sine_exponent": 2.164999999999976,
+    "mach_center": 6.75,
+    "cda_at_mach_center_m2": 3.147988876100677,
+    "cda_mach_slope_m2_per_mach": 1.0786562141120737,
+    "formula": "extra_deceleration_mps2 = dynamic_pressure_kpa * airbrake_count / mass_t * sin(angle_deg*pi/180)^p * (cda0 + cdaMachSlope * (mach - machCenter))",
+    "metrics": {
+      "count": 336,
+      "rmse": 0.039450628645223085,
+      "mae": 0.027615352138811347,
+      "r2": 0.9412836933840067
+    },
+    "metrics_by_mode": {
+      "fixed30": {
+        "count": 73,
+        "rmse": 0.04746956064515204,
+        "mae": 0.03271685611920068,
+        "r2": 0.577993472865193
+      },
+      "fixed45": {
+        "count": 56,
+        "rmse": 0.03985990315436649,
+        "mae": 0.02793747508051555,
+        "r2": 0.918870082912949
+      },
+      "fixed50": {
+        "count": 54,
+        "rmse": 0.05269604447652884,
+        "mae": 0.03984224099180568,
+        "r2": 0.8949508458041304
+      },
+      "fixed60": {
+        "count": 52,
+        "rmse": 0.02156998632979212,
+        "mae": 0.01434973677820957,
+        "r2": 0.9834455575570983
+      },
+      "fixed90": {
+        "count": 51,
+        "rmse": 0.042148195051124444,
+        "mae": 0.03877543999206077,
+        "r2": 0.9426654239305199
+      },
+      "fixed": {
+        "count": 50,
+        "rmse": 0.009716728291998914,
+        "mae": 0.00901428903621192,
+        "r2": 0.9967667526637204
+      }
+    }
+  },
+  "trajectories_along_rate_model": {
+    "angle_sine_exponent": 2.0000000000000013,
+    "altitude_center_km": 45,
+    "altitude_log_slope_per_km": 0.027000000000000052,
+    "scale": 4573.490071750221,
+    "formula": "extra_trajectories_along_rate_mps = scale * dynamic_pressure_kpa * airbrake_count / mass_t * sin(angle_deg*pi/180)^p * exp(altitudeSlope * (altitude_km - altitudeCenterKm))",
+    "metrics": {
+      "count": 332,
+      "rmse": 86.88010401997107,
+      "mae": 64.28824590932894,
+      "r2": 0.8855140621790052
+    },
+    "metrics_by_mode": {
+      "fixed30": {
+        "count": 73,
+        "rmse": 81.07375274829437,
+        "mae": 62.45977262795148,
+        "r2": 0.35983968980414294
+      },
+      "fixed45": {
+        "count": 56,
+        "rmse": 88.93765206361125,
+        "mae": 58.70565840284837,
+        "r2": 0.8393861942963332
+      },
+      "fixed50": {
+        "count": 53,
+        "rmse": 101.28597244502961,
+        "mae": 74.28203375250534,
+        "r2": 0.8333199106643594
+      },
+      "fixed60": {
+        "count": 51,
+        "rmse": 75.90611210396597,
+        "mae": 51.27592965211809,
+        "r2": 0.9212459646218376
+      },
+      "fixed90": {
+        "count": 50,
+        "rmse": 98.21431516653831,
+        "mae": 89.34000506874867,
+        "r2": 0.8819176102844934
+      },
+      "fixed": {
+        "count": 49,
+        "rmse": 73.30897986020427,
+        "mae": 50.563202345285625,
+        "r2": 0.9279111958857159
+      }
+    },
+    "cumulative_validation": {
+      "kind": "in_sample_integrated_response",
+      "count": 6,
+      "rmse_m": 6809.093404054719,
+      "mean_error_m": 1113.6572877956216,
+      "median_prediction_to_observation_ratio": 1.0092016721853696,
+      "groups": [
+        {
+          "pair_key": "1785011593|1785012757",
+          "off_run_id": "1785011593",
+          "fixed_run_id": "1785012757",
+          "fixed_mode": "fixed30",
+          "fixed_angle_deg": 30,
+          "rows": 73,
+          "start_altitude_m": 59005.92187364685,
+          "end_altitude_m": 38577.133781435434,
+          "duration_s": 167.8999999998473,
+          "observed_change_m": 24943.140674657938,
+          "predicted_change_m": 35437.954973285596,
+          "error_m": 10494.814298627658,
+          "prediction_to_observation_ratio": 1.4207495132836387
+        },
+        {
+          "pair_key": "1785011593|1785013509",
+          "off_run_id": "1785011593",
+          "fixed_run_id": "1785013509",
+          "fixed_mode": "fixed45",
+          "fixed_angle_deg": 45,
+          "rows": 56,
+          "start_altitude_m": 59104.55596243078,
+          "end_altitude_m": 42890.55886261165,
+          "duration_s": 128.79999999988286,
+          "observed_change_m": 41758.72811247201,
+          "predicted_change_m": 36277.633467257576,
+          "error_m": -5481.094645214434,
+          "prediction_to_observation_ratio": 0.86874373590949
+        },
+        {
+          "pair_key": "1785011593|1785014313",
+          "off_run_id": "1785011593",
+          "fixed_run_id": "1785014313",
+          "fixed_mode": "fixed50",
+          "fixed_angle_deg": 50,
+          "rows": 53,
+          "start_altitude_m": 58996.995830225234,
+          "end_altitude_m": 43320.80719830439,
+          "duration_s": 124.19999999988704,
+          "observed_change_m": 47477.35151122176,
+          "predicted_change_m": 39689.21245821882,
+          "error_m": -7788.139053002938,
+          "prediction_to_observation_ratio": 0.8359609623303833
+        },
+        {
+          "pair_key": "1785011593|1785016154",
+          "off_run_id": "1785011593",
+          "fixed_run_id": "1785016154",
+          "fixed_mode": "fixed60",
+          "fixed_angle_deg": 60,
+          "rows": 51,
+          "start_altitude_m": 59037.547331144626,
+          "end_altitude_m": 43934.697512363025,
+          "duration_s": 119.59999999989122,
+          "observed_change_m": 46758.053319780964,
+          "predicted_change_m": 45812.817337593086,
+          "error_m": -945.2359821878781,
+          "prediction_to_observation_ratio": 0.9797845308973119
+        },
+        {
+          "pair_key": "1785011593|1785359750",
+          "off_run_id": "1785011593",
+          "fixed_run_id": "1785359750",
+          "fixed_mode": "fixed90",
+          "fixed_angle_deg": 90,
+          "rows": 50,
+          "start_altitude_m": 59160.237170530425,
+          "end_altitude_m": 44465.53868895245,
+          "duration_s": 114.99999999989541,
+          "observed_change_m": 47407.30829581522,
+          "predicted_change_m": 55951.29340132275,
+          "error_m": 8543.985105507527,
+          "prediction_to_observation_ratio": 1.1802250626041497
+        },
+        {
+          "pair_key": "1785011593|1785016786",
+          "off_run_id": "1785011593",
+          "fixed_run_id": "1785016786",
+          "fixed_mode": "fixed",
+          "fixed_angle_deg": 70,
+          "rows": 49,
+          "start_altitude_m": 59005.33140658995,
+          "end_altitude_m": 44440.56343644217,
+          "duration_s": 114.99999999989541,
+          "observed_change_m": 48101.27075297063,
+          "predicted_change_m": 49958.88475601443,
+          "error_m": 1857.6140030437964,
+          "prediction_to_observation_ratio": 1.0386188134734273
+        }
+      ]
+    }
+  },
+  "transfer_validation": {
+    "profile_id": "legacy",
+    "profile_key": "{\"angles\":[170,170,165,165],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"airbrake_authority_limiter_percent\":\"unverified\"}",
+    "ready": true,
+    "force_rows": 186,
+    "trajectories_response_rows": 186,
+    "extra_drag_model": {
+      "count": 186,
+      "rmse": 0.11037627845072648,
+      "mae": 0.07006246211790228,
+      "r2": 0.890712448605436,
+      "mean_error": -0.022252232557623996,
+      "median_prediction_to_observation_ratio": 1.0682632766692293,
+      "normalized_rmse_by_median_observation": 0.36742494179057994,
+      "metrics_by_mode": {
+        "fixed45": {
+          "count": 98,
+          "rmse": 0.14413800555577283,
+          "mae": 0.08885710653314167,
+          "r2": 0.7894856650730011,
+          "mean_error": -0.08635241601428567,
+          "median_prediction_to_observation_ratio": 0.8555665067857428,
+          "normalized_rmse_by_median_observation": 0.5551110454062322
+        },
+        "fixed90": {
+          "count": 88,
+          "rmse": 0.05112359287163357,
+          "mae": 0.049132062655476545,
+          "r2": 0.9784331426578964,
+          "mean_error": 0.049132062655476545,
+          "median_prediction_to_observation_ratio": 1.176130756723901,
+          "normalized_rmse_by_median_observation": 0.1463396642533998
+        }
+      }
+    },
+    "trajectories_along_rate_model": {
+      "count": 186,
+      "rmse": 252.9248330900456,
+      "mae": 162.87395379647756,
+      "r2": -0.08480491783064381,
+      "mean_error": 35.77029005760876,
+      "median_prediction_to_observation_ratio": 0.8654559566798632,
+      "normalized_rmse_by_median_observation": 0.455623562229403,
+      "metrics_by_mode": {
+        "fixed45": {
+          "count": 98,
+          "rmse": 129.3222642344484,
+          "mae": 115.60805751407568,
+          "r2": 0.7088733263001532,
+          "mean_error": -79.39288182095686,
+          "median_prediction_to_observation_ratio": 0.7107754752461483,
+          "normalized_rmse_by_median_observation": 0.23874480541199095
+        },
+        "fixed90": {
+          "count": 88,
+          "rmse": 341.4478586474825,
+          "mae": 215.51097465642508,
+          "r2": -1.0420371374544684,
+          "mean_error": 164.02018601328402,
+          "median_prediction_to_observation_ratio": 1.0368939529792391,
+          "normalized_rmse_by_median_observation": 0.5618593217291468
+        }
+      }
+    }
+  },
+  "profile_adaptations": [
+    {
+      "profile_id": "legacy",
+      "profile_key": "{\"angles\":[170,170,165,165],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"airbrake_authority_limiter_percent\":\"unverified\"}",
+      "entry_corridor_id": "trajectories_miss",
+      "source_run_ids": [
+        "1784751407",
+        "1784752186",
+        "1784752958",
+        "1784753895"
+      ],
+      "off_run_ids": [
+        "1784752186"
+      ],
+      "fixed_run_ids": [
+        "1784753895",
+        "1784752958"
+      ],
+      "angle_anchors_deg": [
+        45,
+        90
+      ],
+      "force_rows": 186,
+      "trajectories_response_rows": 186,
+      "domain": {
+        "altitude_m": [
+          38185.877026423346,
+          59140.64147504169
+        ],
+        "mach": [
+          6.393674082729358,
+          7.352025109605942
+        ],
+        "dynamic_pressure_kpa": [
+          0.10347133949881528,
+          2.9750514993333765
+        ],
+        "mass_t": [
+          20.12792205810547,
+          20.12800407409668
+        ],
+        "airbrake_count": [
+          4,
+          4
+        ]
+      },
+      "trajectories_domain": {
+        "altitude_m": [
+          38185.877026423346,
+          59140.64147504169
+        ],
+        "mach": [
+          6.393674082729358,
+          7.352025109605942
+        ],
+        "dynamic_pressure_kpa": [
+          0.10347133949881528,
+          2.9750514993333765
+        ],
+        "mass_t": [
+          20.12792205810547,
+          20.12800407409668
+        ],
+        "airbrake_count": [
+          4,
+          4
+        ]
+      },
+      "base_model_transfer": {
+        "extra_drag_model": {
+          "count": 186,
+          "rmse": 0.11037627845072648,
+          "mae": 0.07006246211790228,
+          "r2": 0.890712448605436,
+          "mean_error": -0.022252232557623996,
+          "median_prediction_to_observation_ratio": 1.0682632766692293,
+          "normalized_rmse_by_median_observation": 0.36742494179057994,
+          "metrics_by_mode": {
+            "fixed45": {
+              "count": 98,
+              "rmse": 0.14413800555577283,
+              "mae": 0.08885710653314167,
+              "r2": 0.7894856650730011,
+              "mean_error": -0.08635241601428567,
+              "median_prediction_to_observation_ratio": 0.8555665067857428,
+              "normalized_rmse_by_median_observation": 0.5551110454062322
+            },
+            "fixed90": {
+              "count": 88,
+              "rmse": 0.05112359287163357,
+              "mae": 0.049132062655476545,
+              "r2": 0.9784331426578964,
+              "mean_error": 0.049132062655476545,
+              "median_prediction_to_observation_ratio": 1.176130756723901,
+              "normalized_rmse_by_median_observation": 0.1463396642533998
+            }
+          }
+        },
+        "trajectories_along_rate_model": {
+          "count": 186,
+          "rmse": 252.9248330900456,
+          "mae": 162.87395379647756,
+          "r2": -0.08480491783064381,
+          "mean_error": 35.77029005760876,
+          "median_prediction_to_observation_ratio": 0.8654559566798632,
+          "normalized_rmse_by_median_observation": 0.455623562229403,
+          "metrics_by_mode": {
+            "fixed45": {
+              "count": 98,
+              "rmse": 129.3222642344484,
+              "mae": 115.60805751407568,
+              "r2": 0.7088733263001532,
+              "mean_error": -79.39288182095686,
+              "median_prediction_to_observation_ratio": 0.7107754752461483,
+              "normalized_rmse_by_median_observation": 0.23874480541199095
+            },
+            "fixed90": {
+              "count": 88,
+              "rmse": 341.4478586474825,
+              "mae": 215.51097465642508,
+              "r2": -1.0420371374544684,
+              "mean_error": 164.02018601328402,
+              "median_prediction_to_observation_ratio": 1.0368939529792391,
+              "normalized_rmse_by_median_observation": 0.5618593217291468
+            }
+          }
+        }
+      },
+      "trajectories_along_rate_model": {
+        "angle_sine_exponent": 2.0000000000000013,
+        "angle_sine_exponent_source": "inherited_from_multi_angle_calibration",
+        "anchor_angles_deg": [
+          45,
+          90
+        ],
+        "altitude_center_km": 45,
+        "altitude_log_slope_per_km": 0.0800000000000001,
+        "scale": 3898.189889478693,
+        "formula": "extra_trajectories_along_rate_mps = scale * dynamic_pressure_kpa * airbrake_count / mass_t * sin(angle_deg*pi/180)^inheritedP * exp(altitudeSlope * (altitude_km - altitudeCenterKm))",
+        "metrics": {
+          "count": 186,
+          "rmse": 149.32122957950386,
+          "mae": 123.34006198451088,
+          "r2": 0.6218955261394856
+        },
+        "metrics_by_mode": {
+          "fixed45": {
+            "count": 98,
+            "rmse": 171.41983511010432,
+            "mae": 150.70766130499075,
+            "r2": 0.4884859764988051
+          },
+          "fixed90": {
+            "count": 88,
+            "rmse": 120.01438545421756,
+            "mae": 92.86250819579479,
+            "r2": 0.7477207910836959
+          }
+        },
+        "cumulative_validation": {
+          "kind": "in_sample_integrated_response",
+          "count": 2,
+          "rmse_m": 30448.018181313226,
+          "mean_error_m": -7792.53207097383,
+          "median_prediction_to_observation_ratio": 0.9323526553484749,
+          "groups": [
+            {
+              "pair_key": "1784752186|1784753895",
+              "off_run_id": "1784752186",
+              "fixed_run_id": "1784753895",
+              "fixed_mode": "fixed45",
+              "fixed_angle_deg": 45,
+              "rows": 98,
+              "start_altitude_m": 59137.26797467109,
+              "end_altitude_m": 38185.877026423346,
+              "duration_s": 248.1599999997743,
+              "observed_change_m": 128202.9391209794,
+              "predicted_change_m": 90976.44273847551,
+              "error_m": -37226.49638250389,
+              "prediction_to_observation_ratio": 0.7096283701625989
+            },
+            {
+              "pair_key": "1784752186|1784752958",
+              "off_run_id": "1784752186",
+              "fixed_run_id": "1784752958",
+              "fixed_mode": "fixed90",
+              "fixed_angle_deg": 90,
+              "rows": 88,
+              "start_altitude_m": 59140.64147504169,
+              "end_altitude_m": 39302.57632741006,
+              "duration_s": 230.3399999997905,
+              "observed_change_m": 139552.87076199742,
+              "predicted_change_m": 161194.30300255364,
+              "error_m": 21641.432240556227,
+              "prediction_to_observation_ratio": 1.1550769405343508
+            }
+          ]
+        }
+      },
+      "warning": "Trajectories response is anchored at 45, 90 degrees; the multi-angle exponent is inherited from matched10."
+    },
+    {
+      "profile_id": "matched10",
+      "profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"entry_fpa29\",\"airbrake_authority_limiter_percent\":0}",
+      "entry_corridor_id": "entry_fpa29",
+      "source_run_ids": [
+        "1793291305",
+        "1793292291"
+      ],
+      "off_run_ids": [
+        "1793292291"
+      ],
+      "fixed_run_ids": [
+        "1793291305"
+      ],
+      "angle_anchors_deg": [
+        60
+      ],
+      "force_rows": 71,
+      "trajectories_response_rows": 54,
+      "domain": {
+        "altitude_m": [
+          44614.37373713206,
+          59119.39287328441
+        ],
+        "mach": [
+          6.674416986077528,
+          7.349878271454393
+        ],
+        "dynamic_pressure_kpa": [
+          0.10374852837017934,
+          1.1750406917310552
+        ],
+        "mass_t": [
+          20.12620258331299,
+          20.12620258331299
+        ],
+        "airbrake_count": [
+          4,
+          4
+        ]
+      },
+      "trajectories_domain": {
+        "altitude_m": [
+          44614.37373713206,
+          55233.86787654954
+        ],
+        "mach": [
+          6.674416986077528,
+          7.192368051755885
+        ],
+        "dynamic_pressure_kpa": [
+          0.21305025289779436,
+          1.1750406917310552
+        ],
+        "mass_t": [
+          20.12620258331299,
+          20.12620258331299
+        ],
+        "airbrake_count": [
+          4,
+          4
+        ]
+      },
+      "base_model_transfer": {
+        "extra_drag_model": {
+          "count": 71,
+          "rmse": 0.028993133450470103,
+          "mae": 0.018918229381920466,
+          "r2": 0.9669974056661725,
+          "mean_error": -0.01767613359779901,
+          "median_prediction_to_observation_ratio": 0.9667384036266597,
+          "normalized_rmse_by_median_observation": 0.13624963371010365,
+          "metrics_by_mode": {
+            "fixed60": {
+              "count": 71,
+              "rmse": 0.028993133450470103,
+              "mae": 0.018918229381920466,
+              "r2": 0.9669974056661725,
+              "mean_error": -0.01767613359779901,
+              "median_prediction_to_observation_ratio": 0.9667384036266597,
+              "normalized_rmse_by_median_observation": 0.13624963371010365
+            }
+          }
+        },
+        "trajectories_along_rate_model": {
+          "count": 54,
+          "rmse": 396.8012041542779,
+          "mae": 333.86179401787314,
+          "r2": 0.15760886362857607,
+          "mean_error": -301.0990986439038,
+          "median_prediction_to_observation_ratio": 0.5613494179050539,
+          "normalized_rmse_by_median_observation": 0.5160227544034811,
+          "metrics_by_mode": {
+            "fixed60": {
+              "count": 54,
+              "rmse": 396.8012041542779,
+              "mae": 333.86179401787314,
+              "r2": 0.15760886362857607,
+              "mean_error": -301.0990986439038,
+              "median_prediction_to_observation_ratio": 0.5613494179050539,
+              "normalized_rmse_by_median_observation": 0.5160227544034811
+            }
+          }
+        }
+      },
+      "trajectories_along_rate_model": {
+        "angle_sine_exponent": 2.0000000000000013,
+        "angle_sine_exponent_source": "inherited_from_multi_angle_calibration",
+        "anchor_angles_deg": [
+          60
+        ],
+        "altitude_center_km": 45,
+        "altitude_log_slope_per_km": -0.019999999999999976,
+        "scale": 9087.446062578027,
+        "formula": "extra_trajectories_along_rate_mps = scale * dynamic_pressure_kpa * airbrake_count / mass_t * sin(angle_deg*pi/180)^inheritedP * exp(altitudeSlope * (altitude_km - altitudeCenterKm))",
+        "metrics": {
+          "count": 54,
+          "rmse": 95.17755850046355,
+          "mae": 79.10771859763962,
+          "r2": 0.9515340259043747
+        },
+        "metrics_by_mode": {
+          "fixed60": {
+            "count": 54,
+            "rmse": 95.17755850046355,
+            "mae": 79.10771859763962,
+            "r2": 0.9515340259043747
+          }
+        },
+        "cumulative_validation": {
+          "kind": "in_sample_integrated_response",
+          "count": 1,
+          "rmse_m": 193.1141985648428,
+          "mean_error_m": 193.1141985648428,
+          "median_prediction_to_observation_ratio": 1.0021008551259365,
+          "groups": [
+            {
+              "pair_key": "1793292291|1793291305",
+              "off_run_id": "1793292291",
+              "fixed_run_id": "1793291305",
+              "fixed_mode": "fixed60",
+              "fixed_angle_deg": 60,
+              "rows": 54,
+              "start_altitude_m": 55233.86787654954,
+              "end_altitude_m": 44614.37373713206,
+              "duration_s": 121.89999999988913,
+              "observed_change_m": 91921.7113930003,
+              "predicted_change_m": 92114.82559156514,
+              "error_m": 193.1141985648428,
+              "prediction_to_observation_ratio": 1.0021008551259365
+            }
+          ]
+        }
+      },
+      "warning": "Trajectories response is anchored at 60 degrees; the multi-angle exponent is inherited from matched10."
+    },
+    {
+      "profile_id": "matched10",
+      "profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"airbrake_authority_limiter_percent\":\"unverified\"}",
+      "entry_corridor_id": "trajectories_miss",
+      "source_run_ids": [
+        "1784758163",
+        "1784758965"
+      ],
+      "off_run_ids": [
+        "1784758163"
+      ],
+      "fixed_run_ids": [
+        "1784758965"
+      ],
+      "angle_anchors_deg": [
+        30
+      ],
+      "force_rows": 74,
+      "trajectories_response_rows": 68,
+      "domain": {
+        "altitude_m": [
+          36576.09907461249,
+          59027.04493498412
+        ],
+        "mach": [
+          6.532273533848965,
+          7.31162748437459
+        ],
+        "dynamic_pressure_kpa": [
+          0.10495230410581857,
+          3.990112159338093
+        ],
+        "mass_t": [
+          20.04774570465088,
+          20.04774570465088
+        ],
+        "airbrake_count": [
+          4,
+          4
+        ]
+      },
+      "trajectories_domain": {
+        "altitude_m": [
+          36576.09907461249,
+          57264.952190511394
+        ],
+        "mach": [
+          6.532273533848965,
+          7.255939576900271
+        ],
+        "dynamic_pressure_kpa": [
+          0.14767935170507218,
+          3.990112159338093
+        ],
+        "mass_t": [
+          20.04774570465088,
+          20.04774570465088
+        ],
+        "airbrake_count": [
+          4,
+          4
+        ]
+      },
+      "base_model_transfer": {
+        "extra_drag_model": {
+          "count": 74,
+          "rmse": 0.06575924111754462,
+          "mae": 0.025333975942733778,
+          "r2": 0.38166414005514837,
+          "mean_error": 0.014850640149935288,
+          "median_prediction_to_observation_ratio": 1.0418686874012812,
+          "normalized_rmse_by_median_observation": 0.6595025838965733,
+          "metrics_by_mode": {
+            "fixed30": {
+              "count": 74,
+              "rmse": 0.06575924111754462,
+              "mae": 0.025333975942733778,
+              "r2": 0.38166414005514837,
+              "mean_error": 0.014850640149935288,
+              "median_prediction_to_observation_ratio": 1.0418686874012812,
+              "normalized_rmse_by_median_observation": 0.6595025838965733
+            }
+          }
+        },
+        "trajectories_along_rate_model": {
+          "count": 68,
+          "rmse": 65.57165070903308,
+          "mae": 39.26571709867768,
+          "r2": 0.7888392351437187,
+          "mean_error": 36.32683483228439,
+          "median_prediction_to_observation_ratio": 1.1486684459576573,
+          "normalized_rmse_by_median_observation": 0.3723091853967908,
+          "metrics_by_mode": {
+            "fixed30": {
+              "count": 68,
+              "rmse": 65.57165070903308,
+              "mae": 39.26571709867768,
+              "r2": 0.7888392351437187,
+              "mean_error": 36.32683483228439,
+              "median_prediction_to_observation_ratio": 1.1486684459576573,
+              "normalized_rmse_by_median_observation": 0.3723091853967908
+            }
+          }
+        }
+      },
+      "trajectories_along_rate_model": {
+        "angle_sine_exponent": 2.0000000000000013,
+        "angle_sine_exponent_source": "inherited_from_multi_angle_calibration",
+        "anchor_angles_deg": [
+          30
+        ],
+        "altitude_center_km": 45,
+        "altitude_log_slope_per_km": 0.042000000000000065,
+        "scale": 4044.3353757619334,
+        "formula": "extra_trajectories_along_rate_mps = scale * dynamic_pressure_kpa * airbrake_count / mass_t * sin(angle_deg*pi/180)^inheritedP * exp(altitudeSlope * (altitude_km - altitudeCenterKm))",
+        "metrics": {
+          "count": 68,
+          "rmse": 44.94641328615673,
+          "mae": 37.473504539523624,
+          "r2": 0.9007864305922559
+        },
+        "metrics_by_mode": {
+          "fixed30": {
+            "count": 68,
+            "rmse": 44.94641328615673,
+            "mae": 37.473504539523624,
+            "r2": 0.9007864305922559
+          }
+        },
+        "cumulative_validation": {
+          "kind": "in_sample_integrated_response",
+          "count": 1,
+          "rmse_m": 1834.66076621916,
+          "mean_error_m": 1834.66076621916,
+          "median_prediction_to_observation_ratio": 1.048584263019331,
+          "groups": [
+            {
+              "pair_key": "1784758163|1784758965",
+              "off_run_id": "1784758163",
+              "fixed_run_id": "1784758965",
+              "fixed_mode": "fixed30",
+              "fixed_angle_deg": 30,
+              "rows": 68,
+              "start_altitude_m": 57264.952190511394,
+              "end_altitude_m": 36576.09907461249,
+              "duration_s": 172.47999999984313,
+              "observed_change_m": 37762.44924182914,
+              "predicted_change_m": 39597.1100080483,
+              "error_m": 1834.66076621916,
+              "prediction_to_observation_ratio": 1.048584263019331
+            }
+          ]
+        }
+      },
+      "warning": "Trajectories response is anchored at 30 degrees; the multi-angle exponent is inherited from matched10."
+    }
+  ],
+  "warnings": [
+    "The Trajectories-response angle exponent reached its search ceiling; add higher-angle runs before expanding the search range or trusting extrapolation.",
+    "fixed30 run 1785012757 lost an airbrake at 31.84 km; only intact pre-failure matches were fitted.",
+    "fixed45 run 1785013509 lost an airbrake at 25.57 km; only intact pre-failure matches were fitted.",
+    "fixed50 run 1785014313 lost an airbrake at 27.35 km; only intact pre-failure matches were fitted.",
+    "fixed60 run 1785016154 lost an airbrake at 25.62 km; only intact pre-failure matches were fitted.",
+    "fixed run 1785016786 lost an airbrake at 32.01 km; only intact pre-failure matches were fitted.",
+    "fixed90 run 1785359750 lost an airbrake at 31.24 km; only intact pre-failure matches were fitted.",
+    "Coefficients are calibrated only for this vessel, atmosphere, attitude law, and the observed state envelope."
+  ]
+}

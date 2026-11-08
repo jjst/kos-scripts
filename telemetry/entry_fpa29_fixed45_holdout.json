@@ -1,0 +1,205 @@
+{
+  "schema": "airbrake_holdout_evaluation",
+  "schema_version": 1,
+  "generated_at": "2026-10-29T17:42:27.391Z",
+  "frozen_model_sha256": "9C80E67432BDDEC73C6A4772A836920F417005CB4974DEDD1FFA9B199C998393",
+  "fixed_run_id": "1793295120",
+  "off_run_id": 1793292291,
+  "context": {
+    "profile_id": "matched10",
+    "profile_key": {
+      "angles": [
+        -170,
+        -170,
+        -170,
+        -170
+      ],
+      "grades": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "modes": [
+        true,
+        true,
+        true,
+        true
+      ],
+      "entry_aoa_deg": 10,
+      "entry_corridor_id": "entry_fpa29",
+      "airbrake_authority_limiter_percent": 0
+    },
+    "corridor_id": "entry_fpa29",
+    "angle_deg": 45,
+    "adaptation": {
+      "profile_id": "matched10",
+      "profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"entry_fpa29\",\"airbrake_authority_limiter_percent\":0}",
+      "entry_corridor_id": "entry_fpa29",
+      "angle_anchors_deg": [
+        60
+      ],
+      "warning": "Trajectories response is anchored at 60 degrees; the multi-angle exponent is inherited from matched10."
+    }
+  },
+  "qualification": {
+    "profile": {
+      "pass": true,
+      "observed": "matched10",
+      "expected": "matched10"
+    },
+    "corridor": {
+      "pass": true,
+      "observed": "entry_fpa29",
+      "expected": "entry_fpa29"
+    },
+    "angle": {
+      "pass": true,
+      "observed": 45,
+      "expected": "45 +/- 0.5 deg"
+    },
+    "entry_fpa": {
+      "pass": true,
+      "observed": 2.8738712615060686,
+      "expected": "2.9 +/- 0.1 deg down"
+    },
+    "airbrake_readback": {
+      "pass": true,
+      "observed": true,
+      "expected": true
+    },
+    "authority_zero": {
+      "pass": true,
+      "observed": true,
+      "expected": true
+    },
+    "no_reassertions": {
+      "pass": true,
+      "observed": 0,
+      "expected": 0
+    },
+    "initial_airspeed": {
+      "pass": true,
+      "observed": 0.3881204294116287,
+      "expected": "<= 5 m/s"
+    },
+    "initial_position": {
+      "pass": true,
+      "observed": 156.33155159239297,
+      "expected": "<= 2000 m"
+    },
+    "clean_force_rows": {
+      "pass": true,
+      "observed": 70,
+      "expected": ">= 40"
+    },
+    "clean_response_rows": {
+      "pass": true,
+      "observed": 50,
+      "expected": ">= 40"
+    }
+  },
+  "qualification_pass": true,
+  "metrics": {
+    "drag": {
+      "count": 70,
+      "rmse": 0.039356173335476786,
+      "mae": 0.02791738650792391,
+      "r2": 0.8830663719009153,
+      "mean_error": -0.0278483224963488,
+      "median_prediction_to_observation_ratio": 0.8829289179152775,
+      "normalized_rmse_by_median_observation": 0.25813108996299555,
+      "metrics_by_mode": {
+        "fixed": {
+          "count": 70,
+          "rmse": 0.039356173335476786,
+          "mae": 0.02791738650792391,
+          "r2": 0.8830663719009153,
+          "mean_error": -0.0278483224963488,
+          "median_prediction_to_observation_ratio": 0.8829289179152775,
+          "normalized_rmse_by_median_observation": 0.25813108996299555
+        }
+      }
+    },
+    "trajectories_response": {
+      "count": 50,
+      "rmse": 108.82736123361644,
+      "mae": 95.58976541201328,
+      "r2": 0.8957243818053399,
+      "mean_error": -37.60483959547441,
+      "median_prediction_to_observation_ratio": 0.9078847005998886,
+      "normalized_rmse_by_median_observation": 0.17546504362792906,
+      "metrics_by_mode": {
+        "fixed": {
+          "count": 50,
+          "rmse": 108.82736123361644,
+          "mae": 95.58976541201328,
+          "r2": 0.8957243818053399,
+          "mean_error": -37.60483959547441,
+          "median_prediction_to_observation_ratio": 0.9078847005998886,
+          "normalized_rmse_by_median_observation": 0.17546504362792906
+        }
+      }
+    },
+    "cumulative_response": {
+      "kind": "in_sample_integrated_response",
+      "count": 1,
+      "rmse_m": 3131.957798494441,
+      "mean_error_m": -3131.957798494441,
+      "median_prediction_to_observation_ratio": 0.9508062182497936,
+      "groups": [
+        {
+          "pair_key": "1793292291|1793295120",
+          "off_run_id": 1793292291,
+          "fixed_run_id": 1793295120,
+          "fixed_mode": "fixed",
+          "fixed_angle_deg": 45,
+          "rows": 50,
+          "start_altitude_m": 55025.56818347977,
+          "end_altitude_m": 44740.316997370566,
+          "duration_s": 119.59999999989122,
+          "observed_change_m": 63665.72536337489,
+          "predicted_change_m": 60533.76756488045,
+          "error_m": -3131.957798494441,
+          "prediction_to_observation_ratio": 0.9508062182497936
+        }
+      ]
+    }
+  },
+  "predictor_criteria": {
+    "drag_ratio": {
+      "pass": true,
+      "observed": 0.8829289179152775,
+      "expected": "0.85-1.15"
+    },
+    "drag_normalized_rmse": {
+      "pass": false,
+      "observed": 0.25813108996299555,
+      "expected": "<= 0.25"
+    },
+    "response_ratio": {
+      "pass": true,
+      "observed": 0.9078847005998886,
+      "expected": "0.80-1.20"
+    },
+    "response_normalized_rmse": {
+      "pass": true,
+      "observed": 0.17546504362792906,
+      "expected": "<= 0.30"
+    },
+    "cumulative_response": {
+      "pass": true,
+      "observed": 63.66572536337489,
+      "expected": "61.40988372771009 +/- 10 km"
+    }
+  },
+  "predictor_pass": false,
+  "survivability": {
+    "full_integrity": false,
+    "initial_parts": 35,
+    "final_minimum_parts": 34,
+    "initial_airbrakes": 4,
+    "final_minimum_airbrakes": 3,
+    "first_loss_altitude_m": 22775.65169824916
+  }
+}

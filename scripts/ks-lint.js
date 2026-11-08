@@ -26,6 +26,65 @@ function encode(msg) {
   return `Content-Length: ${Buffer.byteLength(body, 'utf8')}\r\n\r\n${body}`;
 }
 
+function braceDeltaOutsideStrings(code) {
+  let delta = 0;
+  let inString = false;
+  for (let index = 0; index < code.length; index += 1) {
+    const character = code[index];
+    if (character === '"') inString = !inString;
+    if (inString) continue;
+    if (character === '{') delta += 1;
+    else if (character === '}') delta -= 1;
+  }
+  return delta;
+}
+
+function scanGlobalSymbols(file) {
+  const functions = [];
+  const parameters = [];
+  let braceDepth = 0;
+  const lines = readFileSync(file, 'utf8').split(/\r?\n/);
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const code = lines[index].replace(/\/\/.*$/, '');
+    if (braceDepth === 0) {
+      const functionMatch = code.match(/^\s*FUNCTION\s+([A-Za-z_][A-Za-z0-9_]*)\b/i);
+      const parameterMatch = code.match(/^\s*PARAMETER\s+([A-Za-z_][A-Za-z0-9_]*)\b/i);
+      if (functionMatch) functions.push({ name: functionMatch[1], file, line: index + 1 });
+      if (parameterMatch) parameters.push({ name: parameterMatch[1], file, line: index + 1 });
+    }
+    braceDepth += braceDeltaOutsideStrings(code);
+  }
+
+  return { functions, parameters };
+}
+
+function findGlobalFunctionParameterCollisions(files) {
+  const functionsByName = new Map();
+  const parametersByName = new Map();
+
+  for (const file of files) {
+    const symbols = scanGlobalSymbols(file);
+    for (const symbol of symbols.functions) {
+      const key = symbol.name.toLowerCase();
+      if (!functionsByName.has(key)) functionsByName.set(key, []);
+      functionsByName.get(key).push(symbol);
+    }
+    for (const symbol of symbols.parameters) {
+      const key = symbol.name.toLowerCase();
+      if (!parametersByName.has(key)) parametersByName.set(key, []);
+      parametersByName.get(key).push(symbol);
+    }
+  }
+
+  const collisions = [];
+  for (const [name, functions] of functionsByName) {
+    const parameters = parametersByName.get(name);
+    if (parameters) collisions.push({ name, functions, parameters });
+  }
+  return collisions;
+}
+
 function main() {
   const strict = process.argv.includes('--strict');
   const root = process.cwd();
@@ -37,6 +96,18 @@ function main() {
   }
 
   console.log(`Checking ${files.length} file(s)...`);
+
+  const symbolCollisions = findGlobalFunctionParameterCollisions(files);
+  if (symbolCollisions.length > 0) {
+    for (const collision of symbolCollisions) {
+      for (const fn of collision.functions) {
+        for (const parameter of collision.parameters) {
+          console.log(`${fn.file}:${fn.line}:1: error: Global function ${fn.name} collides with top-level parameter at ${parameter.file}:${parameter.line}; kOS RUNPATH shares the caller's global scope.`);
+        }
+      }
+    }
+    process.exit(1);
+  }
 
   const klsBin = process.platform === 'win32'
     ? process.execPath
@@ -184,4 +255,9 @@ function main() {
   });
 }
 
-main();
+if (require.main === module) main();
+
+module.exports = {
+  findGlobalFunctionParameterCollisions,
+  scanGlobalSymbols,
+};

@@ -1,2 +1,7 @@
 node_modules/
 /.copilot-reference/
+/telemetry/live-*
+/telemetry/wrapup-*
+/telemetry/matched-provisional-predictor.json
+/telemetry/reentry_samples.csv
+/telemetry/airbrake-dashboard.html

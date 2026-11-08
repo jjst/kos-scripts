@@ -1,6 +1,14 @@
 {
   "scripts": {
-    "lint": "node scripts/ks-lint.js"
+    "lint": "node scripts/ks-lint.js",
+    "telemetry:analyze": "node scripts/analyze-reentry-telemetry.js --out telemetry/reentry_samples.csv --matched-out telemetry/airbrake_pairs.csv --summary-out telemetry/report.json",
+    "telemetry:fit": "node scripts/fit-airbrake-predictor.js --out telemetry/airbrake_predictor.json",
+    "telemetry:corridor": "node scripts/entry-corridor.js",
+    "telemetry:visualize": "node scripts/generate-airbrake-dashboard.js",
+    "telemetry:predict": "node scripts/airbrake-adjusted-predictor.js",
+    "telemetry:evaluate:fixed45": "node scripts/evaluate-airbrake-holdout.js --expected-model-sha256 9C80E67432BDDEC73C6A4772A836920F417005CB4974DEDD1FFA9B199C998393 --expected-profile matched10 --expected-corridor entry_fpa29 --expected-angle 45 --expected-cumulative-km 61.40988372771009 --cumulative-tolerance-km 10 --min-rows 40",
+    "telemetry:refresh": "npm run telemetry:analyze && npm run telemetry:fit && npm run telemetry:visualize",
+    "test:telemetry": "node --test scripts/*.test.js"
   },
   "devDependencies": {
     "kos-language-server": "^1.1.5"

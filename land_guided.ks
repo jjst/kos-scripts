@@ -4,6 +4,13 @@
 //  Performs PID-guided descent with active guidance back to the
 //  launch position saved by launch.ks.
 
+PARAMETER reentry_run_id IS -1.
+PARAMETER reentry_telemetry_base_name IS "".
+PARAMETER reentry_telemetry_segment_index IS -1.
+PARAMETER reentry_initial_part_count IS -1.
+PARAMETER reentry_airbrake_mode IS "".
+PARAMETER reentry_profile_id IS "".
+
 // --- CONFIG (edit these) ------------------------------------
 SET gear_deploy_alt   TO 500.
 SET telemetry_interval TO 5.
@@ -59,6 +66,18 @@ SET lat_min_horiz_dist TO 10.
 SET pad_geo TO LATLNG(-0.0972, -74.5577).
 // Terminal output is mirrored to this file with LOG.
 SET log_path TO "land.log".
+SET survival_telemetry_active TO reentry_run_id >= 0 AND reentry_telemetry_segment_index >= 0 AND reentry_initial_part_count > 0.
+SET survival_telemetry_sample_interval TO 2.
+SET survival_telemetry_checkpoint_interval TO 20.
+SET survival_telemetry_next_sample TO TIME:SECONDS.
+SET survival_telemetry_next_checkpoint TO TIME:SECONDS.
+SET survival_telemetry_last_part_count TO SHIP:PARTS:LENGTH.
+SET survival_telemetry_samples TO LIST().
+SET survival_telemetry_events TO LIST().
+SET survival_telemetry_run TO LEXICON().
+SET survival_telemetry_document TO LEXICON().
+SET survival_telemetry_pending_paths TO LIST().
+SET survival_telemetry_path TO "".
 // ------------------------------------------------------------
 
 FUNCTION clamp {
@@ -75,6 +94,107 @@ FUNCTION log_line {
     PARAMETER msg.
     PRINT msg.
     LOG msg TO log_path.
+}
+
+FUNCTION start_survival_telemetry_segment {
+    IF NOT survival_telemetry_active { RETURN FALSE. }
+    SET survival_telemetry_path TO "1:/" + reentry_telemetry_base_name + "_part_" + reentry_telemetry_segment_index + ".json".
+    SET survival_telemetry_samples TO LIST().
+    SET survival_telemetry_events TO LIST().
+    SET survival_telemetry_document TO LEXICON().
+    SET survival_telemetry_document["schema"] TO "reentry_airbrake_predictor".
+    SET survival_telemetry_document["schema_version"] TO 4.
+    SET survival_telemetry_document["status"] TO "running".
+    SET survival_telemetry_document["segment_index"] TO reentry_telemetry_segment_index.
+    SET survival_telemetry_document["run"] TO survival_telemetry_run.
+    SET survival_telemetry_document["samples"] TO survival_telemetry_samples.
+    SET survival_telemetry_document["events"] TO survival_telemetry_events.
+    RETURN TRUE.
+}
+
+FUNCTION transmit_survival_telemetry {
+    IF NOT survival_telemetry_active OR NOT HOMECONNECTION:ISCONNECTED { RETURN FALSE. }
+    FOR pending_path IN survival_telemetry_pending_paths {
+        COPYPATH(pending_path, "0:").
+        DELETEPATH(pending_path).
+    }
+    SET survival_telemetry_pending_paths TO LIST().
+    RETURN TRUE.
+}
+
+FUNCTION checkpoint_survival_telemetry {
+    PARAMETER checkpoint_status IS "running".
+    IF NOT survival_telemetry_active { RETURN FALSE. }
+    SET survival_telemetry_document["status"] TO checkpoint_status.
+    SET survival_telemetry_document["checkpoint_time_s"] TO TIME:SECONDS.
+    SET survival_telemetry_document["segment_sample_count"] TO survival_telemetry_samples:LENGTH.
+    WRITEJSON(survival_telemetry_document, survival_telemetry_path).
+    survival_telemetry_pending_paths:ADD(survival_telemetry_path).
+    transmit_survival_telemetry().
+    SET reentry_telemetry_segment_index TO reentry_telemetry_segment_index + 1.
+    start_survival_telemetry_segment().
+    SET survival_telemetry_next_checkpoint TO TIME:SECONDS + survival_telemetry_checkpoint_interval.
+    RETURN TRUE.
+}
+
+FUNCTION capture_survival_telemetry {
+    PARAMETER landing_phase.
+    IF NOT survival_telemetry_active OR TIME:SECONDS < survival_telemetry_next_sample { RETURN FALSE. }
+    LOCAL current_part_count IS SHIP:PARTS:LENGTH.
+    IF current_part_count <> survival_telemetry_last_part_count {
+        LOCAL event IS LEXICON().
+        SET event["time_s"] TO TIME:SECONDS.
+        SET event["event"] TO "vessel_part_count_changed".
+        SET event["detail"] TO survival_telemetry_last_part_count + " -> " + current_part_count + " at " + ROUND(SHIP:ALTITUDE) + " m, q " + ROUND(SHIP:Q * CONSTANT:ATMTOKPA, 2) + " kPa".
+        survival_telemetry_events:ADD(event).
+        SET survival_telemetry_last_part_count TO current_part_count.
+    }
+    LOCAL sample IS LEXICON().
+    SET sample["time_s"] TO TIME:SECONDS.
+    SET sample["phase"] TO landing_phase.
+    SET sample["latitude_deg"] TO SHIP:GEOPOSITION:LAT.
+    SET sample["longitude_deg"] TO SHIP:GEOPOSITION:LNG.
+    SET sample["altitude_asl_m"] TO SHIP:ALTITUDE.
+    SET sample["altitude_radar_m"] TO ALT:RADAR.
+    SET sample["surface_speed_mps"] TO SHIP:VELOCITY:SURFACE:MAG.
+    SET sample["vertical_speed_mps"] TO SHIP:VERTICALSPEED.
+    SET sample["dynamic_pressure_kpa"] TO SHIP:Q * CONSTANT:ATMTOKPA.
+    SET sample["mass_t"] TO SHIP:MASS.
+    SET sample["vessel_part_count"] TO current_part_count.
+    SET sample["airbrake_part_count"] TO SHIP:PARTSTAGGED("airbrake"):LENGTH.
+    SET sample["vessel_status"] TO SHIP:STATUS.
+    survival_telemetry_samples:ADD(sample).
+    SET survival_telemetry_next_sample TO TIME:SECONDS + survival_telemetry_sample_interval.
+    IF TIME:SECONDS >= survival_telemetry_next_checkpoint { checkpoint_survival_telemetry(). }
+    RETURN TRUE.
+}
+
+FUNCTION initialize_survival_telemetry {
+    IF NOT survival_telemetry_active { RETURN FALSE. }
+    SET survival_telemetry_run["run_id"] TO reentry_run_id.
+    SET survival_telemetry_run["airbrake_control_mode"] TO reentry_airbrake_mode.
+    SET survival_telemetry_run["trajectories_profile_id"] TO reentry_profile_id.
+    SET survival_telemetry_run["initial_vessel_part_count"] TO reentry_initial_part_count.
+    start_survival_telemetry_segment().
+    capture_survival_telemetry("landing_handoff").
+    checkpoint_survival_telemetry().
+    RETURN TRUE.
+}
+
+FUNCTION finalize_survival_telemetry {
+    PARAMETER final_status.
+    IF NOT survival_telemetry_active { RETURN FALSE. }
+    SET survival_telemetry_next_sample TO TIME:SECONDS.
+    capture_survival_telemetry("landing_final").
+    LOCAL event IS LEXICON().
+    SET event["time_s"] TO TIME:SECONDS.
+    SET event["event"] TO final_status.
+    SET event["detail"] TO "vessel parts " + SHIP:PARTS:LENGTH + "/" + reentry_initial_part_count + ", status " + SHIP:STATUS.
+    survival_telemetry_events:ADD(event).
+    checkpoint_survival_telemetry(final_status).
+    transmit_survival_telemetry().
+    SET survival_telemetry_active TO FALSE.
+    RETURN TRUE.
 }
 
 FUNCTION check_line {
@@ -104,6 +224,7 @@ FUNCTION abort_land {
     UNLOCK THROTTLE.
     UNLOCK STEERING.
     log_line("ABORT: " + msg).
+    finalize_survival_telemetry("landing_abort").
     transmit_log().
     WAIT 5.
     SHUTDOWN.
@@ -247,6 +368,7 @@ FUNCTION target_descent_rate {
     RETURN -touchdown_speed.
 }
 
+initialize_survival_telemetry().
 CLEARSCREEN.
 log_line("=== land_guided.ks ===").
 LOCAL preflight_failed IS FALSE.
@@ -284,6 +406,7 @@ log_line("--- DESCENT PHASE 1: Descending ---").
 RCS ON.
 SET next_print TO TIME:SECONDS.
 UNTIL ALT:RADAR < powered_steering_alt_meters {
+    capture_survival_telemetry("landing_phase_1").
     LOCAL alt_agl IS ALT:RADAR.
 
     LOCAL to_pad_h  IS VXCL(UP:FOREVECTOR, pad_geo:POSITION).
@@ -327,6 +450,7 @@ LOCK THROTTLE TO 0.
 LOCAL d2_target_vs IS -(d2_target_speed).
 SET next_print TO TIME:SECONDS.
 UNTIL ALT:RADAR <= landing_burn_alt_meters {
+    capture_survival_telemetry("landing_phase_2").
     LOCAL alt_agl IS ALT:RADAR.
     LOCAL vs IS SHIP:VERTICALSPEED.
     LOCAL g_d2 IS SHIP:BODY:MU / (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
@@ -400,6 +524,7 @@ SET d3_rcs_star_pid:SETPOINT TO 0.
 SET d3_rcs_top_pid:SETPOINT TO 0.
 SET next_print TO TIME:SECONDS.
 UNTIL SHIP:STATUS = "LANDED" OR SHIP:STATUS = "SPLASHED" {
+    capture_survival_telemetry("landing_phase_3").
     LOCAL g_land IS SHIP:BODY:MU / (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
     LOCAL alt_agl IS ALT:RADAR.
     IF NOT gear_deployed AND alt_agl < gear_deploy_alt {
@@ -476,4 +601,8 @@ IF descent_aborted {
     log_line("  vs: " + ROUND(SHIP:VERTICALSPEED, 2) + " m/s  |  horiz spd: " + ROUND(land_hspd, 1) + " m/s").
     log_line("  pad offset: " + ROUND(land_offset, 1) + " m  |  flight time: " + ROUND(flight_time) + " s").
 }
+LOCAL survival_final_status IS "landed".
+IF descent_aborted { SET survival_final_status TO "landing_abort". }
+IF SHIP:STATUS = "SPLASHED" { SET survival_final_status TO "splashed". }
+finalize_survival_telemetry(survival_final_status).
 transmit_log().
