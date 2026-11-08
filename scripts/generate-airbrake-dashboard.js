@@ -68,18 +68,27 @@ function buildDashboardData(samples, pairs, report, predictor) {
     const metadata = profileMetadata(set.profile_key);
     const corridorId = metadata.entry_corridor_id ?? "trajectories_miss";
     const phaseTarget = finite(metadata.deorbit_phase_target_deg) ? metadata.deorbit_phase_target_deg : "unverified";
-    const key = `${set.profile_id}|${corridorId}|${phaseTarget}`;
+    const safeguard = metadata.airbrake_exposure_safeguard;
+    const safeguardKey = safeguard
+      ? `${safeguard.budget_units ?? "?"}u/${safeguard.cooldown_s ?? "?"}s`
+      : "none";
+    const dashboardProfileId = safeguard
+      ? `${set.profile_id} · thermal ${safeguardKey}`
+      : set.profile_id;
+    const key = `${set.profile_id}|${corridorId}|${phaseTarget}|${safeguardKey}`;
     if (!profileSetGroups.has(key)) profileSetGroups.set(key, []);
     const completeRuns = set.run_ids.filter((runId) => summaries.get(String(runId))?.checks?.complete_status !== false).length;
     const authorityLocked = metadata.airbrake_authority_limiter_percent === 0;
-    profileSetGroups.get(key).push({ set, corridorId, phaseTarget, score: Number(authorityLocked) * 1e6 + completeRuns * 1000 + set.run_ids.length });
+    profileSetGroups.get(key).push({ set, corridorId, phaseTarget, safeguardKey, dashboardProfileId, score: Number(authorityLocked) * 1e6 + completeRuns * 1000 + set.run_ids.length });
   }
   const selectedProfileSets = [...profileSetGroups.values()].map((sets) => sets.sort((a, b) => b.score - a.score)[0]);
   const selectedRunIds = new Set(selectedProfileSets.flatMap(({ set }) => set.run_ids.map(String)));
-  const selectedContexts = new Map(selectedProfileSets.map(({ set, corridorId, phaseTarget }) => [
-    `${set.profile_id}|${corridorId}|${phaseTarget}`,
+  const dashboardProfileByRunId = new Map(selectedProfileSets.flatMap(({ set, dashboardProfileId }) =>
+    set.run_ids.map((runId) => [String(runId), dashboardProfileId])));
+  const selectedContexts = new Map(selectedProfileSets.map(({ set, corridorId, phaseTarget, dashboardProfileId }) => [
+    set.profile_key,
     {
-      profile_id: set.profile_id,
+      profile_id: dashboardProfileId,
       profile_key: set.profile_key,
       corridor_id: corridorId,
       phase_target_deg: phaseTarget,
@@ -116,7 +125,7 @@ function buildDashboardData(samples, pairs, report, predictor) {
       run_id: runId,
       mode,
       angle_deg: runAngle(mode, entryRows),
-      profile_id: entryRows[0].trajectories_profile_id ?? "legacy",
+      profile_id: dashboardProfileByRunId.get(runId) ?? entryRows[0].trajectories_profile_id ?? "legacy",
       corridor_id: entryRows[0].entry_corridor_id ?? "trajectories_miss",
       phase_target_deg: finite(summary?.target_deorbit_phase_angle_deg)
         ? summary.target_deorbit_phase_angle_deg
@@ -128,6 +137,9 @@ function buildDashboardData(samples, pairs, report, predictor) {
       predicted_entry_fpa_down_deg: entryRows[0].predicted_entry_fpa_down_deg,
       measured_entry_fpa_down_deg: finite(entryRows[0].flight_path_angle_deg) ? -entryRows[0].flight_path_angle_deg : null,
       status: summary?.status ?? entryRows[0].run_status ?? "unknown",
+      airbrake_cooldown_count: summary?.airbrake_cooldown_count ?? 0,
+      airbrake_exposure_budget_units: summary?.airbrake_exposure_budget_units ?? null,
+      airbrake_cooldown_duration_s: summary?.airbrake_cooldown_duration_s ?? null,
       max_dynamic_pressure_kpa: summary?.max_dynamic_pressure_kpa ?? Math.max(...entryRows.map((row) => row.dynamic_pressure_kpa).filter(finite), 0),
       max_intact_dynamic_pressure_kpa: summary?.max_intact_dynamic_pressure_kpa ?? null,
       max_airbrake_load_proxy_kpa: summary?.max_airbrake_load_proxy_kpa ?? null,
@@ -160,8 +172,8 @@ function buildDashboardData(samples, pairs, report, predictor) {
   const measuredCda = [];
   const measuredTrajectoryResponse = [];
   const dragModel = predictor.extra_drag_model ?? null;
-  for (const { set, corridorId, phaseTarget } of selectedProfileSets) {
-    const activePredictor = selectedContexts.get(`${set.profile_id}|${corridorId}|${phaseTarget}`)?.predictor ?? predictor;
+  for (const { set, corridorId, dashboardProfileId } of selectedProfileSets) {
+    const activePredictor = selectedContexts.get(set.profile_key)?.predictor ?? predictor;
     const trajectoryModel = activePredictor.trajectories_along_rate_model ?? null;
     const comparisons = [set.fixed30_pair, set.fixed45_pair, set.fixed50_pair, set.fixed60_pair, set.fixed90_pair, ...(set.custom_fixed_pairs ?? [])].filter(Boolean);
     for (const comparison of comparisons) {
@@ -178,7 +190,7 @@ function buildDashboardData(samples, pairs, report, predictor) {
         return localCda > 0 ? row.extra_cd_area_per_airbrake_m2 / localCda * dragModel.cda_at_mach_center_m2 : row.extra_cd_area_per_airbrake_m2;
       });
       if (values.length) measuredCda.push({
-        profile_id: set.profile_id,
+        profile_id: dashboardProfileId,
         corridor_id: corridorId,
         angle_deg: comparison.fixed_angle_deg,
         median_cda_per_airbrake_m2: median(values),
@@ -191,7 +203,7 @@ function buildDashboardData(samples, pairs, report, predictor) {
         return observedStateFactor > 0 ? row.impact_along_rate_delta_mps * referenceStateFactor / observedStateFactor : row.impact_along_rate_delta_mps;
       });
       if (trajectoryValues.length) measuredTrajectoryResponse.push({
-        profile_id: set.profile_id,
+        profile_id: dashboardProfileId,
         corridor_id: corridorId,
         angle_deg: comparison.fixed_angle_deg,
         median_impact_along_rate_delta_mps: median(trajectoryValues),
@@ -206,13 +218,13 @@ function buildDashboardData(samples, pairs, report, predictor) {
     calibrationCorridor = null;
   }
   const adjustedPredictorScenarios = [];
-  for (const { set, corridorId, phaseTarget } of selectedProfileSets) {
+  for (const { set, corridorId, dashboardProfileId } of selectedProfileSets) {
     const referenceRun = runs.find((run) => set.run_ids.map(String).includes(String(run.run_id))
-      && run.profile_id === set.profile_id
+      && run.profile_id === dashboardProfileId
       && run.corridor_id === corridorId
       && run.mode === "off");
     if (!referenceRun) continue;
-    const activePredictor = selectedContexts.get(`${set.profile_id}|${corridorId}|${phaseTarget}`)?.predictor ?? predictor;
+    const activePredictor = selectedContexts.get(set.profile_key)?.predictor ?? predictor;
     for (const startAltitudeKm of [60, 55, 50, 45, 40]) {
       const futureStates = statePathFromSamples(samples, referenceRun.run_id, startAltitudeKm, 20);
       if (futureStates.length < 2) continue;

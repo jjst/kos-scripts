@@ -1,9 +1,9 @@
 {
   "schema": "empirical_airbrake_trajectories_predictor",
   "schema_version": 2,
-  "generated_at": "2026-10-31T14:01:21.592Z",
+  "generated_at": "2026-11-08T22:28:28.866Z",
   "calibration_profile": {
-    "profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0}",
+    "profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_exposure_safeguard\":null}",
     "profile_id": "matched10"
   },
   "selected_runs": [
@@ -427,7 +427,7 @@
   },
   "transfer_validation": {
     "profile_id": "matched10",
-    "profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0}",
+    "profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_exposure_safeguard\":null}",
     "ready": true,
     "force_rows": 293,
     "trajectories_response_rows": 219,
@@ -511,7 +511,7 @@
   "profile_adaptations": [
     {
       "profile_id": "matched10",
-      "profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0}",
+      "profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_exposure_safeguard\":null}",
       "entry_corridor_id": "entry_fpa29",
       "source_run_ids": [
         "1793291305",
@@ -772,7 +772,7 @@
     },
     {
       "profile_id": "legacy",
-      "profile_key": "{\"angles\":[170,170,165,165],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":\"unverified\"}",
+      "profile_key": "{\"angles\":[170,170,165,165],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":\"unverified\",\"airbrake_exposure_safeguard\":null}",
       "entry_corridor_id": "trajectories_miss",
       "source_run_ids": [
         "1784751407",
@@ -972,7 +972,7 @@
     },
     {
       "profile_id": "matched10",
-      "profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":\"unverified\"}",
+      "profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":\"unverified\",\"airbrake_exposure_safeguard\":null}",
       "entry_corridor_id": "trajectories_miss",
       "source_run_ids": [
         "1784758163",

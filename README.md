@@ -54,25 +54,33 @@ started explicitly:
 RUNPATH("1:/deorbit.ks"). // Current fixed-60 reference.
 RUNPATH("1:/deorbit.ks", "off", "matched10", -1, "entry_fpa29").
 RUNPATH("1:/deorbit.ks", "fixed90", "matched10", -1, "entry_fpa29").
-RUNPATH("1:/deorbit.ks", "fixed", "matched10", 52.5, "entry_fpa29").
+RUNPATH("1:/deorbit.ks", "fixed90", "matched0", -1, "entry_fpa29").
 ```
 
 In the Boomerang boot menu, option `2` is the normal deorbit entry point. It
 prompts for any fixed angle from 0 through 90 degrees; exactly `0` selects true
 brakes-off mode. Option `6` is the 175-degree-phase fixed-60 reference and option
-`7` is the matching fixed-90 run. Option `8` is the dedicated fixed-52.5
-boundary test. Option `9` runs closed-loop airbrake guidance hard-clamped to the
+`7` is the matching fixed-90 run. Option `8` is the controlled fixed-90,
+zero-AoA surface-retrograde trial. Option `9` runs closed-loop airbrake guidance hard-clamped to the
 validated 60-90 degree envelope; use it only after options 6 and 7 demonstrate
 that the selected phase puts the target between the two fixed endpoints.
-All five use matched AoA and stop the deorbit burn at a predicted 2.9-degree
+All use matched craft/Trajectories AoA and stop the deorbit burn at a predicted 2.9-degree
 downward **surface-relative** flight-path angle at 70 km.
 The old proxy-profile and old Trajectories-miss combinations remain available
 through explicit `RUNPATH` parameters for historical reproduction, but are
 intentionally absent from the normal menu.
 
-`matched10` keeps the craft's operational, belly-first `+10` degree attitude and gives Trajectories the sign-converted `-10/-10/-10/-10` degree retrograde profile. Trajectories defines the positive side oppositely, so this conversion makes its `PLANNEDVEC` match the craft instead of flipping the craft onto its back. Cross-track roll correction is disabled for these matched runs because Trajectories has no equivalent bank schedule. The historical `proxy` profile uses `+10/+10/+15/+15` in Trajectories' convention with operational cross-track correction enabled. Use the same 100 km simulation setup and craft for every run within a profile. During reentry, the script sets every tagged airbrake's control-surface authority limiter to `0` so attitude steering cannot add a hidden deflection to the commanded deployment angle; it records every limiter readback and restores the craft's original values at landing handoff. The analyzer includes the limiter command and entry-corridor ID in its profile key, never pairs runs from different corridors or locked/unlocked authority configurations, and rejects matched-profile telemetry without proof that the limiters remained at zero. It also requires the measured facing to remain within 2 degrees of `PLANNEDVEC` through the low-dynamic-pressure fit domain.
+`matched10` keeps the craft's operational, belly-first `+10` degree attitude and gives Trajectories the sign-converted `-10/-10/-10/-10` degree retrograde profile. `matched0` is the controlled surface-retrograde experiment: both the craft and Trajectories use zero AoA throughout entry. Trajectories defines the positive side oppositely, so the `matched10` conversion makes its `PLANNEDVEC` match the craft instead of flipping the craft onto its back. Cross-track roll correction is disabled for both matched profiles because Trajectories has no equivalent bank schedule. The historical `proxy` profile uses `+10/+10/+15/+15` in Trajectories' convention with operational cross-track correction enabled. Use the same 100 km simulation setup and craft for every run within a profile. During reentry, the script sets every tagged airbrake's control-surface authority limiter to `0` so attitude steering cannot add a hidden deflection to the commanded deployment angle; it records every limiter readback and restores the craft's original values at landing handoff. The analyzer includes the limiter command, entry-corridor ID, and exposure-safeguard settings in its profile key, never pairs runs from different corridors or safeguard strategies, and rejects matched-profile telemetry without proof that the limiters remained at zero. It also requires the measured facing to remain within 2 degrees of `PLANNEDVEC` through the low-dynamic-pressure fit domain.
 
-The JSON includes vessel state, actual and commanded AoA, airbrake command, per-part deploy-angle field readback, surviving airbrake count, total vessel part count and actuator speed, PID state, dynamic and model static pressure, two density estimates, model Mach, optional pressure/temperature/acceleration/gravity sensor readings, and the Trajectories impact point and along/cross-track error. Sensors are not required: each optional read is presence-guarded and missing values are recorded as zero alongside run-level availability flags. A barometer validates static pressure, a thermometer captures local part temperature for better thermal context, and an accelerometer adds an independent force measurement. The flight script verifies each airbrake field once per second, reasserts the command if another system changes it, and records every correction as an event. The analyzer reconstructs estimated physical angle from the command history and stock 20 deg/s actuator rate, and rejects instrumented runs with divergent readback or unexpected reassertions. Changes in tagged airbrake count or total vessel part count are recorded with altitude and dynamic pressure, so any structural loss is not misidentified as aerodynamic response and fixed-angle runs cannot pass the survivability gate after shedding hardware.
+Entry guidance includes a proxy-based thermal safeguard. It integrates the same
+angle-weighted `sqrt(density) * airspeed^3` exposure used by the analyzer. After
+each **20 proxy units**, it retracts all airbrakes for **10 seconds**, pauses
+fixed/PID commands, then resumes the previous requested angle. Actuator travel
+is modelled at 20 degrees per second, cooldowns are allowed to finish before the
+20 km handoff, and every trigger is recorded in telemetry. This is an empirical
+safeguard, not a substitute for actual per-part skin-temperature telemetry.
+
+The JSON includes vessel state, actual and commanded AoA, airbrake command, per-part deploy-angle field readback, surviving airbrake count, total vessel part count and actuator speed, PID state, dynamic and model static pressure, two density estimates, model Mach, optional pressure/temperature/acceleration/gravity sensor readings, thermal-safeguard state, and the Trajectories impact point and along/cross-track error. Sensors are not required: each optional read is presence-guarded and missing values are recorded as zero alongside run-level availability flags. A barometer validates static pressure, a thermometer captures ambient outside temperature (not part temperature), and an accelerometer adds an independent force measurement. The flight script verifies each airbrake field once per second, reasserts the command if another system changes it, and records every correction as an event. The analyzer reconstructs estimated physical angle from the command history and stock 20 deg/s actuator rate, and rejects instrumented runs with divergent readback or unexpected reassertions. Changes in tagged airbrake count or total vessel part count are recorded with altitude and dynamic pressure, so any structural loss is not misidentified as aerodynamic response and fixed-angle runs cannot pass the survivability gate after shedding hardware.
 
 After collecting the desired baseline and fixed-angle runs, validate and merge the archive segments:
 
@@ -91,11 +99,6 @@ an angle-adjusted dynamic-pressure load proxy and cumulative convective-heating
 exposure for corridor and airbrake-safeguard analysis. See
 [`telemetry/README.md`](telemetry/README.md) for the accepted run registry,
 current coefficients, failure table, and next corridor experiment.
-
-The broader 30-90 degree series remains useful for aerodynamic calibration, but
-the demonstrated survivable closed-loop airbrake envelope is **60-90 degrees**.
-PID guidance is hard-clamped to that range; lower fixed-angle modes are retained
-only as explicitly selected experiments.
 
 The broader 30-90 degree series remains useful for aerodynamic calibration, but
 the demonstrated survivable closed-loop airbrake envelope is **60-90 degrees**.

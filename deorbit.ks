@@ -61,6 +61,13 @@ IF trajectories_profile_id = "matched10" {
     SET tr_descent_high_aoa_deg TO -10.
     SET tr_descent_low_aoa_deg TO -10.
     SET tr_descent_final_aoa_deg TO -10.
+} ELSE IF trajectories_profile_id = "matched0" {
+    // Controlled baseline: both Trajectories and reentry.ks use exact
+    // surface-relative retrograde throughout atmospheric entry.
+    SET tr_descent_entry_aoa_deg TO 0.
+    SET tr_descent_high_aoa_deg TO 0.
+    SET tr_descent_low_aoa_deg TO 0.
+    SET tr_descent_final_aoa_deg TO 0.
 }
 SET log_path TO "deorbit.log".
 // ------------------------------------------------------------
@@ -249,7 +256,7 @@ log_line("--- Preflight checks ---").
 check_line(pad_geo:BODY:NAME = SHIP:BODY:NAME, "Target body", "target " + pad_geo:BODY:NAME + ", current " + SHIP:BODY:NAME).
 check_line(reentry_airbrake_control_mode = "off" OR reentry_airbrake_control_mode = "fixed" OR reentry_airbrake_control_mode = "fixed30" OR reentry_airbrake_control_mode = "fixed45" OR reentry_airbrake_control_mode = "fixed50" OR reentry_airbrake_control_mode = "fixed60" OR reentry_airbrake_control_mode = "fixed90" OR reentry_airbrake_control_mode = "pid", "Reentry airbrake mode", reentry_airbrake_control_mode).
 check_line(reentry_airbrake_control_mode <> "fixed" OR (custom_fixed_airbrake_angle_deg >= 0 AND custom_fixed_airbrake_angle_deg <= 90), "Custom fixed airbrake angle", ROUND(custom_fixed_airbrake_angle_deg, 2) + " deg within 0-90").
-check_line(trajectories_profile_id = "proxy" OR trajectories_profile_id = "matched10", "Trajectories profile", trajectories_profile_id).
+check_line(trajectories_profile_id = "proxy" OR trajectories_profile_id = "matched10" OR trajectories_profile_id = "matched0", "Trajectories profile", trajectories_profile_id).
 check_line(deorbit_guidance_mode = "trajectories_miss" OR deorbit_guidance_mode = "entry_fpa29", "Deorbit guidance mode", deorbit_guidance_mode).
 check_line(SHIP:APOAPSIS >= min_parking_alt_meters AND SHIP:APOAPSIS <= max_parking_alt_meters, "Parking Ap", ROUND(SHIP:APOAPSIS/1000, 1) + " km within " + ROUND(min_parking_alt_meters/1000) + "-" + ROUND(max_parking_alt_meters/1000) + " km").
 check_line(SHIP:PERIAPSIS >= min_parking_alt_meters AND SHIP:PERIAPSIS <= max_parking_alt_meters, "Parking Pe", ROUND(SHIP:PERIAPSIS/1000, 1) + " km within " + ROUND(min_parking_alt_meters/1000) + "-" + ROUND(max_parking_alt_meters/1000) + " km").

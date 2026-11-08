@@ -29,6 +29,8 @@ function encodeKos(value) {
 function makeRun(runId, mode, profileId = "proxy", customFixedAngle = null, entryCorridorId = "trajectories_miss") {
   const fixedAngle = customFixedAngle ?? (mode === "fixed90" ? 90 : mode === "fixed60" ? 60 : mode === "fixed50" ? 50 : mode === "fixed45" ? 45 : mode === "fixed30" ? 30 : 0);
   const deployFraction = fixedAngle / 90;
+  const entryAoa = profileId === "matched0" ? 0 : 10;
+  const matchedAoaProfile = profileId === "matched10" || profileId === "matched0";
   const samples = [];
   for (let i = 0; i < 30; i += 1) {
     const altitude = 70000 - i * (50000 / 29);
@@ -59,10 +61,10 @@ function makeRun(runId, mode, profileId = "proxy", customFixedAngle = null, entr
       gravity_sensor_g: 0,
       gravity_model_mps2: 9.8,
       mass_t: 100,
-      aoa_command_deg: 10,
-      aoa_actual_deg: 10,
-      trajectories_planned_aoa_deg: 10,
-      trajectories_planned_facing_error_deg: profileId === "matched10" ? 0.1 : 5,
+      aoa_command_deg: entryAoa,
+      aoa_actual_deg: entryAoa,
+      trajectories_planned_aoa_deg: entryAoa,
+      trajectories_planned_facing_error_deg: matchedAoaProfile ? 0.1 : 5,
       airbrake_angle_command_deg: fixedAngle,
       airbrake_angle_deg: fixedAngle,
       airbrake_deploy_angle_fields_deg: [fixedAngle, fixedAngle, fixedAngle, fixedAngle],
@@ -100,10 +102,10 @@ function makeRun(runId, mode, profileId = "proxy", customFixedAngle = null, entr
       airbrake_control_mode: mode,
       trajectories_profile_id: profileId,
       entry_corridor_id: entryCorridorId,
-      trajectories_descent_angles_deg: profileId === "matched10" ? [-170, -170, -170, -170] : [170, 170, 165, 165],
+      trajectories_descent_angles_deg: profileId === "matched10" ? [-170, -170, -170, -170] : profileId === "matched0" ? [180, 180, 180, 180] : [170, 170, 165, 165],
       trajectories_descent_grades: [true, true, true, true],
       trajectories_descent_modes: [true, true, true, true],
-      entry_aoa_deg: 10,
+      entry_aoa_deg: entryAoa,
       entry_steering_source: "scripted_signed_aoa",
       airbrake_fixed_angle_deg: fixedAngle,
       airbrake_part_count: 4,
@@ -156,6 +158,36 @@ test("does not claim readiness without a fixed90 run", () => {
   const report = analyzeSegments([segment]);
   assert.equal(report.ready_for_differential_fit, false);
   assert.equal(report.readiness.has_fixed90_run, false);
+});
+
+test("accepts deliberate exposure cooldowns and separates safeguarded profiles", () => {
+  const unguarded = { ...makeRun(110, "fixed90", "matched10", null, "entry_fpa29"), source_file: "unguarded.json" };
+  const safeguarded = { ...makeRun(111, "fixed90", "matched10", null, "entry_fpa29"), source_file: "safeguarded.json" };
+  for (const segment of [unguarded, safeguarded]) {
+    segment.run.target_deorbit_phase_angle_deg = 175;
+    segment.run.airbrake_min_angle_deg = 60;
+    segment.run.airbrake_max_angle_deg = 90;
+  }
+  safeguarded.run.airbrake_exposure_safeguard_enabled = true;
+  safeguarded.run.airbrake_exposure_budget_units = 20;
+  safeguarded.run.airbrake_cooldown_duration_s = 10;
+  safeguarded.samples = safeguarded.samples.map((sample, index) => ({
+    ...sample,
+    brakes_action_group: index < 10 || index >= 15,
+    airbrake_cooldown_active: index >= 10 && index < 15,
+    airbrake_cooldown_count: index >= 10 ? 1 : 0,
+    airbrake_heating_exposure_total_proxy_onboard: index,
+    airbrake_heating_exposure_cycle_proxy_onboard: index < 10 ? index * 2 : index >= 15 ? index - 15 : 20,
+  }));
+
+  const report = analyzeSegments([unguarded, safeguarded]);
+  const summary = report.runs.find((run) => String(run.run_id) === "111");
+  assert.equal(summary.mode_compliant, true);
+  assert.equal(summary.airbrake_cooldown_count, 1);
+  assert.equal(summary.airbrake_cooldown_sample_count, 5);
+  assert.equal(summary.max_onboard_airbrake_heating_exposure_total_proxy, 29);
+  assert.equal(report.profile_sets.length, 2);
+  assert.notEqual(report.profile_sets[0].profile_key, report.profile_sets[1].profile_key);
 });
 
 test("accepts a fixed45 run and builds the deployment-angle response dataset", () => {
@@ -387,6 +419,15 @@ test("rejects matched10 telemetry that did not follow Trajectories' planned vect
   const report = analyzeSegments([segment]);
   assert.equal(report.runs[0].checks.trajectories_planned_vector_alignment, false);
   assert.equal(report.runs[0].usable, false);
+});
+
+test("accepts a matched0 surface-retrograde profile and verifies planned-vector alignment", () => {
+  const segment = { ...makeRun(511, "fixed90", "matched0", null, "entry_fpa29"), source_file: "matched0-fixed90.json" };
+  const report = analyzeSegments([segment]);
+  assert.equal(report.runs[0].entry_aoa_deg, 0);
+  assert.equal(report.runs[0].checks.trajectories_planned_vector_alignment, true);
+  assert.equal(report.runs[0].trajectories_planned_vector_p90_error_deg, 0.1);
+  assert.equal(report.runs[0].usable, true);
 });
 
 test("rejects matched10 telemetry when control-surface authority could override airbrake deployment", () => {

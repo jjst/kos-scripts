@@ -124,6 +124,10 @@ function expectedFixedAngle(run) {
   return null;
 }
 
+function isMatchedAoaProfile(profileId) {
+  return profileId === "matched10" || profileId === "matched0";
+}
+
 function runProfileKey(run) {
   const metadata = run.run ?? {};
   const rounded = (values) => Array.isArray(values) ? values.map((value) => finite(value) ? Math.round(value * 1000) / 1000 : value) : null;
@@ -140,6 +144,10 @@ function runProfileKey(run) {
       airbrake_authority_limiter_percent: finite(metadata.airbrake_authority_limiter_command_percent)
         ? Math.round(metadata.airbrake_authority_limiter_command_percent * 1000) / 1000
         : "unverified",
+      airbrake_exposure_safeguard: metadata.airbrake_exposure_safeguard_enabled === true ? {
+        budget_units: metadata.airbrake_exposure_budget_units ?? null,
+        cooldown_s: metadata.airbrake_cooldown_duration_s ?? null,
+      } : null,
     });
   }
   return `id:${metadata.trajectories_profile_id ?? "legacy"}:aoa:${metadata.entry_aoa_deg ?? "unknown"}:corridor:${metadata.entry_corridor_id ?? "trajectories_miss"}:phase:${metadata.target_deorbit_phase_angle_deg ?? "unverified"}:authority:${metadata.airbrake_authority_limiter_command_percent ?? "unverified"}`;
@@ -278,6 +286,11 @@ function summarizeRun(run) {
   }));
   const modeCompliant = entry.length > 0 && entry.every((sample) => {
     const effective = sample.effective_airbrake_command_deg;
+    const safeguardCooldown = run.run.airbrake_exposure_safeguard_enabled === true
+      && sample.airbrake_cooldown_active === true
+      && !sample.brakes_action_group
+      && effective <= 0.5;
+    if (safeguardCooldown) return true;
     if (run.mode === "off") return effective <= 0.5 && !sample.brakes_action_group;
     if (run.mode === "fixed") {
       const expected = expectedFixedAngle(run);
@@ -322,7 +335,11 @@ function summarizeRun(run) {
   const angleReadbackComplianceRatio = activeAngleReadbacks.length ? compliantAngleReadbacks.length / activeAngleReadbacks.length : null;
   const maximumAngleFieldSpread = angleReadbackSamples.length ? Math.max(...angleReadbackSamples.map((sample) => sample.airbrake_deploy_angle_field_spread_deg ?? Number.POSITIVE_INFINITY)) : null;
   const maximumAngleReassertions = angleReadbackSamples.length ? Math.max(...angleReadbackSamples.map((sample) => sample.airbrake_angle_reassertion_count ?? 0)) : null;
-  const matchedProfile = run.run.trajectories_profile_id === "matched10";
+  const cooldownSamples = entry.filter((sample) => sample.airbrake_cooldown_active === true);
+  const cooldownCount = entry.length ? Math.max(...entry.map((sample) => sample.airbrake_cooldown_count ?? 0)) : 0;
+  const onboardExposureTotals = entry.map((sample) => sample.airbrake_heating_exposure_total_proxy_onboard).filter(finite);
+  const onboardExposureCycles = entry.map((sample) => sample.airbrake_heating_exposure_cycle_proxy_onboard).filter(finite);
+  const matchedProfile = isMatchedAoaProfile(run.run.trajectories_profile_id);
   const authorityCommand = run.run.airbrake_authority_limiter_command_percent;
   const authorityProofRequired = matchedProfile || finite(authorityCommand);
   const authorityReadbackSamples = entry.filter((sample) => Array.isArray(sample.airbrake_authority_limiter_fields_percent)
@@ -337,7 +354,8 @@ function summarizeRun(run) {
     ? Math.max(...authorityReadbackSamples.flatMap((sample) => sample.airbrake_authority_limiter_fields_percent))
     : null;
   const allAeroPlannedVectorSamples = entry.filter((sample) => sample.has_trajectories_impact
-    && sample.aoa_command_deg > 0
+    && finite(sample.aoa_command_deg)
+    && sample.aoa_command_deg >= 0
     && sample.dynamic_pressure_kpa >= MIN_MATCH_DYNAMIC_PRESSURE_KPA
     && finite(sample.trajectories_planned_facing_error_deg)
     && sample.trajectories_planned_facing_error_deg >= 0);
@@ -389,8 +407,16 @@ function summarizeRun(run) {
     predicted_entry_fpa_down_deg: run.run.predicted_entry_fpa_down_deg ?? null,
     target_deorbit_phase_angle_deg: run.run.target_deorbit_phase_angle_deg ?? null,
     actual_deorbit_burn_phase_angle_deg: run.run.actual_deorbit_burn_phase_angle_deg ?? null,
+    entry_aoa_deg: run.run.entry_aoa_deg ?? null,
     airbrake_min_angle_deg: run.run.airbrake_min_angle_deg ?? null,
     airbrake_max_angle_deg: run.run.airbrake_max_angle_deg ?? null,
+    airbrake_exposure_safeguard_enabled: run.run.airbrake_exposure_safeguard_enabled === true,
+    airbrake_exposure_budget_units: run.run.airbrake_exposure_budget_units ?? null,
+    airbrake_cooldown_duration_s: run.run.airbrake_cooldown_duration_s ?? null,
+    airbrake_cooldown_count: cooldownCount,
+    airbrake_cooldown_sample_count: cooldownSamples.length,
+    max_onboard_airbrake_heating_exposure_total_proxy: onboardExposureTotals.length ? Math.max(...onboardExposureTotals) : null,
+    max_onboard_airbrake_heating_exposure_cycle_proxy: onboardExposureCycles.length ? Math.max(...onboardExposureCycles) : null,
     measured_entry_fpa_down_deg: entry.length && finite(entry[0].flight_path_angle_deg) ? -entry[0].flight_path_angle_deg : null,
     landing_position_available: Boolean(landingError),
     landing_latitude_deg: landingError?.latitude_deg ?? null,
@@ -583,6 +609,7 @@ function nearestMatches(offRun, fixedRun) {
       fixed_airbrake_deploy_angle_fields_deg: deployed.airbrake_deploy_angle_fields_deg ?? null,
       fixed_airbrake_deploy_angle_field_spread_deg: deployed.airbrake_deploy_angle_field_spread_deg ?? null,
       fixed_airbrake_angle_reassertion_count: deployed.airbrake_angle_reassertion_count ?? null,
+      fixed_airbrake_cooldown_active: deployed.airbrake_cooldown_active === true,
       off_airbrake_authority_limiter_fields_percent: best.clean.airbrake_authority_limiter_fields_percent ?? null,
       fixed_airbrake_authority_limiter_fields_percent: deployed.airbrake_authority_limiter_fields_percent ?? null,
       off_airbrake_part_count: best.clean.airbrake_part_count ?? offRun.run.airbrake_part_count ?? null,
@@ -633,8 +660,11 @@ function comparePair(offRun, fixedRun) {
   const matchedBands = bandCounts(matches.map((match) => ({ altitude_asl_m: match.altitude_m })));
   const fixedAngle = expectedFixedAngle(fixedRun);
   const angleTolerance = fixedAngle === null ? null : Math.max(3, fixedAngle * 0.1);
-  const stableDeployMatches = matches.filter((match) => fixedAngle !== null && Math.abs(match.fixed_airbrake_estimated_angle_deg - fixedAngle) <= angleTolerance && match.fixed_airbrake_part_count > 0);
-  const requiresPlannedAlignment = fixedRun.run.trajectories_profile_id === "matched10";
+  const stableDeployMatches = matches.filter((match) => fixedAngle !== null
+    && !match.fixed_airbrake_cooldown_active
+    && Math.abs(match.fixed_airbrake_estimated_angle_deg - fixedAngle) <= angleTolerance
+    && match.fixed_airbrake_part_count > 0);
+  const requiresPlannedAlignment = isMatchedAoaProfile(fixedRun.run.trajectories_profile_id);
   const plannedAlignedMatches = stableDeployMatches.filter((match) => !requiresPlannedAlignment || (
     finite(match.off_trajectories_planned_facing_error_deg)
     && finite(match.fixed_trajectories_planned_facing_error_deg)

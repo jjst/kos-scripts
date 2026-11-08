@@ -229,7 +229,8 @@ were already gone; only intact pre-failure rows are used by the predictor.
 Menu option `2` runs the corrected corridor with a prompted airbrake angle;
 entering `0` launches true brakes-off mode. Options `6` and `7` are the
 175-degree-phase fixed-60 and fixed-90 corridor-validation endpoints. Option `8`
-is the dedicated fixed-52.5 minimum-survivability boundary test. Option `9` is
+is the controlled fixed-90, zero-AoA surface-retrograde trial with matching
+zero-AoA Trajectories settings. Option `9` is
 the closed-loop 60-90 degree controller and should run only after the two safe
 fixed endpoints bracket the target. The telemetry records
 `entry_corridor_id = entry_fpa29`, the requested flight-path angle, and the
@@ -238,11 +239,20 @@ cannot accidentally pair these runs with the older 3.49-degree corridor. The
 historical proxy and old-corridor combinations are deliberately not exposed in
 the normal boot menu.
 
-With 45, 52.5, 60, and 90 degrees now measured, the demonstrated minimum
-survivability boundary is bracketed between failed 52.5 and surviving 60
-degrees. The next bisection point is 56.25 degrees; it should use the same
-matched-AoA 2.9-degree corridor and the same full-integrity-through-landing
-criterion.
+All deployed-brake entry modes now use an exposure-budget safeguard. The flight
+script integrates the analyzer's angle-weighted convective-heating proxy onboard;
+after each 20 proxy units it commands `BRAKES OFF` for 10 seconds, pauses the
+fixed/PID command, and then resumes the requested angle. The exposure bucket
+resets after each cooldown, while a separate lifetime total remains in telemetry.
+The estimated actuator position, live rate, cycle/total exposure, cooldown state,
+remaining cooldown time, and trigger count are recorded. Safeguarded and
+unguarded runs have distinct profile keys and must not be silently paired.
+
+The zero-AoA trial deliberately keeps the corrected corridor, fixed-90 command,
+and 20-unit/10-second thermal safeguard from the latest intact run. Only the
+craft/Trajectories AoA profile changes, so its survival, attitude tracking,
+speed-versus-altitude, cooldown timing, and capture state can be compared with
+the retained `matched10` reference.
 
 ## Repository artifact policy
 
