@@ -68,10 +68,12 @@ function buildDashboardData(samples, pairs, report, predictor) {
     const metadata = profileMetadata(set.profile_key);
     const corridorId = metadata.entry_corridor_id ?? "trajectories_miss";
     const phaseTarget = finite(metadata.deorbit_phase_target_deg) ? metadata.deorbit_phase_target_deg : "unverified";
-    const safeguard = metadata.airbrake_exposure_safeguard;
-    const safeguardKey = safeguard
-      ? `${safeguard.budget_units ?? "?"}u/${safeguard.cooldown_s ?? "?"}s`
-      : "none";
+    const safeguard = metadata.airbrake_thermal_safeguard ?? metadata.airbrake_exposure_safeguard;
+    const safeguardKey = safeguard?.policy === "q_duty_cycle"
+      ? `q>=${safeguard.q_threshold_kpa ?? "?"}kPa ${safeguard.max_deployed_s ?? "?"}s/${safeguard.cooldown_s ?? "?"}s`
+      : safeguard
+        ? `${safeguard.budget_units ?? "?"}u/${safeguard.cooldown_s ?? "?"}s`
+        : "none";
     const dashboardProfileId = safeguard
       ? `${set.profile_id} · thermal ${safeguardKey}`
       : set.profile_id;
@@ -138,6 +140,9 @@ function buildDashboardData(samples, pairs, report, predictor) {
       measured_entry_fpa_down_deg: finite(entryRows[0].flight_path_angle_deg) ? -entryRows[0].flight_path_angle_deg : null,
       status: summary?.status ?? entryRows[0].run_status ?? "unknown",
       airbrake_cooldown_count: summary?.airbrake_cooldown_count ?? 0,
+      airbrake_thermal_safeguard_policy: summary?.airbrake_thermal_safeguard_policy ?? null,
+      airbrake_hot_q_threshold_kpa: summary?.airbrake_hot_q_threshold_kpa ?? null,
+      airbrake_hot_max_deployed_s: summary?.airbrake_hot_max_deployed_s ?? null,
       airbrake_exposure_budget_units: summary?.airbrake_exposure_budget_units ?? null,
       airbrake_cooldown_duration_s: summary?.airbrake_cooldown_duration_s ?? null,
       max_dynamic_pressure_kpa: summary?.max_dynamic_pressure_kpa ?? Math.max(...entryRows.map((row) => row.dynamic_pressure_kpa).filter(finite), 0),

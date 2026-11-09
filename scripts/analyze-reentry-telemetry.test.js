@@ -160,10 +160,11 @@ test("does not claim readiness without a fixed90 run", () => {
   assert.equal(report.readiness.has_fixed90_run, false);
 });
 
-test("accepts deliberate exposure cooldowns and separates safeguarded profiles", () => {
+test("accepts deliberate cooldowns and separates thermal safeguard policies", () => {
   const unguarded = { ...makeRun(110, "fixed90", "matched10", null, "entry_fpa29"), source_file: "unguarded.json" };
   const safeguarded = { ...makeRun(111, "fixed90", "matched10", null, "entry_fpa29"), source_file: "safeguarded.json" };
-  for (const segment of [unguarded, safeguarded]) {
+  const qGuarded = { ...makeRun(112, "fixed90", "matched10", null, "entry_fpa29"), source_file: "q-guarded.json" };
+  for (const segment of [unguarded, safeguarded, qGuarded]) {
     segment.run.target_deorbit_phase_angle_deg = 175;
     segment.run.airbrake_min_angle_deg = 60;
     segment.run.airbrake_max_angle_deg = 90;
@@ -179,15 +180,34 @@ test("accepts deliberate exposure cooldowns and separates safeguarded profiles",
     airbrake_heating_exposure_total_proxy_onboard: index,
     airbrake_heating_exposure_cycle_proxy_onboard: index < 10 ? index * 2 : index >= 15 ? index - 15 : 20,
   }));
+  qGuarded.run.airbrake_thermal_safeguard_enabled = true;
+  qGuarded.run.airbrake_thermal_safeguard_policy = "q_duty_cycle";
+  qGuarded.run.airbrake_hot_q_threshold_kpa = 10;
+  qGuarded.run.airbrake_hot_max_deployed_s = 10;
+  qGuarded.run.airbrake_cooldown_duration_s = 1;
+  qGuarded.samples = qGuarded.samples.map((sample, index) => ({
+    ...sample,
+    brakes_action_group: index !== 10,
+    airbrake_cooldown_active: index === 10,
+    airbrake_cooldown_count: index >= 10 ? 1 : 0,
+    airbrake_hot_q_envelope_active: index >= 5,
+    airbrake_hot_deployed_time_s: index < 10 ? Math.max(0, index - 5) : 0,
+  }));
 
-  const report = analyzeSegments([unguarded, safeguarded]);
+  const report = analyzeSegments([unguarded, safeguarded, qGuarded]);
   const summary = report.runs.find((run) => String(run.run_id) === "111");
+  const qSummary = report.runs.find((run) => String(run.run_id) === "112");
   assert.equal(summary.mode_compliant, true);
   assert.equal(summary.airbrake_cooldown_count, 1);
   assert.equal(summary.airbrake_cooldown_sample_count, 5);
   assert.equal(summary.max_onboard_airbrake_heating_exposure_total_proxy, 29);
-  assert.equal(report.profile_sets.length, 2);
-  assert.notEqual(report.profile_sets[0].profile_key, report.profile_sets[1].profile_key);
+  assert.equal(qSummary.mode_compliant, true);
+  assert.equal(qSummary.airbrake_thermal_safeguard_policy, "q_duty_cycle");
+  assert.equal(qSummary.airbrake_hot_q_threshold_kpa, 10);
+  assert.equal(qSummary.airbrake_hot_max_deployed_s, 10);
+  assert.equal(qSummary.airbrake_cooldown_count, 1);
+  assert.equal(report.profile_sets.length, 3);
+  assert.equal(new Set(report.profile_sets.map((set) => set.profile_key)).size, 3);
 });
 
 test("accepts a fixed45 run and builds the deployment-angle response dataset", () => {

@@ -128,6 +128,25 @@ function isMatchedAoaProfile(profileId) {
   return profileId === "matched10" || profileId === "matched0";
 }
 
+function thermalSafeguardProfile(metadata) {
+  if (metadata.airbrake_thermal_safeguard_enabled === true) {
+    return {
+      policy: metadata.airbrake_thermal_safeguard_policy ?? "unknown",
+      q_threshold_kpa: metadata.airbrake_hot_q_threshold_kpa ?? null,
+      max_deployed_s: metadata.airbrake_hot_max_deployed_s ?? null,
+      cooldown_s: metadata.airbrake_cooldown_duration_s ?? null,
+    };
+  }
+  if (metadata.airbrake_exposure_safeguard_enabled === true) {
+    return {
+      policy: "exposure_budget",
+      budget_units: metadata.airbrake_exposure_budget_units ?? null,
+      cooldown_s: metadata.airbrake_cooldown_duration_s ?? null,
+    };
+  }
+  return null;
+}
+
 function runProfileKey(run) {
   const metadata = run.run ?? {};
   const rounded = (values) => Array.isArray(values) ? values.map((value) => finite(value) ? Math.round(value * 1000) / 1000 : value) : null;
@@ -144,10 +163,7 @@ function runProfileKey(run) {
       airbrake_authority_limiter_percent: finite(metadata.airbrake_authority_limiter_command_percent)
         ? Math.round(metadata.airbrake_authority_limiter_command_percent * 1000) / 1000
         : "unverified",
-      airbrake_exposure_safeguard: metadata.airbrake_exposure_safeguard_enabled === true ? {
-        budget_units: metadata.airbrake_exposure_budget_units ?? null,
-        cooldown_s: metadata.airbrake_cooldown_duration_s ?? null,
-      } : null,
+      airbrake_thermal_safeguard: thermalSafeguardProfile(metadata),
     });
   }
   return `id:${metadata.trajectories_profile_id ?? "legacy"}:aoa:${metadata.entry_aoa_deg ?? "unknown"}:corridor:${metadata.entry_corridor_id ?? "trajectories_miss"}:phase:${metadata.target_deorbit_phase_angle_deg ?? "unverified"}:authority:${metadata.airbrake_authority_limiter_command_percent ?? "unverified"}`;
@@ -286,7 +302,9 @@ function summarizeRun(run) {
   }));
   const modeCompliant = entry.length > 0 && entry.every((sample) => {
     const effective = sample.effective_airbrake_command_deg;
-    const safeguardCooldown = run.run.airbrake_exposure_safeguard_enabled === true
+    const safeguardEnabled = run.run.airbrake_thermal_safeguard_enabled === true
+      || run.run.airbrake_exposure_safeguard_enabled === true;
+    const safeguardCooldown = safeguardEnabled
       && sample.airbrake_cooldown_active === true
       && !sample.brakes_action_group
       && effective <= 0.5;
@@ -410,6 +428,13 @@ function summarizeRun(run) {
     entry_aoa_deg: run.run.entry_aoa_deg ?? null,
     airbrake_min_angle_deg: run.run.airbrake_min_angle_deg ?? null,
     airbrake_max_angle_deg: run.run.airbrake_max_angle_deg ?? null,
+    airbrake_thermal_safeguard_enabled: run.run.airbrake_thermal_safeguard_enabled === true
+      || run.run.airbrake_exposure_safeguard_enabled === true,
+    airbrake_thermal_safeguard_policy: run.run.airbrake_thermal_safeguard_enabled === true
+      ? run.run.airbrake_thermal_safeguard_policy ?? "unknown"
+      : run.run.airbrake_exposure_safeguard_enabled === true ? "exposure_budget" : null,
+    airbrake_hot_q_threshold_kpa: run.run.airbrake_hot_q_threshold_kpa ?? null,
+    airbrake_hot_max_deployed_s: run.run.airbrake_hot_max_deployed_s ?? null,
     airbrake_exposure_safeguard_enabled: run.run.airbrake_exposure_safeguard_enabled === true,
     airbrake_exposure_budget_units: run.run.airbrake_exposure_budget_units ?? null,
     airbrake_cooldown_duration_s: run.run.airbrake_cooldown_duration_s ?? null,

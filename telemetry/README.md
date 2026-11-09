@@ -239,20 +239,26 @@ cannot accidentally pair these runs with the older 3.49-degree corridor. The
 historical proxy and old-corridor combinations are deliberately not exposed in
 the normal boot menu.
 
-All deployed-brake entry modes now use an exposure-budget safeguard. The flight
-script integrates the analyzer's angle-weighted convective-heating proxy onboard;
-after each 20 proxy units it commands `BRAKES OFF` for 10 seconds, pauses the
-fixed/PID command, and then resumes the requested angle. The exposure bucket
-resets after each cooldown, while a separate lifetime total remains in telemetry.
-The estimated actuator position, live rate, cycle/total exposure, cooldown state,
-remaining cooldown time, and trigger count are recorded. Safeguarded and
-unguarded runs have distinct profile keys and must not be silently paired.
+All deployed-brake entry modes now use a q-only duty-cycle safeguard. At or
+above 10 kPa dynamic pressure, the flight script allows at most 10 continuous
+deployed seconds before commanding `BRAKES OFF` for 1 second. It then resumes
+the requested fixed/PID angle and restarts the timer; leaving the 10 kPa
+envelope resets the timer. The old angle-weighted convective-heating proxy is
+still integrated and recorded for analysis, but it no longer triggers the
+safeguard because its units did not represent observed part heating closely
+enough. The estimated actuator position, q-envelope state, hot deployed time,
+proxy rate/exposure, cooldown state, remaining cooldown time, and trigger count
+are recorded. Each safeguard policy and its parameters produce a distinct
+profile key and must not be silently paired.
 
-The zero-AoA trial deliberately keeps the corrected corridor, fixed-90 command,
-and 20-unit/10-second thermal safeguard from the latest intact run. Only the
-craft/Trajectories AoA profile changes, so its survival, attitude tracking,
-speed-versus-altitude, cooldown timing, and capture state can be compared with
-the retained `matched10` reference.
+The first zero-AoA trial kept the corrected corridor, fixed-90 command, and
+20-unit/10-second thermal safeguard from the intact `matched10` run. AoA
+tracking became effectively exact, but two airbrakes failed at 25.6 km with
+only 12.1 proxy units accumulated since the previous cooldown. In-game
+observation showed the temperature bar clearing immediately on retraction.
+That result invalidated the exposure bucket as a direct safety trigger: the
+next controlled trial instead uses the 10 kPa, 10-second-on/1-second-off q-only
+duty cycle described above.
 
 ## Repository artifact policy
 

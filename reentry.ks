@@ -48,12 +48,14 @@ SET airbrake_fixed60_angle TO 60.
 SET airbrake_actuator_speed_degps TO 20.
 SET airbrake_authority_command_percent TO 0.
 SET airbrake_angle_response_exponent TO 2.165.
-// Proxy-based thermal safeguard. While the airbrakes are active, integrate the
-// same sqrt(density) * airspeed^3 * angle-factor proxy used by the offline
-// analyzer. Every budget interval retracts all brakes long enough to put the
-// ModuleAeroSurface back into its protected/cased state.
-SET airbrake_exposure_budget_units TO 20.
-SET airbrake_cooldown_duration_seconds TO 10.
+// Empirical q-only thermal safeguard. Q is not a heat model; it merely defines
+// the observed high-load envelope in which continuous deployment is limited.
+// Once q reaches 10 kPa, retract for one second after every ten deployed
+// seconds. Outside that envelope the timer resets and the requested fixed/PID
+// angle remains uninterrupted. Keep the old heating proxy as telemetry only.
+SET airbrake_hot_q_threshold_kpa TO 10.
+SET airbrake_hot_max_deployed_seconds TO 10.
+SET airbrake_cooldown_duration_seconds TO 1.
 SET entry_orbit_retro_alt_meters TO 70000.
 SET reentry_handoff_alt_meters TO 20000.
 SET reentry_guided_land_alt_meters TO 5000.
@@ -98,6 +100,8 @@ SET airbrake_heating_rate_proxy_live TO 0.
 SET airbrake_heating_exposure_total_proxy TO 0.
 SET airbrake_heating_exposure_cycle_proxy TO 0.
 SET airbrake_exposure_last_update_time TO TIME:SECONDS.
+SET airbrake_hot_deployed_time_seconds TO 0.
+SET airbrake_hot_timer_last_update_time TO TIME:SECONDS.
 SET airbrake_cooldown_active TO FALSE.
 SET airbrake_cooldown_until TO 0.
 SET airbrake_cooldown_count TO 0.
@@ -137,6 +141,21 @@ FUNCTION update_airbrake_exposure {
     }
     SET airbrake_heating_rate_proxy_live TO new_rate.
     SET airbrake_exposure_last_update_time TO now.
+}
+
+FUNCTION update_airbrake_hot_timer {
+    PARAMETER brakes_deployed.
+    LOCAL now IS TIME:SECONDS.
+    LOCAL dt IS MAX(0, now - airbrake_hot_timer_last_update_time).
+    LOCAL dynamic_pressure_kpa IS SHIP:Q * CONSTANT:ATMTOKPA.
+    IF airbrake_cooldown_active {
+        SET airbrake_hot_deployed_time_seconds TO 0.
+    } ELSE IF brakes_deployed AND dynamic_pressure_kpa >= airbrake_hot_q_threshold_kpa {
+        SET airbrake_hot_deployed_time_seconds TO airbrake_hot_deployed_time_seconds + dt.
+    } ELSE {
+        SET airbrake_hot_deployed_time_seconds TO 0.
+    }
+    SET airbrake_hot_timer_last_update_time TO now.
 }
 
 FUNCTION log_line {
@@ -241,7 +260,7 @@ FUNCTION start_predictor_telemetry_segment {
     SET predictor_telemetry_samples TO LIST().
     SET predictor_telemetry_events TO LIST().
     SET predictor_telemetry_document["schema"] TO "reentry_airbrake_predictor".
-    SET predictor_telemetry_document["schema_version"] TO 5.
+    SET predictor_telemetry_document["schema_version"] TO 6.
     SET predictor_telemetry_document["status"] TO "running".
     SET predictor_telemetry_document["segment_index"] TO predictor_telemetry_segment_index.
     SET predictor_telemetry_document["sensor_note"] TO "pressure, temperature, and acceleration sensor values are zero when the vessel lacks the corresponding part".
@@ -281,8 +300,11 @@ FUNCTION initialize_predictor_telemetry {
     SET predictor_telemetry_run["airbrake_actuator_speed_degps"] TO airbrake_actuator_speed_degps.
     SET predictor_telemetry_run["airbrake_authority_limiter_command_percent"] TO airbrake_authority_command_percent.
     SET predictor_telemetry_run["airbrake_authority_limiter_original_fields_percent"] TO airbrake_authority_original_fields_percent.
-    SET predictor_telemetry_run["airbrake_exposure_safeguard_enabled"] TO TRUE.
-    SET predictor_telemetry_run["airbrake_exposure_budget_units"] TO airbrake_exposure_budget_units.
+    SET predictor_telemetry_run["airbrake_thermal_safeguard_enabled"] TO TRUE.
+    SET predictor_telemetry_run["airbrake_thermal_safeguard_policy"] TO "q_duty_cycle".
+    SET predictor_telemetry_run["airbrake_hot_q_threshold_kpa"] TO airbrake_hot_q_threshold_kpa.
+    SET predictor_telemetry_run["airbrake_hot_max_deployed_s"] TO airbrake_hot_max_deployed_seconds.
+    SET predictor_telemetry_run["airbrake_exposure_safeguard_enabled"] TO FALSE.
     SET predictor_telemetry_run["airbrake_cooldown_duration_s"] TO airbrake_cooldown_duration_seconds.
     SET predictor_telemetry_run["airbrake_exposure_angle_exponent"] TO airbrake_angle_response_exponent.
     SET predictor_telemetry_run["airbrake_exposure_proxy_formula"] TO "sqrt(density_kgpm3) * airspeed_mps^3 / 1e9 * sin(angle_deg)^2.165".
@@ -481,6 +503,8 @@ FUNCTION capture_predictor_sample {
     SET sample["airbrake_heating_rate_proxy_onboard"] TO airbrake_heating_rate_proxy_live.
     SET sample["airbrake_heating_exposure_total_proxy_onboard"] TO airbrake_heating_exposure_total_proxy.
     SET sample["airbrake_heating_exposure_cycle_proxy_onboard"] TO airbrake_heating_exposure_cycle_proxy.
+    SET sample["airbrake_hot_q_envelope_active"] TO SHIP:Q * CONSTANT:ATMTOKPA >= airbrake_hot_q_threshold_kpa.
+    SET sample["airbrake_hot_deployed_time_s"] TO airbrake_hot_deployed_time_seconds.
     SET sample["airbrake_cooldown_active"] TO airbrake_cooldown_active.
     SET sample["airbrake_cooldown_remaining_s"] TO MAX(0, airbrake_cooldown_until - TIME:SECONDS).
     SET sample["airbrake_cooldown_count"] TO airbrake_cooldown_count.
@@ -680,7 +704,7 @@ log_line("Airbrake mode: " + airbrake_control_mode + "  |  telemetry: " + predic
 log_line("Entry corridor: " + entry_corridor_id + "  |  target/predicted FPA: " + ROUND(target_entry_fpa_down_deg, 3) + "/" + ROUND(predicted_entry_fpa_down_deg, 3) + " deg down at 70 km").
 log_line("Deorbit phase : target/actual burn " + ROUND(target_deorbit_phase_angle_deg, 3) + "/" + ROUND(actual_deorbit_burn_phase_angle_deg, 3) + " deg").
 log_line("Airbrake authority: locked to " + airbrake_authority_command_percent + "% during entry; original values restored at handoff.").
-log_line("Airbrake thermal safeguard: retract " + airbrake_cooldown_duration_seconds + " s after each " + airbrake_exposure_budget_units + " proxy exposure units.").
+log_line("Airbrake thermal safeguard: q-only duty cycle; at q >= " + airbrake_hot_q_threshold_kpa + " kPa retract " + airbrake_cooldown_duration_seconds + " s after " + airbrake_hot_max_deployed_seconds + " s deployed.").
 log_line("Entry attitude: orbit retro above " + ROUND(entry_orbit_retro_alt_meters/1000, 1) + " km, surface retro below.").
 log_line("Entry AoA    : " + entry_aoa_deg + " deg fixed, retract below " + ROUND(entry_aoa_retract_speed_mps) + " m/s.").
 log_line("Handoff gate : " + ROUND(reentry_handoff_alt_meters/1000, 1) + " km alt  |  spd <= " + ROUND(reentry_handoff_speed_mps) + " m/s  |  TR miss <= " + ROUND(reentry_handoff_tr_miss_meters) + " m  |  guided land at " + ROUND(reentry_guided_land_alt_meters/1000, 1) + " km").
@@ -688,7 +712,8 @@ log_line("Handoff gate : " + ROUND(reentry_handoff_alt_meters/1000, 1) + " km al
 log_line("--- Preflight checks ---").
 check_line(pad_geo:BODY:NAME = SHIP:BODY:NAME, "Target body", "target " + pad_geo:BODY:NAME + ", current " + SHIP:BODY:NAME).
 check_line(entry_brakes_retract_speed_mps > 0, "Entry brake retract speed", ROUND(entry_brakes_retract_speed_mps) + " m/s").
-check_line(airbrake_exposure_budget_units > 0, "Airbrake exposure budget", ROUND(airbrake_exposure_budget_units, 1) + " proxy units").
+check_line(airbrake_hot_q_threshold_kpa > 0, "Airbrake hot-q threshold", ROUND(airbrake_hot_q_threshold_kpa, 1) + " kPa").
+check_line(airbrake_hot_max_deployed_seconds > 0, "Airbrake hot deployed limit", ROUND(airbrake_hot_max_deployed_seconds, 1) + " s").
 check_line(airbrake_cooldown_duration_seconds > 0, "Airbrake cooldown", ROUND(airbrake_cooldown_duration_seconds, 1) + " s retracted").
 LOCAL preflight_airbrake_authority_fields IS airbrake_authority_readbacks().
 LOCAL airbrake_authority_ok IS preflight_airbrake_authority_fields:LENGTH > 0.
@@ -761,6 +786,8 @@ SET airbrake_heating_rate_proxy_live TO 0.
 SET airbrake_heating_exposure_total_proxy TO 0.
 SET airbrake_heating_exposure_cycle_proxy TO 0.
 SET airbrake_exposure_last_update_time TO TIME:SECONDS.
+SET airbrake_hot_deployed_time_seconds TO 0.
+SET airbrake_hot_timer_last_update_time TO TIME:SECONDS.
 SET airbrake_cooldown_active TO FALSE.
 SET airbrake_cooldown_until TO 0.
 SET airbrake_cooldown_count TO 0.
@@ -775,24 +802,26 @@ UNTIL SHIP:ALTITUDE <= reentry_handoff_alt_meters AND NOT airbrake_cooldown_acti
         SET exposure_target_angle TO ab_angle.
     }
     update_airbrake_exposure(exposure_target_angle).
+    update_airbrake_hot_timer(entry_brakes_deployed).
 
     IF airbrake_cooldown_active AND TIME:SECONDS >= airbrake_cooldown_until {
         SET airbrake_cooldown_active TO FALSE.
         SET airbrake_heating_exposure_cycle_proxy TO 0.
+        SET airbrake_hot_deployed_time_seconds TO 0.
         IF airbrake_control_active AND surface_speed > entry_brakes_retract_speed_mps {
             BRAKES ON.
         }
-        record_predictor_event("airbrake_exposure_cooldown_complete", "cycle " + airbrake_cooldown_count + " at " + ROUND(SHIP:ALTITUDE) + " m; total exposure " + ROUND(airbrake_heating_exposure_total_proxy, 2)).
-        log_line("  Airbrake cooldown complete  |  cycle: " + airbrake_cooldown_count + "  |  alt: " + ROUND(SHIP:ALTITUDE/1000, 2) + " km  |  total exposure: " + ROUND(airbrake_heating_exposure_total_proxy, 1)).
+        record_predictor_event("airbrake_q_cooldown_complete", "cycle " + airbrake_cooldown_count + " at " + ROUND(SHIP:ALTITUDE) + " m; q " + ROUND(SHIP:Q * CONSTANT:ATMTOKPA, 2) + " kPa; total proxy exposure " + ROUND(airbrake_heating_exposure_total_proxy, 2)).
+        log_line("  Airbrake cooldown complete  |  cycle: " + airbrake_cooldown_count + "  |  alt: " + ROUND(SHIP:ALTITUDE/1000, 2) + " km  |  q: " + ROUND(SHIP:Q * CONSTANT:ATMTOKPA, 2) + " kPa").
     }
 
-    IF NOT airbrake_cooldown_active AND entry_brakes_deployed AND surface_speed > entry_brakes_retract_speed_mps AND airbrake_heating_exposure_cycle_proxy >= airbrake_exposure_budget_units {
+    IF NOT airbrake_cooldown_active AND entry_brakes_deployed AND surface_speed > entry_brakes_retract_speed_mps AND SHIP:Q * CONSTANT:ATMTOKPA >= airbrake_hot_q_threshold_kpa AND airbrake_hot_deployed_time_seconds >= airbrake_hot_max_deployed_seconds {
         SET airbrake_cooldown_active TO TRUE.
         SET airbrake_cooldown_until TO TIME:SECONDS + airbrake_cooldown_duration_seconds.
         SET airbrake_cooldown_count TO airbrake_cooldown_count + 1.
         BRAKES OFF.
-        record_predictor_event("airbrake_exposure_cooldown_start", "cycle " + airbrake_cooldown_count + " at " + ROUND(SHIP:ALTITUDE) + " m; cycle exposure " + ROUND(airbrake_heating_exposure_cycle_proxy, 2) + "; total exposure " + ROUND(airbrake_heating_exposure_total_proxy, 2)).
-        log_line("  Airbrake thermal cooldown  |  cycle: " + airbrake_cooldown_count + "  |  alt: " + ROUND(SHIP:ALTITUDE/1000, 2) + " km  |  exposure: " + ROUND(airbrake_heating_exposure_cycle_proxy, 1) + "  |  retracted " + airbrake_cooldown_duration_seconds + " s").
+        record_predictor_event("airbrake_q_cooldown_start", "cycle " + airbrake_cooldown_count + " at " + ROUND(SHIP:ALTITUDE) + " m; q " + ROUND(SHIP:Q * CONSTANT:ATMTOKPA, 2) + " kPa; hot deployed " + ROUND(airbrake_hot_deployed_time_seconds, 2) + " s; cycle proxy exposure " + ROUND(airbrake_heating_exposure_cycle_proxy, 2)).
+        log_line("  Airbrake thermal cooldown  |  cycle: " + airbrake_cooldown_count + "  |  alt: " + ROUND(SHIP:ALTITUDE/1000, 2) + " km  |  q: " + ROUND(SHIP:Q * CONSTANT:ATMTOKPA, 2) + " kPa  |  hot deployed: " + ROUND(airbrake_hot_deployed_time_seconds, 1) + " s  |  retracted " + airbrake_cooldown_duration_seconds + " s").
     }
 
     IF airbrake_control_active {
@@ -854,7 +883,7 @@ UNTIL SHIP:ALTITUDE <= reentry_handoff_alt_meters AND NOT airbrake_cooldown_acti
             IF airbrake_cooldown_active {
                 SET cooldown_detail TO "  |  COOLDOWN " + ROUND(MAX(0, airbrake_cooldown_until - TIME:SECONDS), 1) + " s".
             }
-            log_line("    TR impact: " + ROUND(impact_geo:LAT, 4) + ", " + ROUND(impact_geo:LNG, 4) + "  |  miss: " + ROUND(tr_miss/1000, 2) + " km  |  along: " + ROUND(along_miss/1000, 2) + " km  |  cross: " + ROUND(lateral_miss/1000, 2) + " km  |  ab: " + ROUND(ab_angle, 1) + " deg  |  exposure: " + ROUND(airbrake_heating_exposure_cycle_proxy, 1) + "/" + airbrake_exposure_budget_units + cooldown_detail).
+            log_line("    TR impact: " + ROUND(impact_geo:LAT, 4) + ", " + ROUND(impact_geo:LNG, 4) + "  |  miss: " + ROUND(tr_miss/1000, 2) + " km  |  along: " + ROUND(along_miss/1000, 2) + " km  |  cross: " + ROUND(lateral_miss/1000, 2) + " km  |  ab: " + ROUND(ab_angle, 1) + " deg  |  q: " + ROUND(SHIP:Q * CONSTANT:ATMTOKPA, 2) + " kPa  |  hot: " + ROUND(airbrake_hot_deployed_time_seconds, 1) + "/" + airbrake_hot_max_deployed_seconds + " s" + cooldown_detail).
         } ELSE {
             log_line("    TR impact: no prediction").
         }

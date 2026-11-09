@@ -1,8 +1,8 @@
 {
   "schema": "reentry_airbrake_telemetry_report",
   "schema_version": 1,
-  "generated_at": "2026-11-08T22:28:16.726Z",
-  "run_count": 24,
+  "generated_at": "2026-11-08T22:59:16.557Z",
+  "run_count": 25,
   "runs": [
     {
       "run_id": "1784751407",
@@ -16,6 +16,10 @@
       "entry_aoa_deg": 10,
       "airbrake_min_angle_deg": 30,
       "airbrake_max_angle_deg": 90,
+      "airbrake_thermal_safeguard_enabled": false,
+      "airbrake_thermal_safeguard_policy": null,
+      "airbrake_hot_q_threshold_kpa": null,
+      "airbrake_hot_max_deployed_s": null,
       "airbrake_exposure_safeguard_enabled": false,
       "airbrake_exposure_budget_units": null,
       "airbrake_cooldown_duration_s": null,
@@ -221,6 +225,10 @@
       "entry_aoa_deg": 10,
       "airbrake_min_angle_deg": 30,
       "airbrake_max_angle_deg": 90,
+      "airbrake_thermal_safeguard_enabled": false,
+      "airbrake_thermal_safeguard_policy": null,
+      "airbrake_hot_q_threshold_kpa": null,
+      "airbrake_hot_max_deployed_s": null,
       "airbrake_exposure_safeguard_enabled": false,
       "airbrake_exposure_budget_units": null,
       "airbrake_cooldown_duration_s": null,
@@ -426,6 +434,10 @@
       "entry_aoa_deg": 10,
       "airbrake_min_angle_deg": 30,
       "airbrake_max_angle_deg": 90,
+      "airbrake_thermal_safeguard_enabled": false,
+      "airbrake_thermal_safeguard_policy": null,
+      "airbrake_hot_q_threshold_kpa": null,
+      "airbrake_hot_max_deployed_s": null,
       "airbrake_exposure_safeguard_enabled": false,
       "airbrake_exposure_budget_units": null,
       "airbrake_cooldown_duration_s": null,
@@ -631,6 +643,10 @@
       "entry_aoa_deg": 10,
       "airbrake_min_angle_deg": 30,
       "airbrake_max_angle_deg": 90,
+      "airbrake_thermal_safeguard_enabled": false,
+      "airbrake_thermal_safeguard_policy": null,
+      "airbrake_hot_q_threshold_kpa": null,
+      "airbrake_hot_max_deployed_s": null,
       "airbrake_exposure_safeguard_enabled": false,
       "airbrake_exposure_budget_units": null,
       "airbrake_cooldown_duration_s": null,
@@ -836,6 +852,10 @@
       "entry_aoa_deg": 10,
       "airbrake_min_angle_deg": 30,
       "airbrake_max_angle_deg": 90,
+      "airbrake_thermal_safeguard_enabled": false,
+      "airbrake_thermal_safeguard_policy": null,
+      "airbrake_hot_q_threshold_kpa": null,
+      "airbrake_hot_max_deployed_s": null,
       "airbrake_exposure_safeguard_enabled": false,
       "airbrake_exposure_budget_units": null,
       "airbrake_cooldown_duration_s": null,
@@ -1041,6 +1061,10 @@
       "entry_aoa_deg": 10,
       "airbrake_min_angle_deg": 30,
       "airbrake_max_angle_deg": 90,
+      "airbrake_thermal_safeguard_enabled": false,
+      "airbrake_thermal_safeguard_policy": null,
+      "airbrake_hot_q_threshold_kpa": null,
+      "airbrake_hot_max_deployed_s": null,
       "airbrake_exposure_safeguard_enabled": false,
       "airbrake_exposure_budget_units": null,
       "airbrake_cooldown_duration_s": null,
@@ -1246,6 +1270,10 @@
       "entry_aoa_deg": 10,
       "airbrake_min_angle_deg": 30,
       "airbrake_max_angle_deg": 90,
+      "airbrake_thermal_safeguard_enabled": false,
+      "airbrake_thermal_safeguard_policy": null,
+      "airbrake_hot_q_threshold_kpa": null,
+      "airbrake_hot_max_deployed_s": null,
       "airbrake_exposure_safeguard_enabled": false,
       "airbrake_exposure_budget_units": null,
       "airbrake_cooldown_duration_s": null,
@@ -1451,6 +1479,10 @@
       "entry_aoa_deg": 10,
       "airbrake_min_angle_deg": 30,
       "airbrake_max_angle_deg": 90,
+      "airbrake_thermal_safeguard_enabled": false,
+      "airbrake_thermal_safeguard_policy": null,
+      "airbrake_hot_q_threshold_kpa": null,
+      "airbrake_hot_max_deployed_s": null,
       "airbrake_exposure_safeguard_enabled": false,
       "airbrake_exposure_budget_units": null,
       "airbrake_cooldown_duration_s": null,
@@ -1656,6 +1688,10 @@
       "entry_aoa_deg": 10,
       "airbrake_min_angle_deg": 30,
       "airbrake_max_angle_deg": 90,
+      "airbrake_thermal_safeguard_enabled": false,
+      "airbrake_thermal_safeguard_policy": null,
+      "airbrake_hot_q_threshold_kpa": null,
+      "airbrake_hot_max_deployed_s": null,
       "airbrake_exposure_safeguard_enabled": false,
       "airbrake_exposure_budget_units": null,
       "airbrake_cooldown_duration_s": null,
@@ -1861,6 +1897,10 @@
       "entry_aoa_deg": 10,
       "airbrake_min_angle_deg": 30,
       "airbrake_max_angle_deg": 90,
+      "airbrake_thermal_safeguard_enabled": false,
+      "airbrake_thermal_safeguard_policy": null,
+      "airbrake_hot_q_threshold_kpa": null,
+      "airbrake_hot_max_deployed_s": null,
       "airbrake_exposure_safeguard_enabled": false,
       "airbrake_exposure_budget_units": null,
       "airbrake_cooldown_duration_s": null,
@@ -2066,6 +2106,10 @@
       "entry_aoa_deg": 10,
       "airbrake_min_angle_deg": 30,
       "airbrake_max_angle_deg": 90,
+      "airbrake_thermal_safeguard_enabled": false,
+      "airbrake_thermal_safeguard_policy": null,
+      "airbrake_hot_q_threshold_kpa": null,
+      "airbrake_hot_max_deployed_s": null,
       "airbrake_exposure_safeguard_enabled": false,
       "airbrake_exposure_budget_units": null,
       "airbrake_cooldown_duration_s": null,
@@ -2271,6 +2315,10 @@
       "entry_aoa_deg": 10,
       "airbrake_min_angle_deg": 30,
       "airbrake_max_angle_deg": 90,
+      "airbrake_thermal_safeguard_enabled": false,
+      "airbrake_thermal_safeguard_policy": null,
+      "airbrake_hot_q_threshold_kpa": null,
+      "airbrake_hot_max_deployed_s": null,
       "airbrake_exposure_safeguard_enabled": false,
       "airbrake_exposure_budget_units": null,
       "airbrake_cooldown_duration_s": null,
@@ -2476,6 +2524,10 @@
       "entry_aoa_deg": 10,
       "airbrake_min_angle_deg": 30,
       "airbrake_max_angle_deg": 90,
+      "airbrake_thermal_safeguard_enabled": false,
+      "airbrake_thermal_safeguard_policy": null,
+      "airbrake_hot_q_threshold_kpa": null,
+      "airbrake_hot_max_deployed_s": null,
       "airbrake_exposure_safeguard_enabled": false,
       "airbrake_exposure_budget_units": null,
       "airbrake_cooldown_duration_s": null,
@@ -2681,6 +2733,10 @@
       "entry_aoa_deg": 10,
       "airbrake_min_angle_deg": 30,
       "airbrake_max_angle_deg": 90,
+      "airbrake_thermal_safeguard_enabled": false,
+      "airbrake_thermal_safeguard_policy": null,
+      "airbrake_hot_q_threshold_kpa": null,
+      "airbrake_hot_max_deployed_s": null,
       "airbrake_exposure_safeguard_enabled": false,
       "airbrake_exposure_budget_units": null,
       "airbrake_cooldown_duration_s": null,
@@ -2886,6 +2942,10 @@
       "entry_aoa_deg": 10,
       "airbrake_min_angle_deg": 30,
       "airbrake_max_angle_deg": 90,
+      "airbrake_thermal_safeguard_enabled": false,
+      "airbrake_thermal_safeguard_policy": null,
+      "airbrake_hot_q_threshold_kpa": null,
+      "airbrake_hot_max_deployed_s": null,
       "airbrake_exposure_safeguard_enabled": false,
       "airbrake_exposure_budget_units": null,
       "airbrake_cooldown_duration_s": null,
@@ -3091,6 +3151,10 @@
       "entry_aoa_deg": 10,
       "airbrake_min_angle_deg": 30,
       "airbrake_max_angle_deg": 90,
+      "airbrake_thermal_safeguard_enabled": false,
+      "airbrake_thermal_safeguard_policy": null,
+      "airbrake_hot_q_threshold_kpa": null,
+      "airbrake_hot_max_deployed_s": null,
       "airbrake_exposure_safeguard_enabled": false,
       "airbrake_exposure_budget_units": null,
       "airbrake_cooldown_duration_s": null,
@@ -3296,6 +3360,10 @@
       "entry_aoa_deg": 10,
       "airbrake_min_angle_deg": 30,
       "airbrake_max_angle_deg": 90,
+      "airbrake_thermal_safeguard_enabled": false,
+      "airbrake_thermal_safeguard_policy": null,
+      "airbrake_hot_q_threshold_kpa": null,
+      "airbrake_hot_max_deployed_s": null,
       "airbrake_exposure_safeguard_enabled": false,
       "airbrake_exposure_budget_units": null,
       "airbrake_cooldown_duration_s": null,
@@ -3501,6 +3569,10 @@
       "entry_aoa_deg": 10,
       "airbrake_min_angle_deg": 30,
       "airbrake_max_angle_deg": 90,
+      "airbrake_thermal_safeguard_enabled": false,
+      "airbrake_thermal_safeguard_policy": null,
+      "airbrake_hot_q_threshold_kpa": null,
+      "airbrake_hot_max_deployed_s": null,
       "airbrake_exposure_safeguard_enabled": false,
       "airbrake_exposure_budget_units": null,
       "airbrake_cooldown_duration_s": null,
@@ -3706,6 +3778,10 @@
       "entry_aoa_deg": 10,
       "airbrake_min_angle_deg": 30,
       "airbrake_max_angle_deg": 90,
+      "airbrake_thermal_safeguard_enabled": false,
+      "airbrake_thermal_safeguard_policy": null,
+      "airbrake_hot_q_threshold_kpa": null,
+      "airbrake_hot_max_deployed_s": null,
       "airbrake_exposure_safeguard_enabled": false,
       "airbrake_exposure_budget_units": null,
       "airbrake_cooldown_duration_s": null,
@@ -3911,6 +3987,10 @@
       "entry_aoa_deg": 10,
       "airbrake_min_angle_deg": 30,
       "airbrake_max_angle_deg": 90,
+      "airbrake_thermal_safeguard_enabled": false,
+      "airbrake_thermal_safeguard_policy": null,
+      "airbrake_hot_q_threshold_kpa": null,
+      "airbrake_hot_max_deployed_s": null,
       "airbrake_exposure_safeguard_enabled": false,
       "airbrake_exposure_budget_units": null,
       "airbrake_cooldown_duration_s": null,
@@ -4116,6 +4196,10 @@
       "entry_aoa_deg": 10,
       "airbrake_min_angle_deg": 30,
       "airbrake_max_angle_deg": 90,
+      "airbrake_thermal_safeguard_enabled": false,
+      "airbrake_thermal_safeguard_policy": null,
+      "airbrake_hot_q_threshold_kpa": null,
+      "airbrake_hot_max_deployed_s": null,
       "airbrake_exposure_safeguard_enabled": false,
       "airbrake_exposure_budget_units": null,
       "airbrake_cooldown_duration_s": null,
@@ -4321,6 +4405,10 @@
       "entry_aoa_deg": 10,
       "airbrake_min_angle_deg": 30,
       "airbrake_max_angle_deg": 90,
+      "airbrake_thermal_safeguard_enabled": false,
+      "airbrake_thermal_safeguard_policy": null,
+      "airbrake_hot_q_threshold_kpa": null,
+      "airbrake_hot_max_deployed_s": null,
       "airbrake_exposure_safeguard_enabled": false,
       "airbrake_exposure_budget_units": null,
       "airbrake_cooldown_duration_s": null,
@@ -4526,6 +4614,10 @@
       "entry_aoa_deg": 10,
       "airbrake_min_angle_deg": 60,
       "airbrake_max_angle_deg": 90,
+      "airbrake_thermal_safeguard_enabled": false,
+      "airbrake_thermal_safeguard_policy": null,
+      "airbrake_hot_q_threshold_kpa": null,
+      "airbrake_hot_max_deployed_s": null,
       "airbrake_exposure_safeguard_enabled": false,
       "airbrake_exposure_budget_units": null,
       "airbrake_cooldown_duration_s": null,
@@ -4731,6 +4823,10 @@
       "entry_aoa_deg": 10,
       "airbrake_min_angle_deg": 60,
       "airbrake_max_angle_deg": 90,
+      "airbrake_thermal_safeguard_enabled": true,
+      "airbrake_thermal_safeguard_policy": "exposure_budget",
+      "airbrake_hot_q_threshold_kpa": null,
+      "airbrake_hot_max_deployed_s": null,
       "airbrake_exposure_safeguard_enabled": true,
       "airbrake_exposure_budget_units": 20,
       "airbrake_cooldown_duration_s": 10,
@@ -4923,6 +5019,215 @@
         "altitude_band_coverage": true
       },
       "usable": false
+    },
+    {
+      "run_id": "1794177094",
+      "mode": "fixed90",
+      "trajectories_profile_id": "matched0",
+      "entry_corridor_id": "entry_fpa29",
+      "target_entry_fpa_down_deg": 2.9,
+      "predicted_entry_fpa_down_deg": 2.8746075488059137,
+      "target_deorbit_phase_angle_deg": 175,
+      "actual_deorbit_burn_phase_angle_deg": 162.29758444664574,
+      "entry_aoa_deg": 0,
+      "airbrake_min_angle_deg": 60,
+      "airbrake_max_angle_deg": 90,
+      "airbrake_thermal_safeguard_enabled": true,
+      "airbrake_thermal_safeguard_policy": "exposure_budget",
+      "airbrake_hot_q_threshold_kpa": null,
+      "airbrake_hot_max_deployed_s": null,
+      "airbrake_exposure_safeguard_enabled": true,
+      "airbrake_exposure_budget_units": 20,
+      "airbrake_cooldown_duration_s": 10,
+      "airbrake_cooldown_count": 4,
+      "airbrake_cooldown_sample_count": 18,
+      "max_onboard_airbrake_heating_exposure_total_proxy": 83.77734797912608,
+      "max_onboard_airbrake_heating_exposure_cycle_proxy": 20.102074223426502,
+      "measured_entry_fpa_down_deg": 2.8769581072241395,
+      "landing_position_available": true,
+      "landing_latitude_deg": 0.03042615695596709,
+      "landing_longitude_deg": -71.8997498151438,
+      "landing_miss_m": 27866.047456921224,
+      "landing_along_miss_m": -27833.99203620985,
+      "landing_cross_miss_m": -1336.3414956753736,
+      "status": "splashed",
+      "segment_count": 35,
+      "segment_gaps": [],
+      "sample_count": 255,
+      "entry_sample_count": 186,
+      "altitude_max_m": 69881.12855963525,
+      "altitude_min_m": 20409.080749311484,
+      "median_sample_dt_s": 2.3799999999978354,
+      "max_sample_gap_s": 2.399999999997817,
+      "max_dynamic_pressure_kpa": 46.35273778260416,
+      "max_intact_dynamic_pressure_kpa": 18.97529625046042,
+      "max_airbrake_load_proxy_kpa": 28.76133304243533,
+      "max_intact_airbrake_load_proxy_kpa": 18.97529625046042,
+      "max_convective_heating_rate_proxy": 0.7610060699891947,
+      "max_airbrake_heating_rate_proxy": 0.6439666490705267,
+      "max_intact_convective_heating_exposure_proxy": 84.05736658017537,
+      "max_intact_airbrake_heating_exposure_proxy": 72.59349360568217,
+      "trajectories_impact_ratio": 1,
+      "max_entry_throttle": 0,
+      "mode_compliant": true,
+      "expected_airbrake_count": 4,
+      "minimum_airbrake_count": 2,
+      "first_airbrake_loss_altitude_m": 25641.154513132293,
+      "airbrake_hardware_intact_ratio": 0.9408602150537635,
+      "expected_vessel_part_count": 35,
+      "minimum_vessel_part_count": 33,
+      "vessel_part_count_readback_coverage_ratio": 1,
+      "first_vessel_part_loss_altitude_m": 25641.154513132293,
+      "first_vessel_part_loss_dynamic_pressure_kpa": 20.33312164378309,
+      "first_vessel_part_loss_dynamic_pressure_fraction_of_run_peak": 0.43866064048139053,
+      "first_vessel_part_loss_mach": 5.74531602247655,
+      "first_vessel_part_loss_airspeed_mps": 1741.161455999078,
+      "first_vessel_part_loss_airbrake_angle_deg": 90,
+      "first_vessel_part_loss_airbrake_load_proxy_kpa": 20.33312164378309,
+      "first_vessel_part_loss_convective_heating_rate_proxy": 0.6095924248204734,
+      "first_vessel_part_loss_airbrake_heating_rate_proxy": 0.6095924248204734,
+      "first_vessel_part_loss_convective_heating_exposure_proxy": 85.46093641352769,
+      "first_vessel_part_loss_airbrake_heating_exposure_proxy": 73.99706343903449,
+      "vessel_hardware_intact_ratio": 0.6862745098039216,
+      "airbrake_angle_readback_sample_count": 186,
+      "airbrake_angle_readback_compliance_ratio": 1,
+      "airbrake_angle_field_max_spread_deg": 0,
+      "airbrake_angle_reassertion_count": 0,
+      "airbrake_authority_limiter_command_percent": 0,
+      "airbrake_authority_limiter_readback_sample_count": 186,
+      "airbrake_authority_limiter_readback_coverage_ratio": 1,
+      "airbrake_authority_limiter_zero_compliance_ratio": 1,
+      "airbrake_authority_limiter_max_percent": 0,
+      "entry_steering_source": "scripted_matched_aoa_no_roll_correction",
+      "trajectories_planned_vector_sample_count": 96,
+      "trajectories_planned_vector_alignment_ratio": 1,
+      "trajectories_planned_vector_median_error_deg": 0.008136772386600636,
+      "trajectories_planned_vector_p90_error_deg": 0.01580845948916314,
+      "trajectories_planned_vector_max_error_deg": 0.01846433373839941,
+      "trajectories_planned_vector_all_aero_sample_count": 143,
+      "trajectories_planned_vector_all_aero_alignment_ratio": 0.958041958041958,
+      "trajectories_planned_vector_all_aero_p90_error_deg": 0.01846433373839941,
+      "sensors": {
+        "barometer": false,
+        "thermometer": false,
+        "accelerometer": false,
+        "gravimeter": false
+      },
+      "altitude_bands": [
+        {
+          "label": "60-71km",
+          "count": 40
+        },
+        {
+          "label": "50-60km",
+          "count": 44
+        },
+        {
+          "label": "40-50km",
+          "count": 46
+        },
+        {
+          "label": "30-40km",
+          "count": 35
+        },
+        {
+          "label": "19-30km",
+          "count": 21
+        }
+      ],
+      "required_fields": [
+        {
+          "field": "time_s",
+          "ratio": 1
+        },
+        {
+          "field": "phase",
+          "ratio": 1
+        },
+        {
+          "field": "altitude_asl_m",
+          "ratio": 1
+        },
+        {
+          "field": "airspeed_mps",
+          "ratio": 1
+        },
+        {
+          "field": "airspeed_rate_mps2",
+          "ratio": 1
+        },
+        {
+          "field": "vertical_speed_mps",
+          "ratio": 1
+        },
+        {
+          "field": "dynamic_pressure_kpa",
+          "ratio": 1
+        },
+        {
+          "field": "density_model_kgpm3",
+          "ratio": 1
+        },
+        {
+          "field": "mach_model",
+          "ratio": 1
+        },
+        {
+          "field": "mass_t",
+          "ratio": 1
+        },
+        {
+          "field": "latitude_deg",
+          "ratio": 1
+        },
+        {
+          "field": "longitude_deg",
+          "ratio": 1
+        },
+        {
+          "field": "aoa_command_deg",
+          "ratio": 1
+        },
+        {
+          "field": "aoa_actual_deg",
+          "ratio": 1
+        },
+        {
+          "field": "airbrake_angle_command_deg",
+          "ratio": 1
+        },
+        {
+          "field": "airbrake_part_count",
+          "ratio": 1
+        },
+        {
+          "field": "brakes_action_group",
+          "ratio": 1
+        },
+        {
+          "field": "has_trajectories_impact",
+          "ratio": 1
+        }
+      ],
+      "checks": {
+        "complete_status": true,
+        "contiguous_segments": true,
+        "enough_entry_samples": true,
+        "full_altitude_envelope": true,
+        "sample_cadence": true,
+        "required_fields": true,
+        "trajectories_coverage": true,
+        "unpowered_entry": true,
+        "mode_compliance": true,
+        "airbrake_angle_readback": true,
+        "no_airbrake_angle_reassertions": true,
+        "vessel_part_count_readback": true,
+        "no_vessel_part_loss": false,
+        "airbrake_authority_limiter_zero": true,
+        "trajectories_planned_vector_alignment": true,
+        "altitude_band_coverage": true
+      },
+      "usable": false
     }
   ],
   "selected_pair": {
@@ -4930,7 +5235,7 @@
     "fixed_mode": "fixed90",
     "fixed_run_id": "1784752958",
     "fixed_angle_deg": 90,
-    "trajectories_profile_key": "{\"angles\":[170,170,165,165],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":\"unverified\",\"airbrake_exposure_safeguard\":null}",
+    "trajectories_profile_key": "{\"angles\":[170,170,165,165],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":\"unverified\",\"airbrake_thermal_safeguard\":null}",
     "trajectories_profile_id": "legacy",
     "entry_corridor_id": "trajectories_miss",
     "initial": {
@@ -4991,7 +5296,7 @@
     "fixed_mode": "fixed45",
     "fixed_run_id": "1784753895",
     "fixed_angle_deg": 45,
-    "trajectories_profile_key": "{\"angles\":[170,170,165,165],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":\"unverified\",\"airbrake_exposure_safeguard\":null}",
+    "trajectories_profile_key": "{\"angles\":[170,170,165,165],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":\"unverified\",\"airbrake_thermal_safeguard\":null}",
     "trajectories_profile_id": "legacy",
     "entry_corridor_id": "trajectories_miss",
     "initial": {
@@ -5052,7 +5357,7 @@
     "fixed_mode": "fixed50",
     "fixed_run_id": "1785014313",
     "fixed_angle_deg": 50,
-    "trajectories_profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_exposure_safeguard\":null}",
+    "trajectories_profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_thermal_safeguard\":null}",
     "trajectories_profile_id": "matched10",
     "entry_corridor_id": "trajectories_miss",
     "initial": {
@@ -5113,7 +5418,7 @@
     "fixed_mode": "fixed60",
     "fixed_run_id": "1793291305",
     "fixed_angle_deg": 60,
-    "trajectories_profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_exposure_safeguard\":null}",
+    "trajectories_profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_thermal_safeguard\":null}",
     "trajectories_profile_id": "matched10",
     "entry_corridor_id": "entry_fpa29",
     "initial": {
@@ -5174,7 +5479,7 @@
     "fixed_mode": "fixed30",
     "fixed_run_id": "1784758965",
     "fixed_angle_deg": 30,
-    "trajectories_profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":\"unverified\",\"airbrake_exposure_safeguard\":null}",
+    "trajectories_profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":\"unverified\",\"airbrake_thermal_safeguard\":null}",
     "trajectories_profile_id": "matched10",
     "entry_corridor_id": "trajectories_miss",
     "initial": {
@@ -5236,7 +5541,7 @@
       "fixed_mode": "fixed",
       "fixed_run_id": "1785016786",
       "fixed_angle_deg": 70,
-      "trajectories_profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_exposure_safeguard\":null}",
+      "trajectories_profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_thermal_safeguard\":null}",
       "trajectories_profile_id": "matched10",
       "entry_corridor_id": "trajectories_miss",
       "initial": {
@@ -5297,7 +5602,7 @@
       "fixed_mode": "fixed",
       "fixed_run_id": "1793295120",
       "fixed_angle_deg": 45,
-      "trajectories_profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_exposure_safeguard\":null}",
+      "trajectories_profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_thermal_safeguard\":null}",
       "trajectories_profile_id": "matched10",
       "entry_corridor_id": "entry_fpa29",
       "initial": {
@@ -5358,7 +5663,7 @@
       "fixed_mode": "fixed",
       "fixed_run_id": "1793299301",
       "fixed_angle_deg": 52.5,
-      "trajectories_profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_exposure_safeguard\":null}",
+      "trajectories_profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_thermal_safeguard\":null}",
       "trajectories_profile_id": "matched10",
       "entry_corridor_id": "entry_fpa29",
       "initial": {
@@ -5417,7 +5722,7 @@
   ],
   "profile_sets": [
     {
-      "profile_key": "{\"angles\":[170,170,165,165],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":\"unverified\",\"airbrake_exposure_safeguard\":null}",
+      "profile_key": "{\"angles\":[170,170,165,165],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":\"unverified\",\"airbrake_thermal_safeguard\":null}",
       "profile_id": "legacy",
       "run_ids": [
         "1784751407",
@@ -5431,7 +5736,7 @@
         "fixed_mode": "fixed45",
         "fixed_run_id": "1784753895",
         "fixed_angle_deg": 45,
-        "trajectories_profile_key": "{\"angles\":[170,170,165,165],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":\"unverified\",\"airbrake_exposure_safeguard\":null}",
+        "trajectories_profile_key": "{\"angles\":[170,170,165,165],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":\"unverified\",\"airbrake_thermal_safeguard\":null}",
         "trajectories_profile_id": "legacy",
         "entry_corridor_id": "trajectories_miss",
         "initial": {
@@ -5494,7 +5799,7 @@
         "fixed_mode": "fixed90",
         "fixed_run_id": "1784752958",
         "fixed_angle_deg": 90,
-        "trajectories_profile_key": "{\"angles\":[170,170,165,165],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":\"unverified\",\"airbrake_exposure_safeguard\":null}",
+        "trajectories_profile_key": "{\"angles\":[170,170,165,165],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":\"unverified\",\"airbrake_thermal_safeguard\":null}",
         "trajectories_profile_id": "legacy",
         "entry_corridor_id": "trajectories_miss",
         "initial": {
@@ -5553,7 +5858,7 @@
       "custom_fixed_pairs": []
     },
     {
-      "profile_key": "{\"angles\":[170,170,170,170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":\"unverified\",\"airbrake_exposure_safeguard\":null}",
+      "profile_key": "{\"angles\":[170,170,170,170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":\"unverified\",\"airbrake_thermal_safeguard\":null}",
       "profile_id": "matched10",
       "run_ids": [
         "1784756851"
@@ -5566,7 +5871,7 @@
       "custom_fixed_pairs": []
     },
     {
-      "profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":\"unverified\",\"airbrake_exposure_safeguard\":null}",
+      "profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":\"unverified\",\"airbrake_thermal_safeguard\":null}",
       "profile_id": "matched10",
       "run_ids": [
         "1784758163",
@@ -5577,7 +5882,7 @@
         "fixed_mode": "fixed30",
         "fixed_run_id": "1784758965",
         "fixed_angle_deg": 30,
-        "trajectories_profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":\"unverified\",\"airbrake_exposure_safeguard\":null}",
+        "trajectories_profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":\"unverified\",\"airbrake_thermal_safeguard\":null}",
         "trajectories_profile_id": "matched10",
         "entry_corridor_id": "trajectories_miss",
         "initial": {
@@ -5640,7 +5945,7 @@
       "custom_fixed_pairs": []
     },
     {
-      "profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_exposure_safeguard\":null}",
+      "profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_thermal_safeguard\":null}",
       "profile_id": "matched10",
       "run_ids": [
         "1785011593",
@@ -5658,7 +5963,7 @@
         "fixed_mode": "fixed30",
         "fixed_run_id": "1785012757",
         "fixed_angle_deg": 30,
-        "trajectories_profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_exposure_safeguard\":null}",
+        "trajectories_profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_thermal_safeguard\":null}",
         "trajectories_profile_id": "matched10",
         "entry_corridor_id": "trajectories_miss",
         "initial": {
@@ -5719,7 +6024,7 @@
         "fixed_mode": "fixed45",
         "fixed_run_id": "1785013509",
         "fixed_angle_deg": 45,
-        "trajectories_profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_exposure_safeguard\":null}",
+        "trajectories_profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_thermal_safeguard\":null}",
         "trajectories_profile_id": "matched10",
         "entry_corridor_id": "trajectories_miss",
         "initial": {
@@ -5780,7 +6085,7 @@
         "fixed_mode": "fixed50",
         "fixed_run_id": "1785014313",
         "fixed_angle_deg": 50,
-        "trajectories_profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_exposure_safeguard\":null}",
+        "trajectories_profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_thermal_safeguard\":null}",
         "trajectories_profile_id": "matched10",
         "entry_corridor_id": "trajectories_miss",
         "initial": {
@@ -5841,7 +6146,7 @@
         "fixed_mode": "fixed60",
         "fixed_run_id": "1785016154",
         "fixed_angle_deg": 60,
-        "trajectories_profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_exposure_safeguard\":null}",
+        "trajectories_profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_thermal_safeguard\":null}",
         "trajectories_profile_id": "matched10",
         "entry_corridor_id": "trajectories_miss",
         "initial": {
@@ -5902,7 +6207,7 @@
         "fixed_mode": "fixed90",
         "fixed_run_id": "1785359750",
         "fixed_angle_deg": 90,
-        "trajectories_profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_exposure_safeguard\":null}",
+        "trajectories_profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_thermal_safeguard\":null}",
         "trajectories_profile_id": "matched10",
         "entry_corridor_id": "trajectories_miss",
         "initial": {
@@ -5964,7 +6269,7 @@
           "fixed_mode": "fixed",
           "fixed_run_id": "1785016786",
           "fixed_angle_deg": 70,
-          "trajectories_profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_exposure_safeguard\":null}",
+          "trajectories_profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_thermal_safeguard\":null}",
           "trajectories_profile_id": "matched10",
           "entry_corridor_id": "trajectories_miss",
           "initial": {
@@ -6023,7 +6328,7 @@
       ]
     },
     {
-      "profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_exposure_safeguard\":null}",
+      "profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_thermal_safeguard\":null}",
       "profile_id": "matched10",
       "run_ids": [
         "1793291305",
@@ -6040,7 +6345,7 @@
         "fixed_mode": "fixed60",
         "fixed_run_id": "1793291305",
         "fixed_angle_deg": 60,
-        "trajectories_profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_exposure_safeguard\":null}",
+        "trajectories_profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_thermal_safeguard\":null}",
         "trajectories_profile_id": "matched10",
         "entry_corridor_id": "entry_fpa29",
         "initial": {
@@ -6101,7 +6406,7 @@
         "fixed_mode": "fixed90",
         "fixed_run_id": "1793297199",
         "fixed_angle_deg": 90,
-        "trajectories_profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_exposure_safeguard\":null}",
+        "trajectories_profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_thermal_safeguard\":null}",
         "trajectories_profile_id": "matched10",
         "entry_corridor_id": "entry_fpa29",
         "initial": {
@@ -6163,7 +6468,7 @@
           "fixed_mode": "fixed",
           "fixed_run_id": "1793295120",
           "fixed_angle_deg": 45,
-          "trajectories_profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_exposure_safeguard\":null}",
+          "trajectories_profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_thermal_safeguard\":null}",
           "trajectories_profile_id": "matched10",
           "entry_corridor_id": "entry_fpa29",
           "initial": {
@@ -6224,7 +6529,7 @@
           "fixed_mode": "fixed",
           "fixed_run_id": "1793299301",
           "fixed_angle_deg": 52.5,
-          "trajectories_profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_exposure_safeguard\":null}",
+          "trajectories_profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_thermal_safeguard\":null}",
           "trajectories_profile_id": "matched10",
           "entry_corridor_id": "entry_fpa29",
           "initial": {
@@ -6283,7 +6588,7 @@
       ]
     },
     {
-      "profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":175,\"airbrake_authority_limiter_percent\":0,\"airbrake_exposure_safeguard\":null}",
+      "profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":175,\"airbrake_authority_limiter_percent\":0,\"airbrake_thermal_safeguard\":null}",
       "profile_id": "matched10",
       "run_ids": [
         "1793301027",
@@ -6297,10 +6602,23 @@
       "custom_fixed_pairs": []
     },
     {
-      "profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":175,\"airbrake_authority_limiter_percent\":0,\"airbrake_exposure_safeguard\":{\"budget_units\":20,\"cooldown_s\":10}}",
+      "profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":175,\"airbrake_authority_limiter_percent\":0,\"airbrake_thermal_safeguard\":{\"policy\":\"exposure_budget\",\"budget_units\":20,\"cooldown_s\":10}}",
       "profile_id": "matched10",
       "run_ids": [
         "1794175490"
+      ],
+      "fixed30_pair": null,
+      "fixed45_pair": null,
+      "fixed50_pair": null,
+      "fixed60_pair": null,
+      "fixed90_pair": null,
+      "custom_fixed_pairs": []
+    },
+    {
+      "profile_key": "{\"angles\":[180,180,180,180],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":0,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":175,\"airbrake_authority_limiter_percent\":0,\"airbrake_thermal_safeguard\":{\"policy\":\"exposure_budget\",\"budget_units\":20,\"cooldown_s\":10}}",
+      "profile_id": "matched0",
+      "run_ids": [
+        "1794177094"
       ],
       "fixed30_pair": null,
       "fixed45_pair": null,
@@ -6327,7 +6645,7 @@
   },
   "matched10_validation": {
     "has_profile": true,
-    "profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_exposure_safeguard\":null}",
+    "profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_thermal_safeguard\":null}",
     "has_off_run": true,
     "fixed30_pair_comparable": true,
     "fixed45_pair_comparable": true,
@@ -6487,7 +6805,40 @@
   },
   "survivability_by_profile_corridor": [
     {
-      "profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_exposure_safeguard\":null}",
+      "profile_key": "{\"angles\":[180,180,180,180],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":0,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":175,\"airbrake_authority_limiter_percent\":0,\"airbrake_thermal_safeguard\":{\"policy\":\"exposure_budget\",\"budget_units\":20,\"cooldown_s\":10}}",
+      "profile_id": "matched0",
+      "entry_corridor_id": "entry_fpa29",
+      "run_count": 1,
+      "runs": [
+        {
+          "run_id": "1794177094",
+          "mode": "fixed90",
+          "angle_deg": 90,
+          "status": "splashed",
+          "predictor_fit_usable": false,
+          "full_integrity": false,
+          "minimum_vessel_part_count": 33,
+          "expected_vessel_part_count": 35,
+          "minimum_airbrake_count": 2,
+          "expected_airbrake_count": 4,
+          "first_loss_altitude_m": 25641.154513132293,
+          "first_loss_dynamic_pressure_kpa": 20.33312164378309,
+          "first_loss_dynamic_pressure_fraction_of_run_peak": 0.43866064048139053,
+          "first_loss_airbrake_load_proxy_kpa": 20.33312164378309,
+          "first_loss_convective_heating_exposure_proxy": 85.46093641352769,
+          "first_loss_airbrake_heating_exposure_proxy": 73.99706343903449,
+          "max_dynamic_pressure_kpa": 46.35273778260416,
+          "max_intact_airbrake_load_proxy_kpa": 18.97529625046042,
+          "max_intact_convective_heating_exposure_proxy": 84.05736658017537,
+          "max_intact_airbrake_heating_exposure_proxy": 72.59349360568217
+        }
+      ],
+      "full_integrity_angles_deg": [],
+      "minimum_full_integrity_angle_deg": null,
+      "corridor_has_full_integrity_result": false
+    },
+    {
+      "profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_thermal_safeguard\":null}",
       "profile_id": "matched10",
       "entry_corridor_id": "entry_fpa29",
       "run_count": 4,
@@ -6589,7 +6940,7 @@
       "corridor_has_full_integrity_result": true
     },
     {
-      "profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":175,\"airbrake_authority_limiter_percent\":0,\"airbrake_exposure_safeguard\":null}",
+      "profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":175,\"airbrake_authority_limiter_percent\":0,\"airbrake_thermal_safeguard\":null}",
       "profile_id": "matched10",
       "entry_corridor_id": "entry_fpa29",
       "run_count": 2,
@@ -6646,7 +6997,7 @@
       "corridor_has_full_integrity_result": true
     },
     {
-      "profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":175,\"airbrake_authority_limiter_percent\":0,\"airbrake_exposure_safeguard\":{\"budget_units\":20,\"cooldown_s\":10}}",
+      "profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":175,\"airbrake_authority_limiter_percent\":0,\"airbrake_thermal_safeguard\":{\"policy\":\"exposure_budget\",\"budget_units\":20,\"cooldown_s\":10}}",
       "profile_id": "matched10",
       "entry_corridor_id": "entry_fpa29",
       "run_count": 1,
@@ -6681,7 +7032,7 @@
       "corridor_has_full_integrity_result": true
     },
     {
-      "profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_exposure_safeguard\":null}",
+      "profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_thermal_safeguard\":null}",
       "profile_id": "matched10",
       "entry_corridor_id": "trajectories_miss",
       "run_count": 6,
@@ -6826,7 +7177,7 @@
   ],
   "controllable_corridor_validation": [
     {
-      "profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":175,\"airbrake_authority_limiter_percent\":0,\"airbrake_exposure_safeguard\":null}",
+      "profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":175,\"airbrake_authority_limiter_percent\":0,\"airbrake_thermal_safeguard\":null}",
       "profile_id": "matched10",
       "entry_corridor_id": "entry_fpa29",
       "target_deorbit_phase_angle_deg": 175,
@@ -6847,7 +7198,7 @@
       "closed_loop_test_ready": false
     },
     {
-      "profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":175,\"airbrake_authority_limiter_percent\":0,\"airbrake_exposure_safeguard\":{\"budget_units\":20,\"cooldown_s\":10}}",
+      "profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":175,\"airbrake_authority_limiter_percent\":0,\"airbrake_thermal_safeguard\":{\"policy\":\"exposure_budget\",\"budget_units\":20,\"cooldown_s\":10}}",
       "profile_id": "matched10",
       "entry_corridor_id": "entry_fpa29",
       "target_deorbit_phase_angle_deg": 175,
@@ -6859,6 +7210,27 @@
         "landing_miss_m": 7445.138819528325,
         "landing_along_miss_m": -7373.495539739221,
         "landing_cross_miss_m": -1030.3731984873175
+      },
+      "endpoints_ready": false,
+      "expected_angle_ordering": false,
+      "target_bracketed": false,
+      "authority_span_m": null,
+      "authority_midpoint_m": null,
+      "closed_loop_test_ready": false
+    },
+    {
+      "profile_key": "{\"angles\":[180,180,180,180],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":0,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":175,\"airbrake_authority_limiter_percent\":0,\"airbrake_thermal_safeguard\":{\"policy\":\"exposure_budget\",\"budget_units\":20,\"cooldown_s\":10}}",
+      "profile_id": "matched0",
+      "entry_corridor_id": "entry_fpa29",
+      "target_deorbit_phase_angle_deg": 175,
+      "fixed60": null,
+      "fixed90": {
+        "run_id": "1794177094",
+        "angle_deg": 90,
+        "full_integrity": false,
+        "landing_miss_m": 27866.047456921224,
+        "landing_along_miss_m": -27833.99203620985,
+        "landing_cross_miss_m": -1336.3414956753736
       },
       "endpoints_ready": false,
       "expected_angle_ordering": false,
