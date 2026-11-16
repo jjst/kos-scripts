@@ -71,7 +71,7 @@ LOCAL corridor90_reference_choice IS scripts:LENGTH + 2.
 LOCAL corridor0_aoa_choice IS scripts:LENGTH + 3.
 LOCAL corridor_pid_choice IS scripts:LENGTH + 4.
 LOCAL experiment_deorbit_path IS "1:/" + scripts[1].
-PRINT "  " + corridor60_reference_choice + ") deorbit.ks [175 deg phase test: airbrakes 60 reference]".
+PRINT "  " + corridor60_reference_choice + ") deorbit.ks [SURVIVAL TEST: 0 deg AoA, airbrakes 60 + 10/1 q duty]".
 PRINT "  " + corridor90_reference_choice + ") deorbit.ks [175 deg phase test: airbrakes 90]".
 PRINT "  " + corridor0_aoa_choice + ") deorbit.ks [SURVIVAL TEST: 0 deg AoA, airbrakes 90 + 10/1 q duty]".
 PRINT "  " + corridor_pid_choice + ") deorbit.ks [closed-loop airbrakes 60-90; after endpoint validation]".
@@ -97,8 +97,8 @@ IF choice_num = deorbit_script_choice {
     PRINT "Launching local " + script + "...".
     RUNPATH("1:/" + script).
 } ELSE IF choice_num = corridor60_reference_choice {
-    PRINT "Launching current 2.9 deg entry corridor with airbrakes fixed at 60 deg...".
-    RUNPATH(experiment_deorbit_path, "fixed60", "matched10", -1, "entry_fpa29").
+    PRINT "Launching isolated reentry-survival test: 0 deg AoA, fixed 60 deg, 10/1 q duty...".
+    RUNPATH(experiment_deorbit_path, "fixed60", "matched0", -1, "entry_fpa29", TRUE).
 } ELSE IF choice_num = corridor90_reference_choice {
     PRINT "Launching current 2.9 deg entry corridor with airbrakes fixed at 90 deg...".
     RUNPATH(experiment_deorbit_path, "fixed90", "matched10", -1, "entry_fpa29").
