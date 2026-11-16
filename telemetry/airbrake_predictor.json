@@ -1,7 +1,7 @@
 {
   "schema": "empirical_airbrake_trajectories_predictor",
   "schema_version": 2,
-  "generated_at": "2026-11-16T20:58:39.418Z",
+  "generated_at": "2026-11-16T21:48:48.944Z",
   "calibration_profile": {
     "profile_key": "{\"angles\":[-170,-170,-170,-170],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":10,\"entry_corridor_id\":\"trajectories_miss\",\"deorbit_phase_target_deg\":\"unverified\",\"airbrake_authority_limiter_percent\":0,\"airbrake_thermal_safeguard\":null}",
     "profile_id": "matched10"
