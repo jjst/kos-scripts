@@ -266,14 +266,15 @@ function mergeSegments(segments) {
       }
     }
     const finalPart = parts.at(-1);
+    const runMetadata = Object.assign({}, ...parts.map((part) => part.run));
     return {
       run_id: runId,
-      run: parts[0].run,
-      mode: parts[0].run.airbrake_control_mode,
+      run: runMetadata,
+      mode: runMetadata.airbrake_control_mode,
       status: finalPart.status,
       segments: parts.map((part) => part.segment_index),
       source_files: parts.map((part) => part.source_file),
-      samples: enrichSamples(samples, parts[0].run.airbrake_actuator_speed_degps ?? 20, parts[0].run.airbrake_part_count ?? null),
+      samples: enrichSamples(samples, runMetadata.airbrake_actuator_speed_degps ?? 20, runMetadata.airbrake_part_count ?? null),
       events: events.sort((a, b) => (a.time_s ?? 0) - (b.time_s ?? 0)),
     };
   }).sort((a, b) => Number(a.run_id) - Number(b.run_id));
@@ -425,6 +426,15 @@ function summarizeRun(run) {
     predicted_entry_fpa_down_deg: run.run.predicted_entry_fpa_down_deg ?? null,
     target_deorbit_phase_angle_deg: run.run.target_deorbit_phase_angle_deg ?? null,
     actual_deorbit_burn_phase_angle_deg: run.run.actual_deorbit_burn_phase_angle_deg ?? null,
+    reentry_survival_experiment_mode: run.run.reentry_survival_experiment_mode === true,
+    reentry_survival_outcome: run.run.reentry_survival_outcome ?? null,
+    reentry_survival_subsonic_mach_threshold: run.run.reentry_survival_subsonic_mach_threshold ?? null,
+    reentry_survival_subsonic_hold_s: run.run.reentry_survival_subsonic_hold_s ?? null,
+    reentry_survival_milestone_mach: run.run.reentry_survival_milestone_mach ?? null,
+    reentry_survival_milestone_altitude_m: run.run.reentry_survival_milestone_altitude_m ?? null,
+    reentry_survival_milestone_surface_speed_mps: run.run.reentry_survival_milestone_surface_speed_mps ?? null,
+    reentry_survival_milestone_vessel_part_count: run.run.reentry_survival_milestone_vessel_part_count ?? null,
+    reentry_survival_milestone_airbrake_count: run.run.reentry_survival_milestone_airbrake_count ?? null,
     entry_aoa_deg: run.run.entry_aoa_deg ?? null,
     airbrake_min_angle_deg: run.run.airbrake_min_angle_deg ?? null,
     airbrake_max_angle_deg: run.run.airbrake_max_angle_deg ?? null,
@@ -888,7 +898,11 @@ function analyzeSegments(segments) {
       const summary = summaryById.get(run.run_id);
       const angle = expectedFixedAngle(run);
       if (angle === null || !summary?.checks.complete_status || !(summary.expected_vessel_part_count > 0) || summary.minimum_vessel_part_count === null) return null;
-      const fullIntegrity = summary.minimum_vessel_part_count === summary.expected_vessel_part_count;
+      const survivalExperimentOutcome = summary.reentry_survival_outcome;
+      const fullIntegrity = survivalExperimentOutcome
+        ? survivalExperimentOutcome === "reentry_survival_pass"
+        : summary.minimum_vessel_part_count === summary.expected_vessel_part_count;
+      const entryFailureRecorded = survivalExperimentOutcome !== "reentry_survival_pass";
       return {
         run_id: run.run_id,
         mode: run.mode,
@@ -896,16 +910,17 @@ function analyzeSegments(segments) {
         status: summary.status,
         predictor_fit_usable: summary.usable,
         full_integrity: fullIntegrity,
+        reentry_survival_outcome: survivalExperimentOutcome,
         minimum_vessel_part_count: summary.minimum_vessel_part_count,
         expected_vessel_part_count: summary.expected_vessel_part_count,
         minimum_airbrake_count: summary.minimum_airbrake_count,
         expected_airbrake_count: summary.expected_airbrake_count,
-        first_loss_altitude_m: summary.first_vessel_part_loss_altitude_m,
-        first_loss_dynamic_pressure_kpa: summary.first_vessel_part_loss_dynamic_pressure_kpa,
-        first_loss_dynamic_pressure_fraction_of_run_peak: summary.first_vessel_part_loss_dynamic_pressure_fraction_of_run_peak,
-        first_loss_airbrake_load_proxy_kpa: summary.first_vessel_part_loss_airbrake_load_proxy_kpa,
-        first_loss_convective_heating_exposure_proxy: summary.first_vessel_part_loss_convective_heating_exposure_proxy,
-        first_loss_airbrake_heating_exposure_proxy: summary.first_vessel_part_loss_airbrake_heating_exposure_proxy,
+        first_loss_altitude_m: entryFailureRecorded ? summary.first_vessel_part_loss_altitude_m : null,
+        first_loss_dynamic_pressure_kpa: entryFailureRecorded ? summary.first_vessel_part_loss_dynamic_pressure_kpa : null,
+        first_loss_dynamic_pressure_fraction_of_run_peak: entryFailureRecorded ? summary.first_vessel_part_loss_dynamic_pressure_fraction_of_run_peak : null,
+        first_loss_airbrake_load_proxy_kpa: entryFailureRecorded ? summary.first_vessel_part_loss_airbrake_load_proxy_kpa : null,
+        first_loss_convective_heating_exposure_proxy: entryFailureRecorded ? summary.first_vessel_part_loss_convective_heating_exposure_proxy : null,
+        first_loss_airbrake_heating_exposure_proxy: entryFailureRecorded ? summary.first_vessel_part_loss_airbrake_heating_exposure_proxy : null,
         max_dynamic_pressure_kpa: summary.max_dynamic_pressure_kpa,
         max_intact_airbrake_load_proxy_kpa: summary.max_intact_airbrake_load_proxy_kpa,
         max_intact_convective_heating_exposure_proxy: summary.max_intact_convective_heating_exposure_proxy,

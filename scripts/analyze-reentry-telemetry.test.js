@@ -547,6 +547,65 @@ test("extends survivability checks through landing telemetry segments", () => {
   assert.equal(report.runs[0].first_vessel_part_loss_dynamic_pressure_kpa, 40);
 });
 
+test("retains survival experiment outcome written by a later entry segment", () => {
+  const entry = { ...makeRun(526, "fixed90", "matched0", null, "entry_fpa29"), source_file: "entry.json" };
+  entry.status = "running";
+  entry.run.reentry_survival_experiment_mode = true;
+  entry.run.reentry_survival_subsonic_mach_threshold = 0.8;
+  entry.run.reentry_survival_subsonic_hold_s = 5;
+
+  const milestone = {
+    ...entry,
+    status: "reentry_survival_pass",
+    segment_index: 1,
+    source_file: "milestone.json",
+    run: {
+      ...entry.run,
+      reentry_survival_outcome: "reentry_survival_pass",
+      reentry_survival_milestone_mach: 0.79,
+      reentry_survival_milestone_altitude_m: 8050,
+      reentry_survival_milestone_surface_speed_mps: 250,
+      reentry_survival_milestone_vessel_part_count: 24,
+      reentry_survival_milestone_airbrake_count: 4,
+    },
+    samples: [{
+      time_s: 1200,
+      phase: "landing_final",
+      altitude_asl_m: 0,
+      altitude_radar_m: 0,
+      dynamic_pressure_kpa: 0,
+      vessel_part_count: 23,
+      airbrake_part_count: 4,
+      mass_t: 19,
+    }],
+  };
+  const landing = {
+    ...entry,
+    status: "landed",
+    segment_index: 2,
+    source_file: "landing.json",
+    run: {
+      run_id: 526,
+      airbrake_control_mode: "fixed90",
+      trajectories_profile_id: "matched0",
+      initial_vessel_part_count: 24,
+    },
+    samples: [],
+  };
+
+  const report = analyzeSegments([entry, milestone, landing]);
+  const summary = report.runs[0];
+  assert.equal(summary.status, "landed");
+  assert.equal(summary.reentry_survival_experiment_mode, true);
+  assert.equal(summary.reentry_survival_outcome, "reentry_survival_pass");
+  assert.equal(summary.reentry_survival_milestone_mach, 0.79);
+  assert.equal(summary.reentry_survival_milestone_airbrake_count, 4);
+  assert.equal(summary.checks.no_vessel_part_loss, false);
+  const corridor = report.survivability_by_profile_corridor.find((group) => group.profile_id === "matched0");
+  assert.equal(corridor.runs[0].full_integrity, true);
+  assert.equal(corridor.runs[0].first_loss_altitude_m, null);
+});
+
 test("selects the corrected signed matched10 set over an older rejected set", () => {
   const old = { ...makeRun(490, "off", "matched10"), source_file: "old-positive-sign.json" };
   old.run = { ...old.run, trajectories_descent_angles_deg: [170, 170, 170, 170] };

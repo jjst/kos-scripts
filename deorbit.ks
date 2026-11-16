@@ -8,6 +8,7 @@ PARAMETER reentry_airbrake_control_mode IS "fixed60".
 PARAMETER trajectories_profile_id IS "matched10".
 PARAMETER custom_fixed_airbrake_angle_deg IS -1.
 PARAMETER deorbit_guidance_mode IS "entry_fpa29".
+PARAMETER reentry_survival_experiment_mode IS FALSE.
 
 // --- CONFIG (edit these) ------------------------------------
 SET reentry_script_path TO "1:/reentry.ks".
@@ -258,6 +259,7 @@ check_line(reentry_airbrake_control_mode = "off" OR reentry_airbrake_control_mod
 check_line(reentry_airbrake_control_mode <> "fixed" OR (custom_fixed_airbrake_angle_deg >= 0 AND custom_fixed_airbrake_angle_deg <= 90), "Custom fixed airbrake angle", ROUND(custom_fixed_airbrake_angle_deg, 2) + " deg within 0-90").
 check_line(trajectories_profile_id = "proxy" OR trajectories_profile_id = "matched10" OR trajectories_profile_id = "matched0", "Trajectories profile", trajectories_profile_id).
 check_line(deorbit_guidance_mode = "trajectories_miss" OR deorbit_guidance_mode = "entry_fpa29", "Deorbit guidance mode", deorbit_guidance_mode).
+check_line(NOT reentry_survival_experiment_mode OR reentry_airbrake_control_mode <> "pid", "Survival experiment geographic PID disabled", "enabled " + reentry_survival_experiment_mode + "; airbrake mode " + reentry_airbrake_control_mode).
 check_line(SHIP:APOAPSIS >= min_parking_alt_meters AND SHIP:APOAPSIS <= max_parking_alt_meters, "Parking Ap", ROUND(SHIP:APOAPSIS/1000, 1) + " km within " + ROUND(min_parking_alt_meters/1000) + "-" + ROUND(max_parking_alt_meters/1000) + " km").
 check_line(SHIP:PERIAPSIS >= min_parking_alt_meters AND SHIP:PERIAPSIS <= max_parking_alt_meters, "Parking Pe", ROUND(SHIP:PERIAPSIS/1000, 1) + " km within " + ROUND(min_parking_alt_meters/1000) + "-" + ROUND(max_parking_alt_meters/1000) + " km").
 check_line(SHIP:OBT:ECCENTRICITY <= max_parking_eccentricity, "Parking eccentricity", ROUND(SHIP:OBT:ECCENTRICITY, 4) + " <= " + max_parking_eccentricity).
@@ -491,5 +493,5 @@ UNTIL SHIP:ALTITUDE <= reentry_handoff_alt_meters {
 }
 SET WARP TO 0.
 
-log_line("Running reentry script: " + reentry_script_path + "  |  airbrakes: " + reentry_airbrake_control_mode + "  |  fixed angle: " + ROUND(custom_fixed_airbrake_angle_deg, 2) + "  |  Trajectories profile: " + trajectories_profile_id + "  |  corridor: " + deorbit_guidance_mode).
-RUNPATH(reentry_script_path, reentry_airbrake_control_mode, trajectories_profile_id, custom_fixed_airbrake_angle_deg, deorbit_guidance_mode, target_entry_fpa_down_deg, achieved_entry_fpa_down_deg, target_deorbit_phase_angle_deg, actual_deorbit_burn_phase_angle_deg).
+log_line("Running reentry script: " + reentry_script_path + "  |  airbrakes: " + reentry_airbrake_control_mode + "  |  fixed angle: " + ROUND(custom_fixed_airbrake_angle_deg, 2) + "  |  Trajectories profile: " + trajectories_profile_id + "  |  corridor: " + deorbit_guidance_mode + "  |  survival experiment: " + reentry_survival_experiment_mode).
+RUNPATH(reentry_script_path, reentry_airbrake_control_mode, trajectories_profile_id, custom_fixed_airbrake_angle_deg, deorbit_guidance_mode, target_entry_fpa_down_deg, achieved_entry_fpa_down_deg, target_deorbit_phase_angle_deg, actual_deorbit_burn_phase_angle_deg, reentry_survival_experiment_mode).

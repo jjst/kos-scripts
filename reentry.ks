@@ -1,5 +1,5 @@
 // ============================================================
-//  reentry.ks — atmospheric guidance and land handoff
+//  reentry.ks — atmospheric guidance, survival testing, and land handoff
 // ============================================================
 //  Manages the high-energy reentry profile, then hands off to
 //  land_guided.ks only after the vessel reaches the descent envelope.
@@ -12,6 +12,7 @@ PARAMETER target_entry_fpa_down_deg IS -1.
 PARAMETER predicted_entry_fpa_down_deg IS -1.
 PARAMETER target_deorbit_phase_angle_deg IS -1.
 PARAMETER actual_deorbit_burn_phase_angle_deg IS -1.
+PARAMETER reentry_survival_experiment_mode IS FALSE.
 
 // --- CONFIG (edit these) ------------------------------------
 SET entry_telemetry_interval TO 20.
@@ -56,6 +57,8 @@ SET airbrake_angle_response_exponent TO 2.165.
 SET airbrake_hot_q_threshold_kpa TO 10.
 SET airbrake_hot_max_deployed_seconds TO 10.
 SET airbrake_cooldown_duration_seconds TO 1.
+SET survival_subsonic_mach_threshold TO 0.8.
+SET survival_subsonic_hold_seconds TO 5.
 SET entry_orbit_retro_alt_meters TO 70000.
 SET reentry_handoff_alt_meters TO 20000.
 SET reentry_guided_land_alt_meters TO 5000.
@@ -88,6 +91,7 @@ SET predictor_telemetry_next_checkpoint TO predictor_telemetry_start_time + pred
 SET predictor_telemetry_last_sample_time TO predictor_telemetry_start_time.
 SET predictor_telemetry_last_airspeed TO SHIP:AIRSPEED.
 SET predictor_telemetry_last_airbrake_count TO SHIP:PARTSTAGGED("airbrake"):LENGTH.
+SET predictor_telemetry_initial_airbrake_count TO predictor_telemetry_last_airbrake_count.
 SET predictor_telemetry_initial_part_count TO SHIP:PARTS:LENGTH.
 SET predictor_telemetry_last_part_count TO predictor_telemetry_initial_part_count.
 SET airbrake_last_command_deg TO -1.
@@ -110,6 +114,18 @@ SET airbrake_cooldown_count TO 0.
 FUNCTION clamp {
     PARAMETER value, min_value, max_value.
     RETURN MIN(max_value, MAX(min_value, value)).
+}
+
+FUNCTION current_model_mach {
+    LOCAL model_temperature_k IS SHIP:BODY:ATM:ALTITUDETEMPERATURE(MAX(0, SHIP:ALTITUDE)).
+    IF model_temperature_k <= 0 OR SHIP:BODY:ATM:MOLARMASS <= 0 {
+        RETURN -1.
+    }
+    LOCAL model_sound_speed IS SQRT(SHIP:BODY:ATM:ADIABATICINDEX * 8.314462618 * model_temperature_k / SHIP:BODY:ATM:MOLARMASS).
+    IF model_sound_speed <= 0 {
+        RETURN -1.
+    }
+    RETURN SHIP:AIRSPEED / model_sound_speed.
 }
 
 FUNCTION airbrake_heating_rate_proxy {
@@ -292,6 +308,10 @@ FUNCTION initialize_predictor_telemetry {
     SET predictor_telemetry_run["predicted_entry_fpa_down_deg"] TO predicted_entry_fpa_down_deg.
     SET predictor_telemetry_run["target_deorbit_phase_angle_deg"] TO target_deorbit_phase_angle_deg.
     SET predictor_telemetry_run["actual_deorbit_burn_phase_angle_deg"] TO actual_deorbit_burn_phase_angle_deg.
+    SET predictor_telemetry_run["reentry_survival_experiment_mode"] TO reentry_survival_experiment_mode.
+    SET predictor_telemetry_run["reentry_survival_subsonic_mach_threshold"] TO survival_subsonic_mach_threshold.
+    SET predictor_telemetry_run["reentry_survival_subsonic_hold_s"] TO survival_subsonic_hold_seconds.
+    SET predictor_telemetry_run["landing_geography_scored"] TO NOT reentry_survival_experiment_mode.
     SET predictor_telemetry_run["airbrake_min_angle_deg"] TO airbrake_min_angle.
     SET predictor_telemetry_run["airbrake_max_angle_deg"] TO airbrake_base_angle.
     SET predictor_telemetry_run["airbrake_fixed_angle_deg"] TO configured_fixed_airbrake_angle().
@@ -542,7 +562,7 @@ FUNCTION capture_predictor_sample {
 FUNCTION finalize_predictor_telemetry {
     PARAMETER final_status, detail.
     IF restore_airbrake_control_authority() {
-        record_predictor_event("airbrake_authority_restored", "restored original authority limiter values at entry handoff").
+        record_predictor_event("airbrake_authority_restored", "restored original authority limiter values at entry controller exit").
     }
     record_predictor_event(final_status, detail).
     SET predictor_telemetry_document["status"] TO final_status.
@@ -703,11 +723,16 @@ log_line("Target       : " + ROUND(pad_geo:LAT, 5) + ", " + ROUND(pad_geo:LNG, 5
 log_line("Airbrake mode: " + airbrake_control_mode + "  |  telemetry: " + predictor_telemetry_path).
 log_line("Entry corridor: " + entry_corridor_id + "  |  target/predicted FPA: " + ROUND(target_entry_fpa_down_deg, 3) + "/" + ROUND(predicted_entry_fpa_down_deg, 3) + " deg down at 70 km").
 log_line("Deorbit phase : target/actual burn " + ROUND(target_deorbit_phase_angle_deg, 3) + "/" + ROUND(actual_deorbit_burn_phase_angle_deg, 3) + " deg").
-log_line("Airbrake authority: locked to " + airbrake_authority_command_percent + "% during entry; original values restored at handoff.").
+log_line("Survival experiment: " + reentry_survival_experiment_mode + "  |  geography scored: " + (NOT reentry_survival_experiment_mode)).
+log_line("Airbrake authority: locked to " + airbrake_authority_command_percent + "% during entry; original values restored when the entry controller exits.").
 log_line("Airbrake thermal safeguard: q-only duty cycle; at q >= " + airbrake_hot_q_threshold_kpa + " kPa retract " + airbrake_cooldown_duration_seconds + " s after " + airbrake_hot_max_deployed_seconds + " s deployed.").
 log_line("Entry attitude: orbit retro above " + ROUND(entry_orbit_retro_alt_meters/1000, 1) + " km, surface retro below.").
 log_line("Entry AoA    : " + entry_aoa_deg + " deg fixed, retract below " + ROUND(entry_aoa_retract_speed_mps) + " m/s.").
-log_line("Handoff gate : " + ROUND(reentry_handoff_alt_meters/1000, 1) + " km alt  |  spd <= " + ROUND(reentry_handoff_speed_mps) + " m/s  |  TR miss <= " + ROUND(reentry_handoff_tr_miss_meters) + " m  |  guided land at " + ROUND(reentry_guided_land_alt_meters/1000, 1) + " km").
+IF reentry_survival_experiment_mode {
+    log_line("Survival gate: Mach <= " + survival_subsonic_mach_threshold + " continuously for " + survival_subsonic_hold_seconds + " s with initial hardware intact; landing geography ignored.").
+} ELSE {
+    log_line("Handoff gate : " + ROUND(reentry_handoff_alt_meters/1000, 1) + " km alt  |  spd <= " + ROUND(reentry_handoff_speed_mps) + " m/s  |  TR miss <= " + ROUND(reentry_handoff_tr_miss_meters) + " m  |  guided land at " + ROUND(reentry_guided_land_alt_meters/1000, 1) + " km").
+}
 
 log_line("--- Preflight checks ---").
 check_line(pad_geo:BODY:NAME = SHIP:BODY:NAME, "Target body", "target " + pad_geo:BODY:NAME + ", current " + SHIP:BODY:NAME).
@@ -738,6 +763,9 @@ check_line(entry_aoa_deg >= 0 AND entry_aoa_deg <= 90, "Entry AoA", ROUND(entry_
 check_line(entry_aoa_retract_speed_mps > 0, "Entry AoA retract speed", ROUND(entry_aoa_retract_speed_mps) + " m/s").
 check_line(reentry_handoff_alt_meters > 0, "Reentry handoff altitude", ROUND(reentry_handoff_alt_meters/1000, 1) + " km").
 check_line(reentry_handoff_tr_miss_meters > 0, "Reentry handoff TR miss", ROUND(reentry_handoff_tr_miss_meters) + " m").
+check_line(NOT reentry_survival_experiment_mode OR airbrake_control_mode <> "pid", "Survival experiment geographic PID disabled", "enabled " + reentry_survival_experiment_mode + "; airbrake mode " + airbrake_control_mode).
+check_line(NOT reentry_survival_experiment_mode OR (survival_subsonic_mach_threshold > 0 AND survival_subsonic_mach_threshold < 1), "Survival subsonic threshold", "Mach " + survival_subsonic_mach_threshold).
+check_line(NOT reentry_survival_experiment_mode OR survival_subsonic_hold_seconds > 0, "Survival subsonic hold", survival_subsonic_hold_seconds + " s").
 info_line("Landing target coordinates", ROUND(pad_geo:LAT, 5) + ", " + ROUND(pad_geo:LNG, 5)).
 IF preflight_failed {
     abort_reentry("preflight checks failed.").
@@ -792,8 +820,34 @@ SET airbrake_cooldown_active TO FALSE.
 SET airbrake_cooldown_until TO 0.
 SET airbrake_cooldown_count TO 0.
 record_predictor_event("entry_guidance_start", "airbrake mode " + airbrake_control_mode).
-UNTIL SHIP:ALTITUDE <= reentry_handoff_alt_meters AND NOT airbrake_cooldown_active {
+LOCAL survival_subsonic_since IS -1.
+LOCAL survival_milestone_reached IS FALSE.
+LOCAL survival_hardware_intact IS TRUE.
+UNTIL (reentry_survival_experiment_mode AND survival_milestone_reached AND NOT airbrake_cooldown_active) OR (NOT reentry_survival_experiment_mode AND SHIP:ALTITUDE <= reentry_handoff_alt_meters AND NOT airbrake_cooldown_active) {
     LOCAL surface_speed IS SHIP:VELOCITY:SURFACE:MAG.
+    LOCAL model_mach IS current_model_mach().
+
+    IF reentry_survival_experiment_mode {
+        IF survival_hardware_intact AND (SHIP:PARTS:LENGTH < predictor_telemetry_initial_part_count OR SHIP:PARTSTAGGED("airbrake"):LENGTH < predictor_telemetry_initial_airbrake_count) {
+            SET survival_hardware_intact TO FALSE.
+            record_predictor_event("reentry_survival_hardware_loss", "vessel parts " + SHIP:PARTS:LENGTH + "/" + predictor_telemetry_initial_part_count + "; airbrakes " + SHIP:PARTSTAGGED("airbrake"):LENGTH + "/" + predictor_telemetry_initial_airbrake_count + " at Mach " + ROUND(model_mach, 3)).
+        }
+        IF model_mach >= 0 AND model_mach <= survival_subsonic_mach_threshold {
+            IF survival_subsonic_since < 0 {
+                SET survival_subsonic_since TO TIME:SECONDS.
+                record_predictor_event("reentry_survival_subsonic_hold_start", "Mach " + ROUND(model_mach, 3) + " at " + ROUND(SHIP:ALTITUDE) + " m").
+            }
+            IF TIME:SECONDS - survival_subsonic_since >= survival_subsonic_hold_seconds AND NOT survival_milestone_reached {
+                SET survival_milestone_reached TO TRUE.
+                record_predictor_event("reentry_survival_subsonic_milestone", "Mach " + ROUND(model_mach, 3) + " held for " + ROUND(TIME:SECONDS - survival_subsonic_since, 1) + " s at " + ROUND(SHIP:ALTITUDE) + " m").
+            }
+        } ELSE {
+            IF survival_subsonic_since >= 0 {
+                record_predictor_event("reentry_survival_subsonic_hold_reset", "Mach returned to " + ROUND(model_mach, 3)).
+            }
+            SET survival_subsonic_since TO -1.
+        }
+    }
 
     // Integrate the exposure accumulated during the previous physics interval.
     // The actuator estimate makes retraction/redeployment gradual at 20 deg/s.
@@ -808,14 +862,14 @@ UNTIL SHIP:ALTITUDE <= reentry_handoff_alt_meters AND NOT airbrake_cooldown_acti
         SET airbrake_cooldown_active TO FALSE.
         SET airbrake_heating_exposure_cycle_proxy TO 0.
         SET airbrake_hot_deployed_time_seconds TO 0.
-        IF airbrake_control_active AND surface_speed > entry_brakes_retract_speed_mps {
+        IF airbrake_control_active AND (reentry_survival_experiment_mode OR surface_speed > entry_brakes_retract_speed_mps) {
             BRAKES ON.
         }
         record_predictor_event("airbrake_q_cooldown_complete", "cycle " + airbrake_cooldown_count + " at " + ROUND(SHIP:ALTITUDE) + " m; q " + ROUND(SHIP:Q * CONSTANT:ATMTOKPA, 2) + " kPa; total proxy exposure " + ROUND(airbrake_heating_exposure_total_proxy, 2)).
         log_line("  Airbrake cooldown complete  |  cycle: " + airbrake_cooldown_count + "  |  alt: " + ROUND(SHIP:ALTITUDE/1000, 2) + " km  |  q: " + ROUND(SHIP:Q * CONSTANT:ATMTOKPA, 2) + " kPa").
     }
 
-    IF NOT airbrake_cooldown_active AND entry_brakes_deployed AND surface_speed > entry_brakes_retract_speed_mps AND SHIP:Q * CONSTANT:ATMTOKPA >= airbrake_hot_q_threshold_kpa AND airbrake_hot_deployed_time_seconds >= airbrake_hot_max_deployed_seconds {
+    IF NOT airbrake_cooldown_active AND entry_brakes_deployed AND (reentry_survival_experiment_mode OR surface_speed > entry_brakes_retract_speed_mps) AND SHIP:Q * CONSTANT:ATMTOKPA >= airbrake_hot_q_threshold_kpa AND airbrake_hot_deployed_time_seconds >= airbrake_hot_max_deployed_seconds {
         SET airbrake_cooldown_active TO TRUE.
         SET airbrake_cooldown_until TO TIME:SECONDS + airbrake_cooldown_duration_seconds.
         SET airbrake_cooldown_count TO airbrake_cooldown_count + 1.
@@ -893,6 +947,29 @@ UNTIL SHIP:ALTITUDE <= reentry_handoff_alt_meters AND NOT airbrake_cooldown_acti
     WAIT 0.
 }
 
+IF reentry_survival_experiment_mode {
+    BRAKES OFF.
+    LOCAL survival_milestone_mach IS current_model_mach().
+    LOCAL survival_outcome IS "reentry_survival_pass".
+    IF NOT survival_hardware_intact OR SHIP:PARTS:LENGTH < predictor_telemetry_initial_part_count OR SHIP:PARTSTAGGED("airbrake"):LENGTH < predictor_telemetry_initial_airbrake_count {
+        SET survival_outcome TO "reentry_survival_fail".
+    }
+    SET predictor_telemetry_run["reentry_survival_outcome"] TO survival_outcome.
+    SET predictor_telemetry_run["reentry_survival_milestone_mach"] TO survival_milestone_mach.
+    SET predictor_telemetry_run["reentry_survival_milestone_altitude_m"] TO SHIP:ALTITUDE.
+    SET predictor_telemetry_run["reentry_survival_milestone_surface_speed_mps"] TO SHIP:VELOCITY:SURFACE:MAG.
+    SET predictor_telemetry_run["reentry_survival_milestone_vessel_part_count"] TO SHIP:PARTS:LENGTH.
+    SET predictor_telemetry_run["reentry_survival_milestone_airbrake_count"] TO SHIP:PARTSTAGGED("airbrake"):LENGTH.
+    capture_predictor_sample("reentry_survival_milestone", ab_angle, ab_correction, airbrake_pid:KP, 0).
+    LOCAL survival_detail IS "Mach " + ROUND(survival_milestone_mach, 3) + " at " + ROUND(SHIP:ALTITUDE) + " m; vessel parts " + SHIP:PARTS:LENGTH + "/" + predictor_telemetry_initial_part_count + "; airbrakes " + SHIP:PARTSTAGGED("airbrake"):LENGTH + "/" + predictor_telemetry_initial_airbrake_count.
+    log_line("--- REENTRY SURVIVAL RESULT: " + survival_outcome + " ---").
+    log_line("  " + survival_detail).
+    finalize_predictor_telemetry(survival_outcome, survival_detail).
+    transmit_log().
+    RUNPATH(land_unguided_script_path, predictor_telemetry_run_id, predictor_telemetry_base_name, predictor_telemetry_segment_index, predictor_telemetry_initial_part_count, airbrake_control_mode, trajectories_profile_id).
+    SHUTDOWN.
+}
+
 LOCAL handoff_speed IS SHIP:VELOCITY:SURFACE:MAG.
 LOCAL handoff_tr_miss IS 999999.
 IF ADDONS:TR:AVAILABLE AND ADDONS:TR:HASIMPACT {
@@ -913,6 +990,7 @@ IF NOT guide_ok {
     finalize_predictor_telemetry("fallback_unguided", "outside handoff envelope").
     transmit_log().
     RUNPATH(land_unguided_script_path, predictor_telemetry_run_id, predictor_telemetry_base_name, predictor_telemetry_segment_index, predictor_telemetry_initial_part_count, airbrake_control_mode, trajectories_profile_id).
+    SHUTDOWN.
 }
 
 log_line("Guide condition met at gate — monitoring to " + ROUND(reentry_guided_land_alt_meters/1000, 1) + " km.").
@@ -957,6 +1035,7 @@ UNTIL SHIP:ALTITUDE <= reentry_guided_land_alt_meters {
         finalize_predictor_telemetry("fallback_unguided", "monitor trajectories miss exceeded limit").
         transmit_log().
         RUNPATH(land_unguided_script_path, predictor_telemetry_run_id, predictor_telemetry_base_name, predictor_telemetry_segment_index, predictor_telemetry_initial_part_count, airbrake_control_mode, trajectories_profile_id).
+        SHUTDOWN.
     }
 
     IF TIME:SECONDS >= next_print {

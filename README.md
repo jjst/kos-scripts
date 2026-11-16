@@ -54,14 +54,18 @@ started explicitly:
 RUNPATH("1:/deorbit.ks"). // Current fixed-60 reference.
 RUNPATH("1:/deorbit.ks", "off", "matched10", -1, "entry_fpa29").
 RUNPATH("1:/deorbit.ks", "fixed90", "matched10", -1, "entry_fpa29").
-RUNPATH("1:/deorbit.ks", "fixed90", "matched0", -1, "entry_fpa29").
+RUNPATH("1:/deorbit.ks", "fixed90", "matched0", -1, "entry_fpa29", TRUE). // Isolated survival experiment.
 ```
 
 In the Boomerang boot menu, option `2` is the normal deorbit entry point. It
 prompts for any fixed angle from 0 through 90 degrees; exactly `0` selects true
 brakes-off mode. Option `6` is the 175-degree-phase fixed-60 reference and option
-`7` is the matching fixed-90 run. Option `8` is the controlled fixed-90,
-zero-AoA surface-retrograde trial. Option `9` runs closed-loop airbrake guidance hard-clamped to the
+`7` is the matching fixed-90 run. Option `8` is the isolated fixed-90,
+zero-AoA reentry-survival experiment. It ignores geographic acceptance, keeps
+the q-duty controller in charge through Mach 0.8 held continuously for five
+seconds, records an independent entry PASS/FAIL from the initial vessel and
+tagged-airbrake counts, and only then starts the unguided recovery descent.
+Option `9` runs closed-loop airbrake guidance hard-clamped to the
 validated 60-90 degree envelope; use it only after options 6 and 7 demonstrate
 that the selected phase puts the target between the two fixed endpoints.
 All use matched craft/Trajectories AoA and stop the deorbit burn at a predicted 2.9-degree

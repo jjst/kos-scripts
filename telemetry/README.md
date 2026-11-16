@@ -229,8 +229,13 @@ were already gone; only intact pre-failure rows are used by the predictor.
 Menu option `2` runs the corrected corridor with a prompted airbrake angle;
 entering `0` launches true brakes-off mode. Options `6` and `7` are the
 175-degree-phase fixed-60 and fixed-90 corridor-validation endpoints. Option `8`
-is the controlled fixed-90, zero-AoA surface-retrograde trial with matching
-zero-AoA Trajectories settings. Option `9` is
+is the dedicated fixed-90, zero-AoA reentry-survival experiment with matching
+zero-AoA Trajectories settings. It treats Trajectories as passive telemetry,
+does not score landing geography or enter the geographic PID/landing handoff,
+and keeps the 10/1 q-duty policy active until model Mach is at or below 0.8 for
+five continuous seconds. At that milestone it records `reentry_survival_pass`
+only if the run still has its initial vessel and tagged-airbrake counts; the
+subsequent unguided recovery and touchdown remain separate outcomes. Option `9` is
 the closed-loop 60-90 degree controller and should run only after the two safe
 fixed endpoints bracket the target. The telemetry records
 `entry_corridor_id = entry_fpa29`, the requested flight-path angle, and the
