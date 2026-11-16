@@ -273,6 +273,7 @@ duty cycle described above.
 | `1794865108` | Dedicated survival mode; 10/1 q-duty through the stable-subsonic milestone | `reentry_survival_pass` at Mach 0.760 and 6.22 km with 35/35 parts and 4/4 airbrakes | Nine cooldowns; qmax 39.39 kPa near 16.13 km; later splashed at -2.49 m/s | First fully isolated survival-mode result and first full-lifetime validation of the 10/1 policy. |
 | `1794869318` | Dedicated survival mode; 10/1 q-duty through the stable-subsonic milestone | `reentry_survival_pass` at Mach 0.760 and 6.22 km with 35/35 parts and 4/4 airbrakes | Nine cooldowns; qmax 39.37 kPa near 16.26 km; later landed at -2.65 m/s | Clean equivalent-condition repeat confirming the isolated result. |
 | `1794871073` | Dedicated survival mode; fixed 60 degrees with 10/1 q-duty through the stable-subsonic milestone | `reentry_survival_pass` at Mach 0.766 and 5.66 km with 35/35 parts and 4/4 airbrakes | Ten cooldowns; qmax 44.70 kPa; airbrake-load proxy max 32.74 kPa-eq; later splashed at -2.38 m/s | Validates 60 degrees as a survivable lower endpoint under the same matched-zero-AoA corridor and thermal policy. |
+| `1794872450` | Dedicated survival mode at remote phase 90; fixed 75 degrees with 10/1 q-duty through the stable-subsonic milestone | `reentry_survival_pass` at Mach 0.758 and 6.17 km with 35/35 parts and 4/4 airbrakes | Nine cooldowns; qmax 40.44 kPa; airbrake-load proxy max 37.52 kPa-eq; later splashed at -2.48 m/s | Validates 75 degrees as the survivable nominal center of the 60-90 degree control range. |
 
 The two flights used nearly identical 2.9-degree corridor solutions and tracked
 within roughly 6-13 m/s from 30 through 20 km. Their complete-flight peak q was
@@ -299,6 +300,11 @@ target. Options 6/7/8 exercise fixed 60/75/90-degree airbrakes respectively,
 with otherwise identical matched-zero-AoA entry conditions. This prevents their
 landing positions from being confused with targeting evidence while establishing
 75 degrees as the nominal center of the survivable control range.
+
+Run `1794872450` confirms that nominal point. Its craft q and airbrake-load
+profiles fall between the validated endpoint behaviors: stronger deployment than
+60 degrees reduces peak craft q, while lower deployment than 90 degrees reduces
+the load carried by the airbrakes themselves. Hardware remained fully intact.
 
 Run `1794868644` is excluded from survival evidence because atmospheric physics
 warp was enabled. It diverged sharply from the clean traces, lost three parts and
