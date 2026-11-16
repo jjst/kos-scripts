@@ -271,6 +271,7 @@ duty cycle described above.
 | --- | --- | --- | --- | --- |
 | `1794862045` | 10/1 q-duty to the legacy 20 km gate, then continuous brakes in unguided recovery | Intact: 35/35 parts and 4/4 airbrakes | Four cooldowns; entry qmax 33.52 kPa; all-phase qmax 39.35 kPa near 16.15 km; landed | First clean result for the q-duty hypothesis, but the thermal controller did not own the full hazardous interval. |
 | `1794865108` | Dedicated survival mode; 10/1 q-duty through the stable-subsonic milestone | `reentry_survival_pass` at Mach 0.760 and 6.22 km with 35/35 parts and 4/4 airbrakes | Nine cooldowns; qmax 39.39 kPa near 16.13 km; later splashed at -2.49 m/s | First fully isolated survival-mode result and first full-lifetime validation of the 10/1 policy. |
+| `1794869318` | Dedicated survival mode; 10/1 q-duty through the stable-subsonic milestone | `reentry_survival_pass` at Mach 0.760 and 6.22 km with 35/35 parts and 4/4 airbrakes | Nine cooldowns; qmax 39.37 kPa near 16.26 km; later landed at -2.65 m/s | Clean equivalent-condition repeat confirming the isolated result. |
 
 The two flights used nearly identical 2.9-degree corridor solutions and tracked
 within roughly 6-13 m/s from 30 through 20 km. Their complete-flight peak q was
@@ -280,11 +281,18 @@ brake fallback produced almost the same speed-altitude trace because each off
 pulse lasts only one second. The fresh result therefore supports the intended
 thermal-policy mechanism without introducing a meaningful energy-state change.
 
-This establishes one fully isolated PASS and strengthens the broader baseline
-with a second consecutive intact matched-zero-AoA/fixed-90 flight. Run option
-`8` once more from equivalent initial conditions before calling the full-
-lifetime survival policy repeatable. Landing geography and any damage after the
-recorded subsonic milestone remain separate recovery outcomes.
+The two isolated flights closely match one another from hypersonic entry through
+the subsonic milestone. Their peak q differs by only 0.02 kPa, both execute nine
+cooldowns, and both reach Mach 0.760 at about 6.22 km with every part and tagged
+airbrake intact. The full-lifetime 10/1 policy is therefore repeatable under the
+controlled no-physics-warp configuration. Landing geography and any damage after
+the recorded subsonic milestone remain separate recovery outcomes.
+
+Run `1794868644` is excluded from survival evidence because atmospheric physics
+warp was enabled. It diverged sharply from the clean traces, lost three parts and
+three airbrakes, reached 112.05 kPa peak q, and ended without a completed outcome.
+It is retained only as diagnostic evidence that physics warp invalidates this
+comparison protocol.
 
 ## Repository artifact policy
 
