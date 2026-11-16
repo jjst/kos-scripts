@@ -272,6 +272,7 @@ duty cycle described above.
 | `1794862045` | 10/1 q-duty to the legacy 20 km gate, then continuous brakes in unguided recovery | Intact: 35/35 parts and 4/4 airbrakes | Four cooldowns; entry qmax 33.52 kPa; all-phase qmax 39.35 kPa near 16.15 km; landed | First clean result for the q-duty hypothesis, but the thermal controller did not own the full hazardous interval. |
 | `1794865108` | Dedicated survival mode; 10/1 q-duty through the stable-subsonic milestone | `reentry_survival_pass` at Mach 0.760 and 6.22 km with 35/35 parts and 4/4 airbrakes | Nine cooldowns; qmax 39.39 kPa near 16.13 km; later splashed at -2.49 m/s | First fully isolated survival-mode result and first full-lifetime validation of the 10/1 policy. |
 | `1794869318` | Dedicated survival mode; 10/1 q-duty through the stable-subsonic milestone | `reentry_survival_pass` at Mach 0.760 and 6.22 km with 35/35 parts and 4/4 airbrakes | Nine cooldowns; qmax 39.37 kPa near 16.26 km; later landed at -2.65 m/s | Clean equivalent-condition repeat confirming the isolated result. |
+| `1794871073` | Dedicated survival mode; fixed 60 degrees with 10/1 q-duty through the stable-subsonic milestone | `reentry_survival_pass` at Mach 0.766 and 5.66 km with 35/35 parts and 4/4 airbrakes | Ten cooldowns; qmax 44.70 kPa; airbrake-load proxy max 32.74 kPa-eq; later splashed at -2.38 m/s | Validates 60 degrees as a survivable lower endpoint under the same matched-zero-AoA corridor and thermal policy. |
 
 The two flights used nearly identical 2.9-degree corridor solutions and tracked
 within roughly 6-13 m/s from 30 through 20 km. Their complete-flight peak q was
@@ -288,6 +289,17 @@ airbrake intact. The full-lifetime 10/1 policy is therefore repeatable under the
 controlled no-physics-warp configuration. Landing geography and any damage after
 the recorded subsonic milestone remain separate recovery outcomes.
 
+The fixed-60 endpoint is also survivable, so 60-90 degrees is now validated as
+an intact entry-control range for this configuration. Landing geography is not
+a criterion at this stage: the experiment deliberately isolates atmospheric
+survival from geographic targeting and recovery accuracy.
+
+Subsequent survival-menu runs use a deliberately remote 90-degree deorbit phase
+target. Options 6/7/8 exercise fixed 60/75/90-degree airbrakes respectively,
+with otherwise identical matched-zero-AoA entry conditions. This prevents their
+landing positions from being confused with targeting evidence while establishing
+75 degrees as the nominal center of the survivable control range.
+
 Run `1794868644` is excluded from survival evidence because atmospheric physics
 warp was enabled. It diverged sharply from the clean traces, lost three parts and
 three airbrakes, reached 112.05 kPa peak q, and ended without a completed outcome.
@@ -299,8 +311,8 @@ comparison protocol.
 Files prefixed with `live-` or `wrapup-` are disposable working snapshots. The
 full sample CSV is also reproducible and should normally remain untracked.
 
-The canonical set was regenerated after the corrected-corridor matched
-90-degree run:
+The canonical set was regenerated after the matched-zero-AoA fixed-60 endpoint
+validation run:
 
 - `airbrake_predictor.json` - fitted coefficients and calibration envelope.
 - `report.json` - run validation, readiness gates, and survivability summary.

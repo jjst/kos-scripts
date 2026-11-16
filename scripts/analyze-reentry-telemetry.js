@@ -289,7 +289,9 @@ function bandCounts(samples) {
 
 function summarizeRun(run) {
   const entry = run.samples.filter((sample) => sample.phase === "entry");
-  const landingError = landingErrorForRun(run, entry);
+  const landingGeographyScored = run.run.reentry_survival_experiment_mode !== true
+    && run.run.landing_geography_scored !== false;
+  const landingError = landingGeographyScored ? landingErrorForRun(run, entry) : null;
   const pidMinimumAngle = finite(run.run.airbrake_min_angle_deg) ? run.run.airbrake_min_angle_deg : 30;
   const pidMaximumAngle = finite(run.run.airbrake_max_angle_deg) ? run.run.airbrake_max_angle_deg : 90;
   const dts = [];
@@ -427,6 +429,7 @@ function summarizeRun(run) {
     target_deorbit_phase_angle_deg: run.run.target_deorbit_phase_angle_deg ?? null,
     actual_deorbit_burn_phase_angle_deg: run.run.actual_deorbit_burn_phase_angle_deg ?? null,
     reentry_survival_experiment_mode: run.run.reentry_survival_experiment_mode === true,
+    landing_geography_scored: landingGeographyScored,
     reentry_survival_outcome: run.run.reentry_survival_outcome ?? null,
     reentry_survival_subsonic_mach_threshold: run.run.reentry_survival_subsonic_mach_threshold ?? null,
     reentry_survival_subsonic_hold_s: run.run.reentry_survival_subsonic_hold_s ?? null,
@@ -944,6 +947,8 @@ function analyzeSegments(segments) {
     const latestEndpoint = (angle) => set.runs
       .map((run) => ({ run, summary: summaryById.get(run.run_id), angle: expectedFixedAngle(run) }))
       .filter((item) => item.angle !== null && Math.abs(item.angle - angle) < 0.01
+        && item.run.run.reentry_survival_experiment_mode !== true
+        && item.run.run.landing_geography_scored !== false
         && item.summary?.checks.complete_status && item.summary.landing_position_available)
       .sort((a, b) => Number(b.run.run_id) - Number(a.run.run_id))[0] ?? null;
     const endpoint60 = latestEndpoint(60);

@@ -416,6 +416,15 @@ test("opens the closed-loop gate only when intact 60 and 90 degree landings brac
   assert.equal(closedLoop.checks.safe_envelope_compliance, true);
   assert.ok(closedLoop.command_interior_fraction >= 0.3);
   assert.equal(closedLoop.passed, true);
+
+  const survival60 = endpoint(443, "fixed60", targetLongitude + 0.01);
+  const survival90 = endpoint(444, "fixed90", targetLongitude - 0.01);
+  for (const survivalRun of [survival60, survival90]) {
+    survivalRun.run.reentry_survival_experiment_mode = true;
+    survivalRun.run.landing_geography_scored = false;
+  }
+  const survivalReport = analyzeSegments([survival60, survival90]);
+  assert.equal(survivalReport.controllable_corridor_validation.length, 0);
 });
 
 test("accepts matched10 off/fixed30/fixed45/fixed90 transfer-validation runs", () => {
@@ -600,6 +609,9 @@ test("retains survival experiment outcome written by a later entry segment", () 
   assert.equal(summary.reentry_survival_outcome, "reentry_survival_pass");
   assert.equal(summary.reentry_survival_milestone_mach, 0.79);
   assert.equal(summary.reentry_survival_milestone_airbrake_count, 4);
+  assert.equal(summary.landing_geography_scored, false);
+  assert.equal(summary.landing_position_available, false);
+  assert.equal(summary.landing_miss_m, null);
   assert.equal(summary.checks.no_vessel_part_loss, false);
   const corridor = report.survivability_by_profile_corridor.find((group) => group.profile_id === "matched0");
   assert.equal(corridor.runs[0].full_integrity, true);

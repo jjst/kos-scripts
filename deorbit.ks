@@ -28,11 +28,13 @@ SET max_entry_fpa_burn_mps TO 90.
 SET max_entry_fpa_burn_seconds TO 45.
 SET minimum_entry_fpa_periapsis_meters TO 25000.
 SET entry_fpa_prediction_regression_tolerance_deg TO 0.05.
-// Calibration test: corrected-corridor fixed-60/fixed-90 runs at 180 deg landed
-// 47.7/62.0 km short. Their midpoint is about 5.2 Kerbin degrees, so delaying
-// the burn to 175 deg should put the pad near the middle of their authority.
-// Replace this empirical constant with the general phase solver tracked on GitHub.
+// Operational targeting retains the empirical 175 deg calibration. Survival
+// experiments deliberately start at 90 deg so landing geography cannot be
+// mistaken for an experiment result; only the entry corridor and integrity count.
 SET target_deorbit_phase_angle_deg TO 175.
+IF reentry_survival_experiment_mode {
+    SET target_deorbit_phase_angle_deg TO 90.
+}
 SET deorbit_phase_start_tolerance_deg TO 1.
 SET deorbit_phase_warp_rate TO 4.
 SET slow_burn_miss_meters TO 10000.
