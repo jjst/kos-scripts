@@ -9,6 +9,7 @@ PARAMETER trajectories_profile_id IS "matched10".
 PARAMETER custom_fixed_airbrake_angle_deg IS -1.
 PARAMETER deorbit_guidance_mode IS "entry_fpa29".
 PARAMETER reentry_survival_experiment_mode IS FALSE.
+PARAMETER landing_geography_scored IS TRUE.
 
 // --- CONFIG (edit these) ------------------------------------
 SET reentry_script_path TO "1:/reentry.ks".
@@ -28,11 +29,14 @@ SET max_entry_fpa_burn_mps TO 90.
 SET max_entry_fpa_burn_seconds TO 45.
 SET minimum_entry_fpa_periapsis_meters TO 25000.
 SET entry_fpa_prediction_regression_tolerance_deg TO 0.05.
-// Operational targeting retains the empirical 175 deg calibration. Survival
-// experiments deliberately start at 90 deg so landing geography cannot be
-// mistaken for an experiment result; only the entry corridor and integrity count.
-SET target_deorbit_phase_angle_deg TO 175.
-IF reentry_survival_experiment_mode {
+// The remote fixed-75 calibration landed at 11.3113014 deg longitude from a
+// 90 deg gate target. Translating that nominal trajectory back to KSC gives:
+// 90 + (11.3113014 - -74.5577) = 175.8690014 deg. Survival-only runs retain
+// the remote 90 deg phase so geography cannot be mistaken for their result.
+// The flight setpoint is intentionally rounded to one decimal because the warp
+// gate and run-to-run variation are much larger than the remaining 0.031 deg.
+SET target_deorbit_phase_angle_deg TO 175.9.
+IF reentry_survival_experiment_mode AND NOT landing_geography_scored {
     SET target_deorbit_phase_angle_deg TO 90.
 }
 SET deorbit_phase_start_tolerance_deg TO 1.
@@ -496,4 +500,4 @@ UNTIL SHIP:ALTITUDE <= reentry_handoff_alt_meters {
 SET WARP TO 0.
 
 log_line("Running reentry script: " + reentry_script_path + "  |  airbrakes: " + reentry_airbrake_control_mode + "  |  fixed angle: " + ROUND(custom_fixed_airbrake_angle_deg, 2) + "  |  Trajectories profile: " + trajectories_profile_id + "  |  corridor: " + deorbit_guidance_mode + "  |  survival experiment: " + reentry_survival_experiment_mode).
-RUNPATH(reentry_script_path, reentry_airbrake_control_mode, trajectories_profile_id, custom_fixed_airbrake_angle_deg, deorbit_guidance_mode, target_entry_fpa_down_deg, achieved_entry_fpa_down_deg, target_deorbit_phase_angle_deg, actual_deorbit_burn_phase_angle_deg, reentry_survival_experiment_mode).
+RUNPATH(reentry_script_path, reentry_airbrake_control_mode, trajectories_profile_id, custom_fixed_airbrake_angle_deg, deorbit_guidance_mode, target_entry_fpa_down_deg, achieved_entry_fpa_down_deg, target_deorbit_phase_angle_deg, actual_deorbit_burn_phase_angle_deg, reentry_survival_experiment_mode, landing_geography_scored).

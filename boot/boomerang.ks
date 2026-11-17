@@ -69,10 +69,12 @@ LOCAL deorbit_script_choice IS 2.
 LOCAL corridor60_survival_choice IS scripts:LENGTH + 1.
 LOCAL corridor75_survival_choice IS scripts:LENGTH + 2.
 LOCAL corridor90_survival_choice IS scripts:LENGTH + 3.
+LOCAL corridor75_targeting_choice IS scripts:LENGTH + 4.
 LOCAL experiment_deorbit_path IS "1:/" + scripts[1].
 PRINT "  " + corridor60_survival_choice + ") deorbit.ks [SURVIVAL TEST: 0 deg AoA, airbrakes 60 + 10/1 q duty]".
 PRINT "  " + corridor75_survival_choice + ") deorbit.ks [SURVIVAL TEST: 0 deg AoA, airbrakes 75 + 10/1 q duty]".
 PRINT "  " + corridor90_survival_choice + ") deorbit.ks [SURVIVAL TEST: 0 deg AoA, airbrakes 90 + 10/1 q duty]".
+PRINT "  " + corridor75_targeting_choice + ") deorbit.ks [TARGETING TEST: 75 deg nominal at calibrated KSC phase]".
 PRINT "Press RETURN to load nothing.".
 TERMINAL:INPUT:CLEAR().
 WAIT UNTIL TERMINAL:INPUT:HASCHAR.
@@ -96,13 +98,16 @@ IF choice_num = deorbit_script_choice {
     RUNPATH("1:/" + script).
 } ELSE IF choice_num = corridor60_survival_choice {
     PRINT "Launching isolated reentry-survival test: 0 deg AoA, fixed 60 deg, 10/1 q duty...".
-    RUNPATH(experiment_deorbit_path, "fixed60", "matched0", -1, "entry_fpa29", TRUE).
+    RUNPATH(experiment_deorbit_path, "fixed60", "matched0", -1, "entry_fpa29", TRUE, FALSE).
 } ELSE IF choice_num = corridor75_survival_choice {
     PRINT "Launching isolated reentry-survival test: 0 deg AoA, fixed 75 deg, 10/1 q duty...".
-    RUNPATH(experiment_deorbit_path, "fixed", "matched0", 75, "entry_fpa29", TRUE).
+    RUNPATH(experiment_deorbit_path, "fixed", "matched0", 75, "entry_fpa29", TRUE, FALSE).
 } ELSE IF choice_num = corridor90_survival_choice {
     PRINT "Launching isolated reentry-survival test: 0 deg AoA, fixed 90 deg, 10/1 q duty...".
-    RUNPATH(experiment_deorbit_path, "fixed90", "matched0", -1, "entry_fpa29", TRUE).
+    RUNPATH(experiment_deorbit_path, "fixed90", "matched0", -1, "entry_fpa29", TRUE, FALSE).
+} ELSE IF choice_num = corridor75_targeting_choice {
+    PRINT "Launching nominal fixed-75 targeting calibration at the computed KSC phase...".
+    RUNPATH(experiment_deorbit_path, "fixed", "matched0", 75, "entry_fpa29", TRUE, TRUE).
 } ELSE {
     PRINT "No initial script launched.".
 }

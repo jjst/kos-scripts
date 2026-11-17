@@ -306,6 +306,23 @@ profiles fall between the validated endpoint behaviors: stronger deployment than
 60 degrees reduces peak craft q, while lower deployment than 90 degrees reduces
 the load carried by the airbrakes themselves. Hardware remained fully intact.
 
+### Nominal fixed-75 deorbit calibration
+
+The remote phase-90 run touched down at longitude 11.311301 degrees. Assuming
+landing displacement tracks deorbit phase one-for-one for this fixed craft,
+corridor and nominal airbrake policy, the KSC-centered gate phase is:
+
+`90 + (11.311301 - -74.557700) = 175.869001 degrees`
+
+The flight setpoint is rounded to 175.9 degrees; the discarded 0.031 degrees is
+about 0.32 km at Kerbin's equator and is below the phase gate and flight noise.
+
+The run ignited at phase 76.802601 after attitude alignment, so an equivalent
+alignment delay predicts actual ignition near phase 162.671602 for the centered
+flight. Boot-menu option 9 runs fixed 75 degrees with the same stable-subsonic
+entry ownership at this computed phase, but explicitly enables landing-geography
+scoring as a targeting validation rather than a survival criterion.
+
 Run `1794868644` is excluded from survival evidence because atmospheric physics
 warp was enabled. It diverged sharply from the clean traces, lost three parts and
 three airbrakes, reached 112.05 kPa peak q, and ended without a completed outcome.

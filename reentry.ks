@@ -13,6 +13,7 @@ PARAMETER predicted_entry_fpa_down_deg IS -1.
 PARAMETER target_deorbit_phase_angle_deg IS -1.
 PARAMETER actual_deorbit_burn_phase_angle_deg IS -1.
 PARAMETER reentry_survival_experiment_mode IS FALSE.
+PARAMETER landing_geography_scored IS TRUE.
 
 // --- CONFIG (edit these) ------------------------------------
 SET entry_telemetry_interval TO 20.
@@ -311,7 +312,7 @@ FUNCTION initialize_predictor_telemetry {
     SET predictor_telemetry_run["reentry_survival_experiment_mode"] TO reentry_survival_experiment_mode.
     SET predictor_telemetry_run["reentry_survival_subsonic_mach_threshold"] TO survival_subsonic_mach_threshold.
     SET predictor_telemetry_run["reentry_survival_subsonic_hold_s"] TO survival_subsonic_hold_seconds.
-    SET predictor_telemetry_run["landing_geography_scored"] TO NOT reentry_survival_experiment_mode.
+    SET predictor_telemetry_run["landing_geography_scored"] TO landing_geography_scored.
     SET predictor_telemetry_run["airbrake_min_angle_deg"] TO airbrake_min_angle.
     SET predictor_telemetry_run["airbrake_max_angle_deg"] TO airbrake_base_angle.
     SET predictor_telemetry_run["airbrake_fixed_angle_deg"] TO configured_fixed_airbrake_angle().
@@ -723,7 +724,7 @@ log_line("Target       : " + ROUND(pad_geo:LAT, 5) + ", " + ROUND(pad_geo:LNG, 5
 log_line("Airbrake mode: " + airbrake_control_mode + "  |  telemetry: " + predictor_telemetry_path).
 log_line("Entry corridor: " + entry_corridor_id + "  |  target/predicted FPA: " + ROUND(target_entry_fpa_down_deg, 3) + "/" + ROUND(predicted_entry_fpa_down_deg, 3) + " deg down at 70 km").
 log_line("Deorbit phase : target/actual burn " + ROUND(target_deorbit_phase_angle_deg, 3) + "/" + ROUND(actual_deorbit_burn_phase_angle_deg, 3) + " deg").
-log_line("Survival experiment: " + reentry_survival_experiment_mode + "  |  geography scored: " + (NOT reentry_survival_experiment_mode)).
+log_line("Survival experiment: " + reentry_survival_experiment_mode + "  |  geography scored: " + landing_geography_scored).
 log_line("Airbrake authority: locked to " + airbrake_authority_command_percent + "% during entry; original values restored when the entry controller exits.").
 log_line("Airbrake thermal safeguard: q-only duty cycle; at q >= " + airbrake_hot_q_threshold_kpa + " kPa retract " + airbrake_cooldown_duration_seconds + " s after " + airbrake_hot_max_deployed_seconds + " s deployed.").
 log_line("Entry attitude: orbit retro above " + ROUND(entry_orbit_retro_alt_meters/1000, 1) + " km, surface retro below.").

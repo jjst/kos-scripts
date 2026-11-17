@@ -425,6 +425,15 @@ test("opens the closed-loop gate only when intact 60 and 90 degree landings brac
   }
   const survivalReport = analyzeSegments([survival60, survival90]);
   assert.equal(survivalReport.controllable_corridor_validation.length, 0);
+
+  const targeting60 = endpoint(445, "fixed60", targetLongitude + 0.01);
+  const targeting90 = endpoint(446, "fixed90", targetLongitude - 0.01);
+  for (const targetingRun of [targeting60, targeting90]) {
+    targetingRun.run.reentry_survival_experiment_mode = true;
+    targetingRun.run.landing_geography_scored = true;
+  }
+  const targetingReport = analyzeSegments([targeting60, targeting90]);
+  assert.equal(targetingReport.controllable_corridor_validation[0].endpoints_ready, true);
 });
 
 test("accepts matched10 off/fixed30/fixed45/fixed90 transfer-validation runs", () => {
@@ -560,6 +569,7 @@ test("retains survival experiment outcome written by a later entry segment", () 
   const entry = { ...makeRun(526, "fixed90", "matched0", null, "entry_fpa29"), source_file: "entry.json" };
   entry.status = "running";
   entry.run.reentry_survival_experiment_mode = true;
+  entry.run.landing_geography_scored = false;
   entry.run.reentry_survival_subsonic_mach_threshold = 0.8;
   entry.run.reentry_survival_subsonic_hold_s = 5;
 

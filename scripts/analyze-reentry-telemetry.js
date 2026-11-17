@@ -289,8 +289,7 @@ function bandCounts(samples) {
 
 function summarizeRun(run) {
   const entry = run.samples.filter((sample) => sample.phase === "entry");
-  const landingGeographyScored = run.run.reentry_survival_experiment_mode !== true
-    && run.run.landing_geography_scored !== false;
+  const landingGeographyScored = run.run.landing_geography_scored !== false;
   const landingError = landingGeographyScored ? landingErrorForRun(run, entry) : null;
   const pidMinimumAngle = finite(run.run.airbrake_min_angle_deg) ? run.run.airbrake_min_angle_deg : 30;
   const pidMaximumAngle = finite(run.run.airbrake_max_angle_deg) ? run.run.airbrake_max_angle_deg : 90;
@@ -947,7 +946,6 @@ function analyzeSegments(segments) {
     const latestEndpoint = (angle) => set.runs
       .map((run) => ({ run, summary: summaryById.get(run.run_id), angle: expectedFixedAngle(run) }))
       .filter((item) => item.angle !== null && Math.abs(item.angle - angle) < 0.01
-        && item.run.run.reentry_survival_experiment_mode !== true
         && item.run.run.landing_geography_scored !== false
         && item.summary?.checks.complete_status && item.summary.landing_position_available)
       .sort((a, b) => Number(b.run.run_id) - Number(a.run.run_id))[0] ?? null;
