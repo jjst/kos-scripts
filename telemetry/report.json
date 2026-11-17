@@ -1,8 +1,8 @@
 {
   "schema": "reentry_airbrake_telemetry_report",
   "schema_version": 1,
-  "generated_at": "2026-11-17T00:01:45.440Z",
-  "run_count": 31,
+  "generated_at": "2026-11-17T00:18:30.837Z",
+  "run_count": 32,
   "runs": [
     {
       "run_id": "1784751407",
@@ -6792,6 +6792,225 @@
         "altitude_band_coverage": true
       },
       "usable": true
+    },
+    {
+      "run_id": "1794874100",
+      "mode": "fixed",
+      "trajectories_profile_id": "matched0",
+      "entry_corridor_id": "entry_fpa29",
+      "target_entry_fpa_down_deg": 2.9,
+      "predicted_entry_fpa_down_deg": 2.8716412993074902,
+      "target_deorbit_phase_angle_deg": 175.9,
+      "actual_deorbit_burn_phase_angle_deg": 163.18011263822413,
+      "reentry_survival_experiment_mode": true,
+      "landing_geography_scored": true,
+      "reentry_survival_outcome": "reentry_survival_pass",
+      "reentry_survival_subsonic_mach_threshold": 0.8,
+      "reentry_survival_subsonic_hold_s": 5,
+      "reentry_survival_milestone_mach": 0.7597090281028417,
+      "reentry_survival_milestone_altitude_m": 6091.218041149783,
+      "reentry_survival_milestone_surface_speed_mps": 235.30905515854792,
+      "reentry_survival_milestone_vessel_part_count": 35,
+      "reentry_survival_milestone_airbrake_count": 4,
+      "entry_aoa_deg": 0,
+      "airbrake_min_angle_deg": 60,
+      "airbrake_max_angle_deg": 90,
+      "airbrake_thermal_safeguard_enabled": true,
+      "airbrake_thermal_safeguard_policy": "q_duty_cycle",
+      "airbrake_hot_q_threshold_kpa": 10,
+      "airbrake_hot_max_deployed_s": 10,
+      "airbrake_exposure_safeguard_enabled": false,
+      "airbrake_exposure_budget_units": null,
+      "airbrake_cooldown_duration_s": 1,
+      "airbrake_cooldown_count": 9,
+      "airbrake_cooldown_sample_count": 2,
+      "max_onboard_airbrake_heating_exposure_total_proxy": 95.68534738764417,
+      "max_onboard_airbrake_heating_exposure_cycle_proxy": 68.86407650237936,
+      "measured_entry_fpa_down_deg": 2.8742902323730974,
+      "landing_position_available": true,
+      "landing_latitude_deg": 0.0009958367188218314,
+      "landing_longitude_deg": -74.91596481103119,
+      "landing_miss_m": 3890.1095172092846,
+      "landing_along_miss_m": 3751.7442870092864,
+      "landing_cross_miss_m": -1028.2851287941219,
+      "status": "landed",
+      "segment_count": 29,
+      "segment_gaps": [],
+      "sample_count": 227,
+      "entry_sample_count": 209,
+      "altitude_max_m": 69804.86437028565,
+      "altitude_min_m": 6427.579143872485,
+      "median_sample_dt_s": 2.419999999997799,
+      "max_sample_gap_s": 2.4999999999977263,
+      "max_dynamic_pressure_kpa": 40.42111227462119,
+      "max_intact_dynamic_pressure_kpa": 40.42111227462119,
+      "max_airbrake_load_proxy_kpa": 37.49829656581375,
+      "max_intact_airbrake_load_proxy_kpa": 37.49829656581375,
+      "max_convective_heating_rate_proxy": 0.5604143668952947,
+      "max_airbrake_heating_rate_proxy": 0.5181973028499631,
+      "max_intact_convective_heating_exposure_proxy": 103.88714273667887,
+      "max_intact_airbrake_heating_exposure_proxy": 94.38775410031882,
+      "trajectories_impact_ratio": 1,
+      "max_entry_throttle": 0,
+      "mode_compliant": true,
+      "expected_airbrake_count": 4,
+      "minimum_airbrake_count": 4,
+      "first_airbrake_loss_altitude_m": null,
+      "airbrake_hardware_intact_ratio": 1,
+      "expected_vessel_part_count": 35,
+      "minimum_vessel_part_count": 34,
+      "vessel_part_count_readback_coverage_ratio": 1,
+      "first_vessel_part_loss_altitude_m": 82.7474030299345,
+      "first_vessel_part_loss_dynamic_pressure_kpa": 2.03869141348732,
+      "first_vessel_part_loss_dynamic_pressure_fraction_of_run_peak": 0.05043630169393764,
+      "first_vessel_part_loss_mach": null,
+      "first_vessel_part_loss_airspeed_mps": null,
+      "first_vessel_part_loss_airbrake_angle_deg": 0,
+      "first_vessel_part_loss_airbrake_load_proxy_kpa": 0,
+      "first_vessel_part_loss_convective_heating_rate_proxy": null,
+      "first_vessel_part_loss_airbrake_heating_rate_proxy": null,
+      "first_vessel_part_loss_convective_heating_exposure_proxy": 103.88714273667887,
+      "first_vessel_part_loss_airbrake_heating_exposure_proxy": 94.38775410031882,
+      "vessel_hardware_intact_ratio": 0.9955947136563876,
+      "airbrake_angle_readback_sample_count": 209,
+      "airbrake_angle_readback_compliance_ratio": 1,
+      "airbrake_angle_field_max_spread_deg": 0,
+      "airbrake_angle_reassertion_count": 0,
+      "airbrake_authority_limiter_command_percent": 0,
+      "airbrake_authority_limiter_readback_sample_count": 209,
+      "airbrake_authority_limiter_readback_coverage_ratio": 1,
+      "airbrake_authority_limiter_zero_compliance_ratio": 1,
+      "airbrake_authority_limiter_max_percent": 0,
+      "entry_steering_source": "scripted_matched_aoa_no_roll_correction",
+      "trajectories_planned_vector_sample_count": 95,
+      "trajectories_planned_vector_alignment_ratio": 1,
+      "trajectories_planned_vector_median_error_deg": 0.009723492119285993,
+      "trajectories_planned_vector_p90_error_deg": 0.016038159653990688,
+      "trajectories_planned_vector_max_error_deg": 0.02257404478727025,
+      "trajectories_planned_vector_all_aero_sample_count": 167,
+      "trajectories_planned_vector_all_aero_alignment_ratio": 1,
+      "trajectories_planned_vector_all_aero_p90_error_deg": 0.0954338304163068,
+      "sensors": {
+        "barometer": false,
+        "thermometer": false,
+        "accelerometer": false,
+        "gravimeter": false
+      },
+      "altitude_bands": [
+        {
+          "label": "60-71km",
+          "count": 39
+        },
+        {
+          "label": "50-60km",
+          "count": 43
+        },
+        {
+          "label": "40-50km",
+          "count": 46
+        },
+        {
+          "label": "30-40km",
+          "count": 34
+        },
+        {
+          "label": "19-30km",
+          "count": 22
+        }
+      ],
+      "required_fields": [
+        {
+          "field": "time_s",
+          "ratio": 1
+        },
+        {
+          "field": "phase",
+          "ratio": 1
+        },
+        {
+          "field": "altitude_asl_m",
+          "ratio": 1
+        },
+        {
+          "field": "airspeed_mps",
+          "ratio": 1
+        },
+        {
+          "field": "airspeed_rate_mps2",
+          "ratio": 1
+        },
+        {
+          "field": "vertical_speed_mps",
+          "ratio": 1
+        },
+        {
+          "field": "dynamic_pressure_kpa",
+          "ratio": 1
+        },
+        {
+          "field": "density_model_kgpm3",
+          "ratio": 1
+        },
+        {
+          "field": "mach_model",
+          "ratio": 1
+        },
+        {
+          "field": "mass_t",
+          "ratio": 1
+        },
+        {
+          "field": "latitude_deg",
+          "ratio": 1
+        },
+        {
+          "field": "longitude_deg",
+          "ratio": 1
+        },
+        {
+          "field": "aoa_command_deg",
+          "ratio": 1
+        },
+        {
+          "field": "aoa_actual_deg",
+          "ratio": 1
+        },
+        {
+          "field": "airbrake_angle_command_deg",
+          "ratio": 1
+        },
+        {
+          "field": "airbrake_part_count",
+          "ratio": 1
+        },
+        {
+          "field": "brakes_action_group",
+          "ratio": 1
+        },
+        {
+          "field": "has_trajectories_impact",
+          "ratio": 1
+        }
+      ],
+      "checks": {
+        "complete_status": true,
+        "contiguous_segments": true,
+        "enough_entry_samples": true,
+        "full_altitude_envelope": true,
+        "sample_cadence": true,
+        "required_fields": true,
+        "trajectories_coverage": true,
+        "unpowered_entry": true,
+        "mode_compliance": true,
+        "airbrake_angle_readback": true,
+        "no_airbrake_angle_reassertions": true,
+        "vessel_part_count_readback": true,
+        "no_vessel_part_loss": false,
+        "airbrake_authority_limiter_zero": true,
+        "trajectories_planned_vector_alignment": true,
+        "altitude_band_coverage": true
+      },
+      "usable": false
     }
   ],
   "selected_pair": {
@@ -8220,6 +8439,19 @@
       "fixed60_pair": null,
       "fixed90_pair": null,
       "custom_fixed_pairs": []
+    },
+    {
+      "profile_key": "{\"angles\":[180,180,180,180],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":0,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":175.9,\"airbrake_authority_limiter_percent\":0,\"airbrake_thermal_safeguard\":{\"policy\":\"q_duty_cycle\",\"q_threshold_kpa\":10,\"max_deployed_s\":10,\"cooldown_s\":1}}",
+      "profile_id": "matched0",
+      "run_ids": [
+        "1794874100"
+      ],
+      "fixed30_pair": null,
+      "fixed45_pair": null,
+      "fixed50_pair": null,
+      "fixed60_pair": null,
+      "fixed90_pair": null,
+      "custom_fixed_pairs": []
     }
   ],
   "readiness": {
@@ -8568,6 +8800,42 @@
           "max_intact_airbrake_load_proxy_kpa": 37.51981442861883,
           "max_intact_convective_heating_exposure_proxy": 103.7749132549807,
           "max_intact_airbrake_heating_exposure_proxy": 93.29127585359016
+        }
+      ],
+      "full_integrity_angles_deg": [
+        75
+      ],
+      "minimum_full_integrity_angle_deg": 75,
+      "corridor_has_full_integrity_result": true
+    },
+    {
+      "profile_key": "{\"angles\":[180,180,180,180],\"grades\":[true,true,true,true],\"modes\":[true,true,true,true],\"entry_aoa_deg\":0,\"entry_corridor_id\":\"entry_fpa29\",\"deorbit_phase_target_deg\":175.9,\"airbrake_authority_limiter_percent\":0,\"airbrake_thermal_safeguard\":{\"policy\":\"q_duty_cycle\",\"q_threshold_kpa\":10,\"max_deployed_s\":10,\"cooldown_s\":1}}",
+      "profile_id": "matched0",
+      "entry_corridor_id": "entry_fpa29",
+      "run_count": 1,
+      "runs": [
+        {
+          "run_id": "1794874100",
+          "mode": "fixed",
+          "angle_deg": 75,
+          "status": "landed",
+          "predictor_fit_usable": false,
+          "full_integrity": true,
+          "reentry_survival_outcome": "reentry_survival_pass",
+          "minimum_vessel_part_count": 34,
+          "expected_vessel_part_count": 35,
+          "minimum_airbrake_count": 4,
+          "expected_airbrake_count": 4,
+          "first_loss_altitude_m": null,
+          "first_loss_dynamic_pressure_kpa": null,
+          "first_loss_dynamic_pressure_fraction_of_run_peak": null,
+          "first_loss_airbrake_load_proxy_kpa": null,
+          "first_loss_convective_heating_exposure_proxy": null,
+          "first_loss_airbrake_heating_exposure_proxy": null,
+          "max_dynamic_pressure_kpa": 40.42111227462119,
+          "max_intact_airbrake_load_proxy_kpa": 37.49829656581375,
+          "max_intact_convective_heating_exposure_proxy": 103.88714273667887,
+          "max_intact_airbrake_heating_exposure_proxy": 94.38775410031882
         }
       ],
       "full_integrity_angles_deg": [
