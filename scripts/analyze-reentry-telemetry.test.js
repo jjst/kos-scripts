@@ -322,6 +322,22 @@ test("never pairs runs from different deorbit phase targets", () => {
   assert.equal(report.runs.find((run) => run.run_id === "421").actual_deorbit_burn_phase_angle_deg, 174.7);
 });
 
+test("keeps ignition targets separate from legacy warp gates and retains cutoff phase", () => {
+  const off = { ...makeRun(422, "off", "matched10", null, "entry_fpa29"), source_file: "gate-off.json" };
+  const fixed = { ...makeRun(423, "fixed60", "matched10", null, "entry_fpa29"), source_file: "ignition-fixed60.json" };
+  off.run.target_deorbit_phase_angle_deg = 162.816;
+  fixed.run.target_deorbit_ignition_phase_deg = 162.816;
+  fixed.run.actual_deorbit_burn_phase_angle_deg = 162.811;
+  fixed.run.deorbit_burn_cutoff_phase_angle_deg = 157;
+  const report = analyzeSegments([off, fixed]);
+  assert.equal(report.selected_fixed60_pair, null);
+  const run = report.runs.find((candidate) => candidate.run_id === "423");
+  assert.equal(run.target_deorbit_phase_angle_deg, null);
+  assert.equal(run.target_deorbit_ignition_phase_deg, 162.816);
+  assert.equal(run.actual_deorbit_burn_phase_angle_deg, 162.811);
+  assert.equal(run.deorbit_burn_cutoff_phase_angle_deg, 157);
+});
+
 test("rejects PID telemetry outside its recorded safe airbrake envelope", () => {
   const segment = { ...makeRun(430, "pid", "matched10", null, "entry_fpa29"), source_file: "pid-below-safe-min.json" };
   segment.run.airbrake_min_angle_deg = 60;

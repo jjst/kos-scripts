@@ -149,6 +149,9 @@ function thermalSafeguardProfile(metadata) {
 
 function runProfileKey(run) {
   const metadata = run.run ?? {};
+  const ignitionPhaseKey = finite(metadata.target_deorbit_ignition_phase_deg)
+    ? `ignition:${Math.round(metadata.target_deorbit_ignition_phase_deg * 1000) / 1000}`
+    : null;
   const rounded = (values) => Array.isArray(values) ? values.map((value) => finite(value) ? Math.round(value * 1000) / 1000 : value) : null;
   if (Array.isArray(metadata.trajectories_descent_angles_deg)) {
     return JSON.stringify({
@@ -157,16 +160,16 @@ function runProfileKey(run) {
       modes: metadata.trajectories_descent_modes ?? null,
       entry_aoa_deg: finite(metadata.entry_aoa_deg) ? Math.round(metadata.entry_aoa_deg * 1000) / 1000 : null,
       entry_corridor_id: metadata.entry_corridor_id ?? "trajectories_miss",
-      deorbit_phase_target_deg: finite(metadata.target_deorbit_phase_angle_deg)
+      deorbit_phase_target_deg: ignitionPhaseKey ?? (finite(metadata.target_deorbit_phase_angle_deg)
         ? Math.round(metadata.target_deorbit_phase_angle_deg * 1000) / 1000
-        : "unverified",
+        : "unverified"),
       airbrake_authority_limiter_percent: finite(metadata.airbrake_authority_limiter_command_percent)
         ? Math.round(metadata.airbrake_authority_limiter_command_percent * 1000) / 1000
         : "unverified",
       airbrake_thermal_safeguard: thermalSafeguardProfile(metadata),
     });
   }
-  return `id:${metadata.trajectories_profile_id ?? "legacy"}:aoa:${metadata.entry_aoa_deg ?? "unknown"}:corridor:${metadata.entry_corridor_id ?? "trajectories_miss"}:phase:${metadata.target_deorbit_phase_angle_deg ?? "unverified"}:authority:${metadata.airbrake_authority_limiter_command_percent ?? "unverified"}`;
+  return `id:${metadata.trajectories_profile_id ?? "legacy"}:aoa:${metadata.entry_aoa_deg ?? "unknown"}:corridor:${metadata.entry_corridor_id ?? "trajectories_miss"}:phase:${ignitionPhaseKey ?? metadata.target_deorbit_phase_angle_deg ?? "unverified"}:authority:${metadata.airbrake_authority_limiter_command_percent ?? "unverified"}`;
 }
 
 function enrichSamples(samples, actuatorSpeed = 20, expectedAirbrakeCount = null) {
@@ -427,6 +430,8 @@ function summarizeRun(run) {
     predicted_entry_fpa_down_deg: run.run.predicted_entry_fpa_down_deg ?? null,
     target_deorbit_phase_angle_deg: run.run.target_deorbit_phase_angle_deg ?? null,
     actual_deorbit_burn_phase_angle_deg: run.run.actual_deorbit_burn_phase_angle_deg ?? null,
+    target_deorbit_ignition_phase_deg: run.run.target_deorbit_ignition_phase_deg ?? null,
+    deorbit_burn_cutoff_phase_angle_deg: run.run.deorbit_burn_cutoff_phase_angle_deg ?? null,
     reentry_survival_experiment_mode: run.run.reentry_survival_experiment_mode === true,
     landing_geography_scored: landingGeographyScored,
     reentry_survival_outcome: run.run.reentry_survival_outcome ?? null,
@@ -1109,6 +1114,8 @@ function flattenedSamples(runs) {
     predicted_entry_fpa_down_deg: run.run.predicted_entry_fpa_down_deg ?? null,
     target_deorbit_phase_angle_deg: run.run.target_deorbit_phase_angle_deg ?? null,
     actual_deorbit_burn_phase_angle_deg: run.run.actual_deorbit_burn_phase_angle_deg ?? null,
+    target_deorbit_ignition_phase_deg: run.run.target_deorbit_ignition_phase_deg ?? null,
+    deorbit_burn_cutoff_phase_angle_deg: run.run.deorbit_burn_cutoff_phase_angle_deg ?? null,
     run_status: run.status,
     ...sample,
   })));

@@ -14,6 +14,8 @@ PARAMETER target_deorbit_phase_angle_deg IS -1.
 PARAMETER actual_deorbit_burn_phase_angle_deg IS -1.
 PARAMETER reentry_survival_experiment_mode IS FALSE.
 PARAMETER landing_geography_scored IS TRUE.
+PARAMETER target_deorbit_ignition_phase_deg IS -1.
+PARAMETER deorbit_burn_cutoff_phase_angle_deg IS -1.
 
 // --- CONFIG (edit these) ------------------------------------
 SET entry_telemetry_interval TO 20.
@@ -307,8 +309,13 @@ FUNCTION initialize_predictor_telemetry {
     SET predictor_telemetry_run["entry_corridor_id"] TO entry_corridor_id.
     SET predictor_telemetry_run["target_entry_fpa_down_deg"] TO target_entry_fpa_down_deg.
     SET predictor_telemetry_run["predicted_entry_fpa_down_deg"] TO predicted_entry_fpa_down_deg.
-    SET predictor_telemetry_run["target_deorbit_phase_angle_deg"] TO target_deorbit_phase_angle_deg.
+    IF target_deorbit_ignition_phase_deg >= 0 {
+        SET predictor_telemetry_run["target_deorbit_ignition_phase_deg"] TO target_deorbit_ignition_phase_deg.
+    } ELSE {
+        SET predictor_telemetry_run["target_deorbit_phase_angle_deg"] TO target_deorbit_phase_angle_deg.
+    }
     SET predictor_telemetry_run["actual_deorbit_burn_phase_angle_deg"] TO actual_deorbit_burn_phase_angle_deg.
+    SET predictor_telemetry_run["deorbit_burn_cutoff_phase_angle_deg"] TO deorbit_burn_cutoff_phase_angle_deg.
     SET predictor_telemetry_run["reentry_survival_experiment_mode"] TO reentry_survival_experiment_mode.
     SET predictor_telemetry_run["reentry_survival_subsonic_mach_threshold"] TO survival_subsonic_mach_threshold.
     SET predictor_telemetry_run["reentry_survival_subsonic_hold_s"] TO survival_subsonic_hold_seconds.
@@ -723,7 +730,11 @@ LOCAL preflight_failed IS FALSE.
 log_line("Target       : " + ROUND(pad_geo:LAT, 5) + ", " + ROUND(pad_geo:LNG, 5) + " on " + pad_geo:BODY:NAME).
 log_line("Airbrake mode: " + airbrake_control_mode + "  |  telemetry: " + predictor_telemetry_path).
 log_line("Entry corridor: " + entry_corridor_id + "  |  target/predicted FPA: " + ROUND(target_entry_fpa_down_deg, 3) + "/" + ROUND(predicted_entry_fpa_down_deg, 3) + " deg down at 70 km").
-log_line("Deorbit phase : target/actual burn " + ROUND(target_deorbit_phase_angle_deg, 3) + "/" + ROUND(actual_deorbit_burn_phase_angle_deg, 3) + " deg").
+IF target_deorbit_ignition_phase_deg >= 0 {
+    log_line("Deorbit phase : ignition target/start/cutoff " + ROUND(target_deorbit_ignition_phase_deg, 3) + "/" + ROUND(actual_deorbit_burn_phase_angle_deg, 3) + "/" + ROUND(deorbit_burn_cutoff_phase_angle_deg, 3) + " deg").
+} ELSE {
+    log_line("Deorbit phase : gate target/burn start/cutoff " + ROUND(target_deorbit_phase_angle_deg, 3) + "/" + ROUND(actual_deorbit_burn_phase_angle_deg, 3) + "/" + ROUND(deorbit_burn_cutoff_phase_angle_deg, 3) + " deg").
+}
 log_line("Survival experiment: " + reentry_survival_experiment_mode + "  |  geography scored: " + landing_geography_scored).
 log_line("Airbrake authority: locked to " + airbrake_authority_command_percent + "% during entry; original values restored when the entry controller exits.").
 log_line("Airbrake thermal safeguard: q-only duty cycle; at q >= " + airbrake_hot_q_threshold_kpa + " kPa retract " + airbrake_cooldown_duration_seconds + " s after " + airbrake_hot_max_deployed_seconds + " s deployed.").
