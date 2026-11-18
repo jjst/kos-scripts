@@ -346,6 +346,14 @@ ignition must be within 0.1 degrees. Telemetry distinguishes the new
 ignition target from historical warp gates and records both throttle command
 edges. This is a repeatability check, not a new attempt to aim 1 km long.
 
+Boot-menu option A tests fixed 70 degrees with the same ignition target, 2.9
+degree entry FPA, matched-zero AoA, and 10/1 q-duty policy as option 9. Landing
+geography is not scored. Check full integrity at stable subsonic and compare
+distance traveled from common altitudes (69 km and 30 km) to that handoff with
+the recorded fixed-60, fixed-75, and fixed-90 flights. The fixed-angle traces
+suggest a range midpoint around 69–70 degrees; they do not measure how much
+correction a mid-flight command change can deliver.
+
 Run `1794868644` is excluded from survival evidence because atmospheric physics
 warp was enabled. It diverged sharply from the clean traces, lost three parts and
 three airbrakes, reached 112.05 kPa peak q, and ended without a completed outcome.
