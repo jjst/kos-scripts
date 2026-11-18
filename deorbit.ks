@@ -10,6 +10,7 @@ PARAMETER custom_fixed_airbrake_angle_deg IS -1.
 PARAMETER deorbit_guidance_mode IS "entry_fpa29".
 PARAMETER reentry_survival_experiment_mode IS FALSE.
 PARAMETER landing_geography_scored IS TRUE.
+PARAMETER deorbit_phase_override_deg IS -1.
 
 // --- CONFIG (edit these) ------------------------------------
 SET reentry_script_path TO "1:/reentry.ks".
@@ -38,6 +39,8 @@ SET entry_fpa_prediction_regression_tolerance_deg TO 0.05.
 SET target_deorbit_phase_angle_deg TO 175.9.
 IF reentry_survival_experiment_mode AND NOT landing_geography_scored {
     SET target_deorbit_phase_angle_deg TO 90.
+} ELSE IF deorbit_phase_override_deg >= 0 {
+    SET target_deorbit_phase_angle_deg TO deorbit_phase_override_deg.
 }
 SET deorbit_phase_start_tolerance_deg TO 1.
 SET deorbit_phase_warp_rate TO 4.
@@ -269,7 +272,7 @@ check_line(NOT reentry_survival_experiment_mode OR reentry_airbrake_control_mode
 check_line(SHIP:APOAPSIS >= min_parking_alt_meters AND SHIP:APOAPSIS <= max_parking_alt_meters, "Parking Ap", ROUND(SHIP:APOAPSIS/1000, 1) + " km within " + ROUND(min_parking_alt_meters/1000) + "-" + ROUND(max_parking_alt_meters/1000) + " km").
 check_line(SHIP:PERIAPSIS >= min_parking_alt_meters AND SHIP:PERIAPSIS <= max_parking_alt_meters, "Parking Pe", ROUND(SHIP:PERIAPSIS/1000, 1) + " km within " + ROUND(min_parking_alt_meters/1000) + "-" + ROUND(max_parking_alt_meters/1000) + " km").
 check_line(SHIP:OBT:ECCENTRICITY <= max_parking_eccentricity, "Parking eccentricity", ROUND(SHIP:OBT:ECCENTRICITY, 4) + " <= " + max_parking_eccentricity).
-check_line(deorbit_phase_angle >= 0, "Deorbit phase angle", ROUND(deorbit_phase_angle, 1) + " deg; burn target " + ROUND(target_deorbit_phase_angle_deg) + " +/- " + ROUND(deorbit_phase_start_tolerance_deg) + " deg").
+check_line(deorbit_phase_angle >= 0, "Deorbit phase angle", ROUND(deorbit_phase_angle, 1) + " deg; phase gate " + ROUND(target_deorbit_phase_angle_deg, 1) + " +/- " + ROUND(deorbit_phase_start_tolerance_deg) + " deg").
 check_line(ADDONS:TR:AVAILABLE AND ADDONS:TR:ISVERTWOFOUR, "Trajectories 2.4.0+", "AVAILABLE = " + ADDONS:TR:AVAILABLE).
 check_line(SHIP:AVAILABLETHRUST > 0, "Available thrust", ROUND(SHIP:AVAILABLETHRUST, 1) + " kN").
 check_line(min_deorbit_throttle >= 0 AND min_deorbit_throttle <= 1, "Minimum burn throttle", ROUND(min_deorbit_throttle, 2)).
