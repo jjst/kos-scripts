@@ -354,6 +354,25 @@ the recorded fixed-60, fixed-75, and fixed-90 flights. The fixed-angle traces
 suggest a range midpoint around 69–70 degrees; they do not measure how much
 correction a mid-flight command change can deliver.
 
+Run `1795043502` passed at 70 degrees with all 35 parts and four brakes
+through splashdown. Remaining range at 69 km / 30 km was 856.83 / 111.26 km,
+within 0.9 km of the respective fixed-60/fixed-90 midpoints.
+
+Option B flies the same fixed-70 profile and logs shadow recommendations.
+The reference is a piecewise-linear trace from run `1795043502`, covering
+69.5–6.5 km. It uses remaining eastward surface arc to the logged handoff.
+The provisional handoff target is 1.85 km west of the pad, allowing for the
+observed eastward drift after handoff. The estimate is scoped to eastbound,
+near-equatorial flights and is withheld after hardware loss or if speed/FPA
+differs from the trace by more than 60 m/s or 1.5 degrees.
+
+Positive `shadow_predicted_handoff_error_m` means long. The shadow angle is
+70 degrees plus 2 degrees per km of error, clamped to 60–90 degrees;
+`shadow_airbrake_saturated` indicates a limit. No recommendation is connected
+to the flight controls and the existing q safeguard is unchanged. Compare
+early valid predictions and saturation to `shadow_observed_handoff_error_m`
+at stable subsonic before attempting actual closed-loop guidance.
+
 Run `1794868644` is excluded from survival evidence because atmospheric physics
 warp was enabled. It diverged sharply from the clean traces, lost three parts and
 three airbrakes, reached 112.05 kPa peak q, and ended without a completed outcome.

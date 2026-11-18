@@ -12,6 +12,7 @@ PARAMETER reentry_survival_experiment_mode IS FALSE.
 PARAMETER landing_geography_scored IS TRUE.
 PARAMETER deorbit_phase_override_deg IS -1.
 PARAMETER target_deorbit_ignition_phase_deg IS -1.
+PARAMETER reentry_shadow_guidance IS FALSE.
 
 // --- CONFIG (edit these) ------------------------------------
 SET reentry_script_path TO "1:/reentry.ks".
@@ -617,4 +618,4 @@ UNTIL SHIP:ALTITUDE <= reentry_handoff_alt_meters {
 SET WARP TO 0.
 
 log_line("Running reentry script: " + reentry_script_path + "  |  airbrakes: " + reentry_airbrake_control_mode + "  |  fixed angle: " + ROUND(custom_fixed_airbrake_angle_deg, 2) + "  |  Trajectories profile: " + trajectories_profile_id + "  |  corridor: " + deorbit_guidance_mode + "  |  survival experiment: " + reentry_survival_experiment_mode).
-RUNPATH(reentry_script_path, reentry_airbrake_control_mode, trajectories_profile_id, custom_fixed_airbrake_angle_deg, deorbit_guidance_mode, target_entry_fpa_down_deg, achieved_entry_fpa_down_deg, target_deorbit_phase_angle_deg, actual_deorbit_burn_phase_angle_deg, reentry_survival_experiment_mode, landing_geography_scored, target_deorbit_ignition_phase_deg, deorbit_burn_cutoff_phase_angle_deg).
+RUNPATH(reentry_script_path, reentry_airbrake_control_mode, trajectories_profile_id, custom_fixed_airbrake_angle_deg, deorbit_guidance_mode, target_entry_fpa_down_deg, achieved_entry_fpa_down_deg, target_deorbit_phase_angle_deg, actual_deorbit_burn_phase_angle_deg, reentry_survival_experiment_mode, landing_geography_scored, target_deorbit_ignition_phase_deg, deorbit_burn_cutoff_phase_angle_deg, reentry_shadow_guidance).
