@@ -339,8 +339,10 @@ marks the full run unusable while still reporting the entry as survived.
 
 The 175.4-degree gate follow-up (`1795036279`) splashed down intact 8.12 km
 long, with an actual burn start of 162.816 degrees. Option 9 now repeats that
-burn-start phase directly: warp stops early for retrograde alignment, then
-ignition is timed at 1x within 0.1 degrees. Telemetry distinguishes the new
+burn-start phase directly: rails warp stops ahead of ignition, vacuum physics
+warp speeds up alignment, and the final approach and burn use 1x. The final
+approach starts 1.3 degrees ahead (about eight seconds in the reference orbit);
+ignition must be within 0.1 degrees. Telemetry distinguishes the new
 ignition target from historical warp gates and records both throttle command
 edges. This is a repeatability check, not a new attempt to aim 1 km long.
 

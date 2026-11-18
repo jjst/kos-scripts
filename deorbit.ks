@@ -46,7 +46,14 @@ IF reentry_survival_experiment_mode AND NOT landing_geography_scored {
 SET deorbit_phase_start_tolerance_deg TO 1.
 SET deorbit_phase_warp_rate TO 4.
 SET deorbit_ignition_tolerance_deg TO 0.1.
-SET deorbit_alignment_lead_deg TO 40.
+// The baseline took about 13.3 deg to align. Stage around 17 deg ahead
+// rather than coasting the extra 20+ deg at 1x.
+SET deorbit_alignment_lead_deg TO 17.
+SET deorbit_alignment_min_lead_deg TO 15.
+SET deorbit_staging_slow_warp TO 2.
+SET deorbit_vacuum_physics_warp TO 3.
+// In the 100 km test orbit, this is about eight seconds at 1x.
+SET deorbit_final_approach_lead_deg TO 1.3.
 SET slow_burn_miss_meters TO 10000.
 SET min_deorbit_throttle TO 0.01.
 SET max_deorbit_twr TO 0.5.
@@ -323,20 +330,38 @@ SET ADDONS:TR:DESCENTMODES TO LIST(TRUE, TRUE, TRUE, TRUE).
 
 SET deorbit_phase_angle TO target_phase_angle(pad_geo).
 IF target_deorbit_ignition_phase_deg >= 0 {
-    // Phase decreases towards the target. Use a broad staging window so
-    // warp accuracy does not set the burn-start accuracy.
+    // Phase decreases towards the target. Slow down before the staging
+    // window; its exact exit phase does not set the ignition phase.
     log_line("--- Warping to retrograde alignment staging ---").
+    SET WARPMODE TO "RAILS".
     LOCAL staging_deadline IS TIME:SECONDS + 7200.
-    UNTIL ignition_phase_offset(deorbit_phase_angle) >= 15 AND ignition_phase_offset(deorbit_phase_angle) <= deorbit_alignment_lead_deg {
+    LOCAL staging_next_print IS TIME:SECONDS.
+    LOCAL staging_offset IS ignition_phase_offset(deorbit_phase_angle).
+    UNTIL staging_offset >= deorbit_alignment_min_lead_deg AND staging_offset <= deorbit_alignment_lead_deg {
         IF deorbit_phase_angle < 0 OR TIME:SECONDS >= staging_deadline {
             abort_deorbit("could not reach the ignition staging window.").
         }
-        SET WARP TO deorbit_phase_warp_rate.
-        WAIT 0.
+        IF staging_offset > deorbit_alignment_lead_deg AND staging_offset <= deorbit_alignment_lead_deg + 10 {
+            SET WARP TO deorbit_staging_slow_warp.
+        } ELSE {
+            SET WARP TO deorbit_phase_warp_rate.
+        }
+        IF TIME:SECONDS >= staging_next_print {
+            log_line("  Current phase " + ROUND(deorbit_phase_angle, 1) + " deg; staging " + deorbit_alignment_min_lead_deg + "-" + deorbit_alignment_lead_deg + " deg before ignition.").
+            SET staging_next_print TO TIME:SECONDS + warp_telemetry_interval.
+        }
+        WAIT 1.
         SET deorbit_phase_angle TO target_phase_angle(pad_geo).
+        SET staging_offset TO ignition_phase_offset(deorbit_phase_angle).
     }
     SET WARP TO 0.
-    WAIT 0.
+    LOCAL staging_settle_deadline IS TIME:SECONDS + 15.
+    UNTIL KUNIVERSE:TIMEWARP:ISSETTLED AND KUNIVERSE:TIMEWARP:RATE <= 1.01 {
+        IF TIME:SECONDS >= staging_settle_deadline {
+            abort_deorbit("rails warp did not settle before alignment.").
+        }
+        WAIT 0.
+    }
     log_line("  Alignment staging phase: " + ROUND(target_phase_angle(pad_geo), 3) + " deg").
 } ELSE IF ABS(deorbit_phase_angle - target_deorbit_phase_angle_deg) > deorbit_phase_start_tolerance_deg {
     log_line("--- Warping to deorbit phase ---").
@@ -366,6 +391,17 @@ SAS OFF.
 LOCK STEERING TO RETROGRADE.
 LOCK THROTTLE TO 0.
 log_line("--- Aligning for deorbit burn ---").
+IF target_deorbit_ignition_phase_deg >= 0 {
+    // Keep steering active while accelerating the vacuum-only alignment.
+    IF SHIP:ALTITUDE <= entry_interface_alt_meters {
+        abort_deorbit("vacuum alignment warp requires altitude above the entry interface.").
+    }
+    SET WARPMODE TO "PHYSICS".
+    IF WARPMODE <> "PHYSICS" {
+        abort_deorbit("could not select vacuum physics warp for alignment.").
+    }
+    SET WARP TO deorbit_vacuum_physics_warp.
+}
 LOCAL align_start IS TIME:SECONDS.
 LOCAL align_next_print IS TIME:SECONDS.
 UNTIL orbit_retrograde_error() <= burn_alignment_max_error_deg {
@@ -381,12 +417,26 @@ UNTIL orbit_retrograde_error() <= burn_alignment_max_error_deg {
 log_line("  Aligned retrograde  |  error: " + ROUND(orbit_retrograde_error(), 1) + " deg").
 
 IF target_deorbit_ignition_phase_deg >= 0 {
-    log_line("  Aligned; waiting at 1x for ignition phase " + ROUND(target_deorbit_ignition_phase_deg, 3) + " deg").
     LOCAL ignition_deadline IS TIME:SECONDS + 300.
+    SET deorbit_phase_angle TO target_phase_angle(pad_geo).
+    UNTIL ignition_phase_offset(deorbit_phase_angle) <= deorbit_final_approach_lead_deg {
+        IF deorbit_phase_angle < 0 OR TIME:SECONDS >= ignition_deadline {
+            abort_deorbit("could not reach final ignition approach.").
+        }
+        WAIT 0.
+        SET deorbit_phase_angle TO target_phase_angle(pad_geo).
+    }
+    SET WARP TO 0.
+    log_line("  Final 1x approach to ignition phase " + ROUND(target_deorbit_ignition_phase_deg, 3) + " deg").
+    LOCAL ignition_next_print IS TIME:SECONDS.
     SET deorbit_phase_angle TO target_phase_angle(pad_geo).
     UNTIL ignition_phase_offset(deorbit_phase_angle) <= 0 {
         IF deorbit_phase_angle < 0 OR TIME:SECONDS >= ignition_deadline {
             abort_deorbit("could not reach ignition phase at 1x.").
+        }
+        IF TIME:SECONDS >= ignition_next_print {
+            log_line("  Ignition in " + ROUND(ignition_phase_offset(deorbit_phase_angle), 2) + " deg at 1x.").
+            SET ignition_next_print TO TIME:SECONDS + telemetry_interval.
         }
         WAIT 0.
         SET deorbit_phase_angle TO target_phase_angle(pad_geo).
@@ -520,7 +570,7 @@ UNTIL success {
     IF deorbit_throttle > 0 AND actual_deorbit_burn_phase_angle_deg < 0 {
         SET actual_deorbit_burn_phase_angle_deg TO target_phase_angle(pad_geo).
         IF target_deorbit_ignition_phase_deg >= 0 {
-            IF actual_deorbit_burn_phase_angle_deg < 0 OR ABS(ignition_phase_offset(actual_deorbit_burn_phase_angle_deg)) > deorbit_ignition_tolerance_deg OR orbit_retrograde_error() > burn_alignment_max_error_deg {
+            IF NOT KUNIVERSE:TIMEWARP:ISSETTLED OR KUNIVERSE:TIMEWARP:RATE > 1.01 OR actual_deorbit_burn_phase_angle_deg < 0 OR ABS(ignition_phase_offset(actual_deorbit_burn_phase_angle_deg)) > deorbit_ignition_tolerance_deg OR orbit_retrograde_error() > burn_alignment_max_error_deg {
                 abort_deorbit("missed aligned ignition window at " + ROUND(actual_deorbit_burn_phase_angle_deg, 3) + " deg.").
             }
         }
@@ -547,6 +597,9 @@ transmit_log().
 PRINT " ".
 PRINT "Auto-running reentry.ks below " + ROUND(reentry_handoff_alt_meters/1000, 1) + " km. Press any key to abort.".
 WAIT 1.
+IF target_deorbit_ignition_phase_deg >= 0 {
+    SET WARPMODE TO "RAILS".
+}
 SET WARP TO reentry_coast_warp_rate.
 LOCAL handoff_next_print IS TIME:SECONDS.
 UNTIL SHIP:ALTITUDE <= reentry_handoff_alt_meters {
