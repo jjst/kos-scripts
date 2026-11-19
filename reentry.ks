@@ -16,6 +16,8 @@ PARAMETER reentry_survival_experiment_mode IS FALSE.
 PARAMETER landing_geography_scored IS TRUE.
 PARAMETER target_deorbit_ignition_phase_deg IS -1.
 PARAMETER deorbit_burn_cutoff_phase_angle_deg IS -1.
+PARAMETER reentry_shadow_guidance IS FALSE.
+PARAMETER range_p_test_target_east_m IS 0.
 
 // --- CONFIG (edit these) ------------------------------------
 SET entry_telemetry_interval TO 20.
@@ -76,6 +78,83 @@ SET monitor_throttle_pid_epsilon TO 50.
 SET land_script_path TO "1:/land_guided.ks".
 SET land_unguided_script_path TO "1:/land_unguided.ks".
 SET pad_geo TO LATLNG(-0.0972, -74.5577).
+// Eastbound near-equatorial Boomerang only. Source run 1795043502,
+// fixed 70°, matched0, entry_fpa29, 10/1 q duty. Rows are altitude ASL,
+// remaining eastward surface range to landing handoff, surface speed and FPA.
+SET shadow_reference_rows TO LIST().
+IF reentry_shadow_guidance OR airbrake_control_mode = "range_p" {
+    SET shadow_reference_rows TO LIST(
+        LIST(69500, 865776, 2101, 2.88),
+        LIST(66331, 808850, 2113, 2.86),
+        LIST(64814, 781416, 2119, 2.84),
+        LIST(63044, 749051, 2125, 2.81),
+        LIST(61295, 716621, 2131, 2.78),
+        LIST(59566, 683978, 2136, 2.73),
+        LIST(58106, 655925, 2141, 2.69),
+        LIST(56423, 622896, 2145, 2.63),
+        LIST(55013, 594633, 2149, 2.59),
+        LIST(53856, 570961, 2151, 2.54),
+        LIST(52940, 551929, 2153, 2.51),
+        LIST(51814, 528141, 2154, 2.47),
+        LIST(50699, 504180, 2155, 2.43),
+        LIST(49605, 480290, 2156, 2.4),
+        LIST(48305, 451420, 2155, 2.37),
+        LIST(47029, 422711, 2153, 2.35),
+        LIST(43856, 350781, 2141, 2.37),
+        LIST(42341, 317056, 2131, 2.43),
+        LIST(41455, 297829, 2123, 2.49),
+        LIST(40778, 283438, 2117, 2.55),
+        LIST(39851, 264300, 2107, 2.64),
+        LIST(39135, 249990, 2099, 2.73),
+        LIST(38401, 235805, 2090, 2.83),
+        LIST(37646, 221750, 2079, 2.95),
+        LIST(36854, 207602, 2067, 3.09),
+        LIST(36309, 198249, 2058, 3.19),
+        LIST(35467, 184387, 2042, 3.37),
+        LIST(34877, 175098, 2030, 3.5),
+        LIST(33952, 161260, 2009, 3.73),
+        LIST(33310, 152147, 1994, 3.9),
+        LIST(32651, 143215, 1977, 4.09),
+        LIST(31954, 134209, 1957, 4.3),
+        LIST(31228, 125290, 1935, 4.54),
+        LIST(30476, 116545, 1911, 4.8),
+        LIST(29697, 107983, 1883, 5.09),
+        LIST(28869, 99407, 1851, 5.42),
+        LIST(28010, 91050, 1816, 5.79),
+        LIST(27564, 86932, 1796, 5.99),
+        LIST(26635, 78772, 1752, 6.44),
+        LIST(26166, 74870, 1728, 6.68),
+        LIST(25187, 67165, 1675, 7.21),
+        LIST(24673, 63345, 1645, 7.51),
+        LIST(23609, 55924, 1581, 8.17),
+        LIST(23064, 52357, 1545, 8.54),
+        LIST(21931, 45433, 1466, 9.36),
+        LIST(21349, 42116, 1422, 9.82),
+        LIST(20154, 35792, 1331, 10.86),
+        LIST(18924, 29931, 1229, 12.08),
+        LIST(17757, 24930, 1127, 13.43),
+        LIST(16601, 20488, 1020, 14.96),
+        LIST(15434, 16490, 908, 16.77),
+        LIST(14286, 13011, 798, 18.9),
+        LIST(13156, 10006, 684, 21.48),
+        LIST(12072, 7507, 578, 24.55),
+        LIST(11047, 5480, 476, 28.23),
+        LIST(10098, 3896, 378, 32.62),
+        LIST(9662, 3264, 319, 35.35),
+        LIST(9268, 2752, 284, 38.63),
+        LIST(8466, 1872, 261, 45.08),
+        LIST(8047, 1483, 255, 48.23),
+        LIST(7195, 806, 245, 54.02),
+        LIST(6500, 349, 240, 58.18)
+    ).
+}
+SET shadow_base_angle_deg TO 70.
+SET shadow_handoff_lead_m TO 1850.
+SET shadow_gain_deg_per_km TO 2.
+SET shadow_speed_tolerance_mps TO 60.
+SET shadow_fpa_tolerance_deg TO 1.5.
+SET range_p_state TO "waiting".
+SET range_p_fallback_reason TO "".
 SET log_path TO "reentry.log".
 SET predictor_telemetry_start_time TO TIME:SECONDS.
 SET predictor_telemetry_real_start_time TO KUNIVERSE:REALTIME.
@@ -320,6 +399,15 @@ FUNCTION initialize_predictor_telemetry {
     SET predictor_telemetry_run["reentry_survival_subsonic_mach_threshold"] TO survival_subsonic_mach_threshold.
     SET predictor_telemetry_run["reentry_survival_subsonic_hold_s"] TO survival_subsonic_hold_seconds.
     SET predictor_telemetry_run["landing_geography_scored"] TO landing_geography_scored.
+    IF reentry_shadow_guidance OR airbrake_control_mode = "range_p" {
+        SET predictor_telemetry_run["shadow_guidance_reference_run_id"] TO 1795043502.
+        SET predictor_telemetry_run["shadow_guidance_base_angle_deg"] TO shadow_base_angle_deg.
+        SET predictor_telemetry_run["shadow_guidance_handoff_lead_m"] TO shadow_handoff_lead_m.
+        SET predictor_telemetry_run["range_p_test_target_east_m"] TO range_p_test_target_east_m.
+        SET predictor_telemetry_run["shadow_guidance_gain_deg_per_km"] TO shadow_gain_deg_per_km.
+        SET predictor_telemetry_run["shadow_guidance_speed_tolerance_mps"] TO shadow_speed_tolerance_mps.
+        SET predictor_telemetry_run["shadow_guidance_fpa_tolerance_deg"] TO shadow_fpa_tolerance_deg.
+    }
     SET predictor_telemetry_run["airbrake_min_angle_deg"] TO airbrake_min_angle.
     SET predictor_telemetry_run["airbrake_max_angle_deg"] TO airbrake_base_angle.
     SET predictor_telemetry_run["airbrake_fixed_angle_deg"] TO configured_fixed_airbrake_angle().
@@ -397,6 +485,110 @@ FUNCTION checkpoint_predictor_telemetry {
     SET predictor_telemetry_segment_index TO predictor_telemetry_segment_index + 1.
     start_predictor_telemetry_segment().
     SET predictor_telemetry_next_checkpoint TO TIME:SECONDS + predictor_telemetry_checkpoint_interval.
+}
+
+FUNCTION shadow_needed_eastward_range {
+    PARAMETER longitude_deg.
+    LOCAL to_pad_deg IS pad_geo:LNG - longitude_deg.
+    IF to_pad_deg > 180 {
+        SET to_pad_deg TO to_pad_deg - 360.
+    }
+    IF to_pad_deg < -180 {
+        SET to_pad_deg TO to_pad_deg + 360.
+    }
+    RETURN to_pad_deg * SHIP:BODY:RADIUS * CONSTANT:PI / 180 - shadow_handoff_lead_m + range_p_test_target_east_m.
+}
+
+FUNCTION record_shadow_guidance_sample {
+    PARAMETER sample, horizontal_velocity.
+    LOCAL altitude_m IS sample["altitude_asl_m"].
+    LOCAL lat_deg IS sample["latitude_deg"].
+    LOCAL lng_deg IS sample["longitude_deg"].
+    LOCAL needed_range_m IS shadow_needed_eastward_range(lng_deg).
+    SET sample["shadow_needed_range_m"] TO needed_range_m.
+    IF sample["phase"] = "reentry_survival_milestone" {
+        SET sample["shadow_observed_handoff_error_m"] TO -needed_range_m.
+        RETURN.
+    }
+    LOCAL east_point IS LATLNG(lat_deg, lng_deg + 0.1).
+    IF ABS(lat_deg) > 1 OR VDOT(horizontal_velocity, east_point:POSITION - SHIP:GEOPOSITION:POSITION) <= 0 {
+        SET sample["shadow_guidance_status"] TO "outside_eastbound_corridor".
+        RETURN.
+    }
+    IF sample["vessel_part_count"] <> predictor_telemetry_initial_part_count OR sample["airbrake_part_count"] <> predictor_telemetry_initial_airbrake_count {
+        SET sample["shadow_guidance_status"] TO "hardware_loss".
+        RETURN.
+    }
+    LOCAL hi_idx IS 0.
+    LOCAL lo_idx IS shadow_reference_rows:LENGTH - 1.
+    IF altitude_m > shadow_reference_rows[hi_idx][0] OR altitude_m < shadow_reference_rows[lo_idx][0] {
+        SET sample["shadow_guidance_status"] TO "outside_reference_altitude".
+        RETURN.
+    }
+    UNTIL lo_idx - hi_idx <= 1 {
+        LOCAL mid_idx IS FLOOR((hi_idx + lo_idx) / 2).
+        IF altitude_m > shadow_reference_rows[mid_idx][0] {
+            SET lo_idx TO mid_idx.
+        } ELSE {
+            SET hi_idx TO mid_idx.
+        }
+    }
+    LOCAL upper_row IS shadow_reference_rows[hi_idx].
+    LOCAL lower_row IS shadow_reference_rows[lo_idx].
+    LOCAL weight IS (upper_row[0] - altitude_m) / (upper_row[0] - lower_row[0]).
+    LOCAL range_m IS upper_row[1] + weight * (lower_row[1] - upper_row[1]).
+    LOCAL speed_mps IS upper_row[2] + weight * (lower_row[2] - upper_row[2]).
+    LOCAL fpa_deg IS upper_row[3] + weight * (lower_row[3] - upper_row[3]).
+    LOCAL speed_error_mps IS sample["surface_speed_mps"] - speed_mps.
+    LOCAL fpa_error_deg IS ARCTAN2(-sample["vertical_speed_mps"], MAX(0.001, horizontal_velocity:MAG)) - fpa_deg.
+    SET sample["shadow_reference_range_m"] TO range_m.
+    SET sample["shadow_reference_speed_error_mps"] TO speed_error_mps.
+    SET sample["shadow_reference_fpa_error_deg"] TO fpa_error_deg.
+    IF ABS(speed_error_mps) > shadow_speed_tolerance_mps OR ABS(fpa_error_deg) > shadow_fpa_tolerance_deg {
+        SET sample["shadow_guidance_status"] TO "outside_reference_state".
+        RETURN.
+    }
+    LOCAL handoff_error_m IS range_m - needed_range_m.
+    LOCAL suggested_angle_deg IS shadow_base_angle_deg + shadow_gain_deg_per_km * handoff_error_m / 1000.
+    SET sample["shadow_guidance_status"] TO "valid".
+    SET sample["shadow_predicted_handoff_error_m"] TO handoff_error_m.
+    SET sample["shadow_airbrake_angle_deg"] TO clamp(suggested_angle_deg, 60, 90).
+    SET sample["shadow_airbrake_saturated"] TO suggested_angle_deg <= 60 OR suggested_angle_deg >= 90.
+}
+
+FUNCTION update_range_p_angle {
+    IF range_p_state = "fallback" {
+        RETURN shadow_base_angle_deg.
+    }
+    LOCAL inputs IS LEXICON().
+    SET inputs["phase"] TO "entry".
+    SET inputs["altitude_asl_m"] TO SHIP:ALTITUDE.
+    SET inputs["latitude_deg"] TO SHIP:GEOPOSITION:LAT.
+    SET inputs["longitude_deg"] TO SHIP:GEOPOSITION:LNG.
+    LOCAL entry_velocity IS SHIP:VELOCITY:SURFACE.
+    SET inputs["surface_speed_mps"] TO entry_velocity:MAG.
+    SET inputs["vertical_speed_mps"] TO SHIP:VERTICALSPEED.
+    SET inputs["vessel_part_count"] TO SHIP:PARTS:LENGTH.
+    SET inputs["airbrake_part_count"] TO SHIP:PARTSTAGGED("airbrake"):LENGTH.
+    record_shadow_guidance_sample(inputs, VXCL(UP:FOREVECTOR, entry_velocity)).
+    LOCAL estimate_status IS inputs["shadow_guidance_status"].
+    IF estimate_status = "valid" {
+        IF range_p_state = "waiting" {
+            SET range_p_state TO "active".
+            record_predictor_event("range_p_activated", "altitude " + ROUND(SHIP:ALTITUDE) + " m").
+            log_line("  Live range-P active.").
+        }
+        RETURN ROUND(inputs["shadow_airbrake_angle_deg"]).
+    }
+    // Only the expected above-reference warm-up may remain waiting.
+    IF range_p_state = "waiting" AND estimate_status = "outside_reference_altitude" AND SHIP:ALTITUDE > shadow_reference_rows[0][0] {
+        RETURN shadow_base_angle_deg.
+    }
+    SET range_p_state TO "fallback".
+    SET range_p_fallback_reason TO estimate_status.
+    record_predictor_event("range_p_fallback", estimate_status + " at " + ROUND(SHIP:ALTITUDE) + " m").
+    log_line("  Range-P fallback: 70 deg for the remainder of entry (" + estimate_status + ").").
+    RETURN shadow_base_angle_deg.
 }
 
 FUNCTION capture_predictor_sample {
@@ -540,6 +732,13 @@ FUNCTION capture_predictor_sample {
     SET sample["airbrake_pid_kp"] TO airbrake_pid_gain.
     SET sample["throttle_command"] TO throttle_command.
     SET sample["has_trajectories_impact"] TO has_impact.
+    IF (reentry_shadow_guidance OR airbrake_control_mode = "range_p") AND (phase = "entry" OR phase = "reentry_survival_milestone") {
+        record_shadow_guidance_sample(sample, horizontal_velocity).
+    }
+    IF airbrake_control_mode = "range_p" {
+        SET sample["range_p_state"] TO range_p_state.
+        SET sample["range_p_fallback_reason"] TO range_p_fallback_reason.
+    }
 
     IF has_impact {
         LOCAL impact_geo IS ADDONS:TR:IMPACTPOS.
@@ -748,6 +947,13 @@ IF reentry_survival_experiment_mode {
 
 log_line("--- Preflight checks ---").
 check_line(pad_geo:BODY:NAME = SHIP:BODY:NAME, "Target body", "target " + pad_geo:BODY:NAME + ", current " + SHIP:BODY:NAME).
+IF reentry_shadow_guidance {
+    check_line(reentry_survival_experiment_mode AND airbrake_control_mode = "fixed" AND configured_fixed_airbrake_angle() = shadow_base_angle_deg AND trajectories_profile_id = "matched0" AND entry_corridor_id = "entry_fpa29", "Shadow guidance configuration", "fixed 70 deg, matched-zero AoA, entry_fpa29, survival mode required").
+}
+IF airbrake_control_mode = "range_p" {
+    check_line(entry_brakes_enabled AND reentry_survival_experiment_mode AND trajectories_profile_id = "matched0" AND entry_corridor_id = "entry_fpa29", "Live range-P configuration", "entry brakes, matched-zero AoA, entry_fpa29 and survival mode required").
+    info_line("Range-P virtual handoff target shift", range_p_test_target_east_m + " m east of nominal").
+}
 check_line(entry_brakes_retract_speed_mps > 0, "Entry brake retract speed", ROUND(entry_brakes_retract_speed_mps) + " m/s").
 check_line(airbrake_hot_q_threshold_kpa > 0, "Airbrake hot-q threshold", ROUND(airbrake_hot_q_threshold_kpa, 1) + " kPa").
 check_line(airbrake_hot_max_deployed_seconds > 0, "Airbrake hot deployed limit", ROUND(airbrake_hot_max_deployed_seconds, 1) + " s").
@@ -760,7 +966,7 @@ FOR field_authority IN preflight_airbrake_authority_fields {
     }
 }
 check_line(airbrake_authority_ok, "Airbrake control authority locked", airbrake_authority_command_percent + "% across " + preflight_airbrake_authority_fields:LENGTH + " surfaces").
-check_line(airbrake_control_mode = "off" OR is_fixed_airbrake_mode() OR airbrake_control_mode = "pid", "Airbrake control mode", airbrake_control_mode).
+check_line(airbrake_control_mode = "off" OR is_fixed_airbrake_mode() OR airbrake_control_mode = "pid" OR airbrake_control_mode = "range_p", "Airbrake control mode", airbrake_control_mode).
 check_line(airbrake_control_mode <> "fixed" OR (custom_fixed_airbrake_angle_deg >= 0 AND custom_fixed_airbrake_angle_deg <= airbrake_base_angle), "Custom fixed airbrake angle", ROUND(custom_fixed_airbrake_angle_deg, 2) + " deg within 0-" + airbrake_base_angle).
 check_line(trajectories_profile_id = "proxy" OR trajectories_profile_id = "matched10" OR trajectories_profile_id = "matched0", "Trajectories profile ID", trajectories_profile_id).
 check_line(entry_corridor_id = "trajectories_miss" OR entry_corridor_id = "entry_fpa29", "Entry corridor ID", entry_corridor_id).
@@ -812,7 +1018,9 @@ IF entry_brakes_deployed {
 }
 LOCAL ab_angle IS 0.
 IF airbrake_control_active {
-    IF is_fixed_airbrake_mode() {
+    IF airbrake_control_mode = "range_p" {
+        SET ab_angle TO shadow_base_angle_deg.
+    } ELSE IF is_fixed_airbrake_mode() {
         SET ab_angle TO configured_fixed_airbrake_angle().
     } ELSE {
         SET ab_angle TO airbrake_base_angle.
@@ -899,8 +1107,17 @@ UNTIL (reentry_survival_experiment_mode AND survival_milestone_reached AND NOT a
         }
     }
 
+    IF airbrake_control_mode = "range_p" AND TIME:SECONDS >= next_brake_update {
+        SET ab_angle TO update_range_p_angle().
+        SET ab_correction TO ab_angle - shadow_base_angle_deg.
+        SET next_brake_update TO TIME:SECONDS + predictor_telemetry_sample_interval.
+    }
+
     IF airbrake_cooldown_active {
         BRAKES OFF.
+    } ELSE IF airbrake_control_mode = "range_p" {
+        // The range loop only sets the angle; the q safeguard owns deployment.
+        set_airbrake_angle(ab_angle).
     } ELSE IF airbrake_control_mode = "off" {
         SET ab_angle TO 0.
         SET ab_correction TO 0.
@@ -924,7 +1141,7 @@ UNTIL (reentry_survival_experiment_mode AND survival_milestone_reached AND NOT a
         SET ab_angle TO clamp(airbrake_base_angle + ab_correction, airbrake_min_angle, airbrake_base_angle).
         SET next_brake_update TO TIME:SECONDS + 2.
     }
-    IF airbrake_control_mode <> "off" AND NOT airbrake_cooldown_active {
+    IF airbrake_control_mode <> "off" AND airbrake_control_mode <> "range_p" AND NOT airbrake_cooldown_active {
         set_airbrake_angle(ab_angle).
     }
 
@@ -933,7 +1150,16 @@ UNTIL (reentry_survival_experiment_mode AND survival_milestone_reached AND NOT a
     }
 
     IF TIME:SECONDS >= next_print {
-        log_line("  Alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  spd: " + ROUND(surface_speed, 1) + " m/s  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s  |  cmd: " + ROUND(entry_aoa_command(), 1) + " deg  |  actual: " + ROUND(actual_entry_aoa(), 1) + " deg").
+        LOCAL range_status IS "".
+        IF airbrake_control_mode = "range_p" {
+            SET range_status TO "  |  brakes cmd: " + ROUND(ab_angle) + " deg (" + range_p_state + ")".
+            IF airbrake_cooldown_active {
+                SET range_status TO range_status + "  |  retracted for cooldown".
+            } ELSE IF NOT BRAKES {
+                SET range_status TO range_status + "  |  not deployed".
+            }
+        }
+        log_line("  Alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  spd: " + ROUND(surface_speed, 1) + " m/s  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s  |  cmd: " + ROUND(entry_aoa_command(), 1) + " deg  |  actual: " + ROUND(actual_entry_aoa(), 1) + " deg" + range_status).
         IF ADDONS:TR:AVAILABLE AND ADDONS:TR:HASIMPACT {
             LOCAL impact_geo IS ADDONS:TR:IMPACTPOS.
             LOCAL tr_miss IS target_miss_distance(impact_geo, pad_geo).

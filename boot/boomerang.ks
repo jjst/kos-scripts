@@ -79,6 +79,9 @@ PRINT "  " + corridor75_survival_choice + ") deorbit.ks [SURVIVAL TEST: 0 deg Ao
 PRINT "  " + corridor90_survival_choice + ") deorbit.ks [SURVIVAL TEST: 0 deg AoA, airbrakes 90 + 10/1 q duty]".
 PRINT "  " + corridor75_targeting_choice + ") deorbit.ks [TARGETING TEST: fixed 75 deg, ignition " + corridor_test_ignition_phase_deg + " deg]".
 PRINT "  A) deorbit.ks [RANGE TEST: fixed 70 deg, ignition " + corridor_test_ignition_phase_deg + " deg]".
+PRINT "  B) deorbit.ks [SHADOW GUIDANCE: fixed 70 deg; recommendations logged only]".
+PRINT "  C) deorbit.ks [LIVE RANGE-P TEST: active 60-90 deg; 70 deg fallback]".
+PRINT "  D) deorbit.ks [SHORT-SIDE RANGE-P TEST: virtual handoff 8 km east]".
 PRINT "Press RETURN to load nothing.".
 TERMINAL:INPUT:CLEAR().
 WAIT UNTIL TERMINAL:INPUT:HASCHAR.
@@ -115,6 +118,15 @@ IF choice_num = deorbit_script_choice {
 } ELSE IF choice = corridor70_range_choice OR choice = "A" {
     PRINT "Launching fixed-70 range test with ignition at " + corridor_test_ignition_phase_deg + " deg...".
     RUNPATH(experiment_deorbit_path, "fixed", "matched0", 70, "entry_fpa29", TRUE, FALSE, -1, corridor_test_ignition_phase_deg).
+} ELSE IF choice = "b" OR choice = "B" {
+    PRINT "Launching fixed-70 reentry with telemetry-only shadow guidance...".
+    RUNPATH(experiment_deorbit_path, "fixed", "matched0", 70, "entry_fpa29", TRUE, FALSE, -1, corridor_test_ignition_phase_deg, TRUE).
+} ELSE IF choice = "c" OR choice = "C" {
+    PRINT "Launching live range-P reentry test...".
+    RUNPATH(experiment_deorbit_path, "range_p", "matched0", -1, "entry_fpa29", TRUE, FALSE, -1, corridor_test_ignition_phase_deg).
+} ELSE IF choice = "d" OR choice = "D" {
+    PRINT "Launching live range-P with the virtual handoff 8 km east of nominal.".
+    RUNPATH(experiment_deorbit_path, "range_p", "matched0", -1, "entry_fpa29", TRUE, FALSE, -1, corridor_test_ignition_phase_deg, FALSE, 8000).
 } ELSE {
     PRINT "No initial script launched.".
 }

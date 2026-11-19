@@ -12,6 +12,8 @@ PARAMETER reentry_survival_experiment_mode IS FALSE.
 PARAMETER landing_geography_scored IS TRUE.
 PARAMETER deorbit_phase_override_deg IS -1.
 PARAMETER target_deorbit_ignition_phase_deg IS -1.
+PARAMETER reentry_shadow_guidance IS FALSE.
+PARAMETER range_p_test_target_east_m IS 0.
 
 // --- CONFIG (edit these) ------------------------------------
 SET reentry_script_path TO "1:/reentry.ks".
@@ -46,14 +48,10 @@ IF reentry_survival_experiment_mode AND NOT landing_geography_scored {
 SET deorbit_phase_start_tolerance_deg TO 1.
 SET deorbit_phase_warp_rate TO 4.
 SET deorbit_ignition_tolerance_deg TO 0.1.
-// The baseline took about 13.3 deg to align. Stage around 17 deg ahead
-// rather than coasting the extra 20+ deg at 1x.
-SET deorbit_alignment_lead_deg TO 17.
-SET deorbit_alignment_min_lead_deg TO 15.
+// Keep the staging window close to ignition to limit the idle 1x wait.
+SET deorbit_alignment_lead_deg TO 10.
+SET deorbit_alignment_min_lead_deg TO 8.
 SET deorbit_staging_slow_warp TO 2.
-SET deorbit_vacuum_physics_warp TO 3.
-// In the 100 km test orbit, this is about eight seconds at 1x.
-SET deorbit_final_approach_lead_deg TO 1.3.
 SET slow_burn_miss_meters TO 10000.
 SET min_deorbit_throttle TO 0.01.
 SET max_deorbit_twr TO 0.5.
@@ -128,7 +126,6 @@ FUNCTION transmit_log {
 
 FUNCTION abort_deorbit {
     PARAMETER msg.
-    SET WARP TO 0.
     SET WARP TO 0.
     LOCK THROTTLE TO 0.
     UNLOCK THROTTLE.
@@ -288,7 +285,8 @@ log_line("Landing target: " + ROUND(pad_geo:LAT, 5) + ", " + ROUND(pad_geo:LNG, 
 
 log_line("--- Preflight checks ---").
 check_line(pad_geo:BODY:NAME = SHIP:BODY:NAME, "Target body", "target " + pad_geo:BODY:NAME + ", current " + SHIP:BODY:NAME).
-check_line(reentry_airbrake_control_mode = "off" OR reentry_airbrake_control_mode = "fixed" OR reentry_airbrake_control_mode = "fixed30" OR reentry_airbrake_control_mode = "fixed45" OR reentry_airbrake_control_mode = "fixed50" OR reentry_airbrake_control_mode = "fixed60" OR reentry_airbrake_control_mode = "fixed90" OR reentry_airbrake_control_mode = "pid", "Reentry airbrake mode", reentry_airbrake_control_mode).
+check_line(reentry_airbrake_control_mode = "off" OR reentry_airbrake_control_mode = "fixed" OR reentry_airbrake_control_mode = "fixed30" OR reentry_airbrake_control_mode = "fixed45" OR reentry_airbrake_control_mode = "fixed50" OR reentry_airbrake_control_mode = "fixed60" OR reentry_airbrake_control_mode = "fixed90" OR reentry_airbrake_control_mode = "pid" OR reentry_airbrake_control_mode = "range_p", "Reentry airbrake mode", reentry_airbrake_control_mode).
+check_line(reentry_airbrake_control_mode <> "range_p" OR (reentry_survival_experiment_mode AND trajectories_profile_id = "matched0" AND deorbit_guidance_mode = "entry_fpa29"), "Live range-P configuration", "matched-zero AoA, entry_fpa29 and survival mode required").
 check_line(reentry_airbrake_control_mode <> "fixed" OR (custom_fixed_airbrake_angle_deg >= 0 AND custom_fixed_airbrake_angle_deg <= 90), "Custom fixed airbrake angle", ROUND(custom_fixed_airbrake_angle_deg, 2) + " deg within 0-90").
 check_line(trajectories_profile_id = "proxy" OR trajectories_profile_id = "matched10" OR trajectories_profile_id = "matched0", "Trajectories profile", trajectories_profile_id).
 check_line(deorbit_guidance_mode = "trajectories_miss" OR deorbit_guidance_mode = "entry_fpa29", "Deorbit guidance mode", deorbit_guidance_mode).
@@ -329,11 +327,14 @@ SET ADDONS:TR:DESCENTGRADES TO LIST(TRUE, TRUE, TRUE, TRUE).
 SET ADDONS:TR:DESCENTMODES TO LIST(TRUE, TRUE, TRUE, TRUE).
 
 SET deorbit_phase_angle TO target_phase_angle(pad_geo).
+SET WARPMODE TO "RAILS".
+IF WARPMODE <> "RAILS" {
+    abort_deorbit("deorbit staging requires rails warp.").
+}
 IF target_deorbit_ignition_phase_deg >= 0 {
     // Phase decreases towards the target. Slow down before the staging
     // window; its exact exit phase does not set the ignition phase.
     log_line("--- Warping to retrograde alignment staging ---").
-    SET WARPMODE TO "RAILS".
     LOCAL staging_deadline IS TIME:SECONDS + 7200.
     LOCAL staging_next_print IS TIME:SECONDS.
     LOCAL staging_offset IS ignition_phase_offset(deorbit_phase_angle).
@@ -354,15 +355,6 @@ IF target_deorbit_ignition_phase_deg >= 0 {
         SET deorbit_phase_angle TO target_phase_angle(pad_geo).
         SET staging_offset TO ignition_phase_offset(deorbit_phase_angle).
     }
-    SET WARP TO 0.
-    LOCAL staging_settle_deadline IS TIME:SECONDS + 15.
-    UNTIL KUNIVERSE:TIMEWARP:ISSETTLED AND KUNIVERSE:TIMEWARP:RATE <= 1.01 {
-        IF TIME:SECONDS >= staging_settle_deadline {
-            abort_deorbit("rails warp did not settle before alignment.").
-        }
-        WAIT 0.
-    }
-    log_line("  Alignment staging phase: " + ROUND(target_phase_angle(pad_geo), 3) + " deg").
 } ELSE IF ABS(deorbit_phase_angle - target_deorbit_phase_angle_deg) > deorbit_phase_start_tolerance_deg {
     log_line("--- Warping to deorbit phase ---").
     log_line("  Current phase: " + ROUND(deorbit_phase_angle, 1) + " deg  |  target: " + ROUND(target_deorbit_phase_angle_deg, 1) + " +/- " + ROUND(deorbit_phase_start_tolerance_deg, 1) + " deg").
@@ -376,9 +368,16 @@ IF target_deorbit_ignition_phase_deg >= 0 {
         WAIT 1.
         SET deorbit_phase_angle TO target_phase_angle(pad_geo).
     }
-    SET WARP TO 0.
-    log_line("  Phase ready: " + ROUND(deorbit_phase_angle, 1) + " deg").
 }
+SET WARP TO 0.
+LOCAL staging_settle_deadline IS TIME:SECONDS + 15.
+UNTIL KUNIVERSE:TIMEWARP:ISSETTLED AND KUNIVERSE:TIMEWARP:RATE <= 1.01 {
+    IF TIME:SECONDS >= staging_settle_deadline {
+        abort_deorbit("rails warp did not settle before alignment.").
+    }
+    WAIT 0.
+}
+log_line("  Alignment staging phase: " + ROUND(target_phase_angle(pad_geo), 3) + " deg").
 
 log_line("Orbit: Ap " + ROUND(SHIP:APOAPSIS/1000, 1) + " km  |  Pe " + ROUND(SHIP:PERIAPSIS/1000, 1) + " km  |  ecc " + ROUND(SHIP:OBT:ECCENTRICITY, 4)).
 IF deorbit_guidance_mode = "entry_fpa29" {
@@ -390,18 +389,7 @@ IF deorbit_guidance_mode = "entry_fpa29" {
 SAS OFF.
 LOCK STEERING TO RETROGRADE.
 LOCK THROTTLE TO 0.
-log_line("--- Aligning for deorbit burn ---").
-IF target_deorbit_ignition_phase_deg >= 0 {
-    // Keep steering active while accelerating the vacuum-only alignment.
-    IF SHIP:ALTITUDE <= entry_interface_alt_meters {
-        abort_deorbit("vacuum alignment warp requires altitude above the entry interface.").
-    }
-    SET WARPMODE TO "PHYSICS".
-    IF WARPMODE <> "PHYSICS" {
-        abort_deorbit("could not select vacuum physics warp for alignment.").
-    }
-    SET WARP TO deorbit_vacuum_physics_warp.
-}
+log_line("--- Aligning for deorbit burn at 1x ---").
 LOCAL align_start IS TIME:SECONDS.
 LOCAL align_next_print IS TIME:SECONDS.
 UNTIL orbit_retrograde_error() <= burn_alignment_max_error_deg {
@@ -418,16 +406,7 @@ log_line("  Aligned retrograde  |  error: " + ROUND(orbit_retrograde_error(), 1)
 
 IF target_deorbit_ignition_phase_deg >= 0 {
     LOCAL ignition_deadline IS TIME:SECONDS + 300.
-    SET deorbit_phase_angle TO target_phase_angle(pad_geo).
-    UNTIL ignition_phase_offset(deorbit_phase_angle) <= deorbit_final_approach_lead_deg {
-        IF deorbit_phase_angle < 0 OR TIME:SECONDS >= ignition_deadline {
-            abort_deorbit("could not reach final ignition approach.").
-        }
-        WAIT 0.
-        SET deorbit_phase_angle TO target_phase_angle(pad_geo).
-    }
-    SET WARP TO 0.
-    log_line("  Final 1x approach to ignition phase " + ROUND(target_deorbit_ignition_phase_deg, 3) + " deg").
+    log_line("  Holding retrograde at 1x for ignition phase " + ROUND(target_deorbit_ignition_phase_deg, 3) + " deg").
     LOCAL ignition_next_print IS TIME:SECONDS.
     SET deorbit_phase_angle TO target_phase_angle(pad_geo).
     UNTIL ignition_phase_offset(deorbit_phase_angle) <= 0 {
@@ -597,9 +576,6 @@ transmit_log().
 PRINT " ".
 PRINT "Auto-running reentry.ks below " + ROUND(reentry_handoff_alt_meters/1000, 1) + " km. Press any key to abort.".
 WAIT 1.
-IF target_deorbit_ignition_phase_deg >= 0 {
-    SET WARPMODE TO "RAILS".
-}
 SET WARP TO reentry_coast_warp_rate.
 LOCAL handoff_next_print IS TIME:SECONDS.
 UNTIL SHIP:ALTITUDE <= reentry_handoff_alt_meters {
@@ -617,4 +593,4 @@ UNTIL SHIP:ALTITUDE <= reentry_handoff_alt_meters {
 SET WARP TO 0.
 
 log_line("Running reentry script: " + reentry_script_path + "  |  airbrakes: " + reentry_airbrake_control_mode + "  |  fixed angle: " + ROUND(custom_fixed_airbrake_angle_deg, 2) + "  |  Trajectories profile: " + trajectories_profile_id + "  |  corridor: " + deorbit_guidance_mode + "  |  survival experiment: " + reentry_survival_experiment_mode).
-RUNPATH(reentry_script_path, reentry_airbrake_control_mode, trajectories_profile_id, custom_fixed_airbrake_angle_deg, deorbit_guidance_mode, target_entry_fpa_down_deg, achieved_entry_fpa_down_deg, target_deorbit_phase_angle_deg, actual_deorbit_burn_phase_angle_deg, reentry_survival_experiment_mode, landing_geography_scored, target_deorbit_ignition_phase_deg, deorbit_burn_cutoff_phase_angle_deg).
+RUNPATH(reentry_script_path, reentry_airbrake_control_mode, trajectories_profile_id, custom_fixed_airbrake_angle_deg, deorbit_guidance_mode, target_entry_fpa_down_deg, achieved_entry_fpa_down_deg, target_deorbit_phase_angle_deg, actual_deorbit_burn_phase_angle_deg, reentry_survival_experiment_mode, landing_geography_scored, target_deorbit_ignition_phase_deg, deorbit_burn_cutoff_phase_angle_deg, reentry_shadow_guidance, range_p_test_target_east_m).

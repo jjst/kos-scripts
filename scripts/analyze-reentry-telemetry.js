@@ -110,6 +110,7 @@ function finite(value) {
 }
 
 function expectedFixedAngle(run) {
+  if (run.mode === "range_p") return null;
   if (run.mode === "fixed" && finite(run.run.airbrake_fixed_angle_deg) && run.run.airbrake_fixed_angle_deg >= 0) {
     return run.run.airbrake_fixed_angle_deg;
   }
@@ -305,6 +306,7 @@ function summarizeRun(run) {
     field,
     ratio: entry.length ? entry.filter((sample) => sample[field] !== undefined && sample[field] !== null).length / entry.length : 0,
   }));
+  let rangeFallbackSeen = false;
   const modeCompliant = entry.length > 0 && entry.every((sample) => {
     const effective = sample.effective_airbrake_command_deg;
     const safeguardEnabled = run.run.airbrake_thermal_safeguard_enabled === true
@@ -313,6 +315,15 @@ function summarizeRun(run) {
       && sample.airbrake_cooldown_active === true
       && !sample.brakes_action_group
       && effective <= 0.5;
+    if (run.mode === "range_p") {
+      const angle = sample.airbrake_angle_command_deg;
+      const state = sample.range_p_state;
+      if (rangeFallbackSeen && state !== "fallback") return false;
+      rangeFallbackSeen ||= state === "fallback";
+      if (!finite(angle) || angle < 60 || angle > 90) return false;
+      if (state !== "active" && !(["waiting", "fallback"].includes(state) && angle === 70)) return false;
+      return sample.airbrake_cooldown_active === true ? safeguardCooldown : sample.brakes_action_group === true;
+    }
     if (safeguardCooldown) return true;
     if (run.mode === "off") return effective <= 0.5 && !sample.brakes_action_group;
     if (run.mode === "fixed") {

@@ -358,6 +358,29 @@ test("rejects PID telemetry outside its recorded safe airbrake envelope", () => 
   assert.equal(report.runs[0].usable, false);
 });
 
+test("live range-P telemetry enforces bounds, cooldown priority and latched fallback", () => {
+  const segment = { ...makeRun(431, "range_p", "matched0", null, "entry_fpa29"), source_file: "range-p.json" };
+  segment.run.airbrake_thermal_safeguard_enabled = true;
+  const baseSamples = segment.samples.map((sample, i) => {
+    const state = i === 0 ? "waiting" : i >= 20 ? "fallback" : "active";
+    const angle = state === "active" ? 81 : 70;
+    return {
+      ...sample, range_p_state: state, brakes_action_group: i !== 15,
+      airbrake_cooldown_active: i === 15, airbrake_angle_command_deg: angle,
+      airbrake_deploy_angle_fields_deg: [angle, angle, angle, angle],
+    };
+  });
+  const check = (index, fields) => analyzeSegments([{
+    ...segment,
+    samples: baseSamples.map((sample, i) => i === index ? { ...sample, ...fields } : sample),
+  }]).runs[0].checks.mode_compliance;
+  assert.equal(check(-1, {}), true);
+  assert.equal(check(12, { airbrake_angle_command_deg: 91 }), false);
+  assert.equal(check(15, { brakes_action_group: true }), false);
+  assert.equal(check(23, { airbrake_angle_command_deg: 74 }), false);
+  assert.equal(check(23, { range_p_state: "active" }), false);
+});
+
 test("opens the closed-loop gate only when intact 60 and 90 degree landings bracket the target", () => {
   const targetLatitude = -0.0972;
   const targetLongitude = -74.2;
