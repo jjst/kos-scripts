@@ -80,6 +80,7 @@ PRINT "  " + corridor90_survival_choice + ") deorbit.ks [SURVIVAL TEST: 0 deg Ao
 PRINT "  " + corridor75_targeting_choice + ") deorbit.ks [TARGETING TEST: fixed 75 deg, ignition " + corridor_test_ignition_phase_deg + " deg]".
 PRINT "  A) deorbit.ks [RANGE TEST: fixed 70 deg, ignition " + corridor_test_ignition_phase_deg + " deg]".
 PRINT "  B) deorbit.ks [SHADOW GUIDANCE: fixed 70 deg; recommendations logged only]".
+PRINT "  C) deorbit.ks [LIVE RANGE-P TEST: active 60-90 deg; 70 deg fallback]".
 PRINT "Press RETURN to load nothing.".
 TERMINAL:INPUT:CLEAR().
 WAIT UNTIL TERMINAL:INPUT:HASCHAR.
@@ -119,6 +120,9 @@ IF choice_num = deorbit_script_choice {
 } ELSE IF choice = "b" OR choice = "B" {
     PRINT "Launching fixed-70 reentry with telemetry-only shadow guidance...".
     RUNPATH(experiment_deorbit_path, "fixed", "matched0", 70, "entry_fpa29", TRUE, FALSE, -1, corridor_test_ignition_phase_deg, TRUE).
+} ELSE IF choice = "c" OR choice = "C" {
+    PRINT "Launching live range-P reentry test...".
+    RUNPATH(experiment_deorbit_path, "range_p", "matched0", -1, "entry_fpa29", TRUE, FALSE, -1, corridor_test_ignition_phase_deg).
 } ELSE {
     PRINT "No initial script launched.".
 }

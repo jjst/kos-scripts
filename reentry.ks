@@ -81,7 +81,7 @@ SET pad_geo TO LATLNG(-0.0972, -74.5577).
 // fixed 70°, matched0, entry_fpa29, 10/1 q duty. Rows are altitude ASL,
 // remaining eastward surface range to landing handoff, surface speed and FPA.
 SET shadow_reference_rows TO LIST().
-IF reentry_shadow_guidance {
+IF reentry_shadow_guidance OR airbrake_control_mode = "range_p" {
     SET shadow_reference_rows TO LIST(
         LIST(69500, 865776, 2101, 2.88),
         LIST(66331, 808850, 2113, 2.86),
@@ -152,6 +152,8 @@ SET shadow_handoff_lead_m TO 1850.
 SET shadow_gain_deg_per_km TO 2.
 SET shadow_speed_tolerance_mps TO 60.
 SET shadow_fpa_tolerance_deg TO 1.5.
+SET range_p_state TO "waiting".
+SET range_p_fallback_reason TO "".
 SET log_path TO "reentry.log".
 SET predictor_telemetry_start_time TO TIME:SECONDS.
 SET predictor_telemetry_real_start_time TO KUNIVERSE:REALTIME.
@@ -396,7 +398,7 @@ FUNCTION initialize_predictor_telemetry {
     SET predictor_telemetry_run["reentry_survival_subsonic_mach_threshold"] TO survival_subsonic_mach_threshold.
     SET predictor_telemetry_run["reentry_survival_subsonic_hold_s"] TO survival_subsonic_hold_seconds.
     SET predictor_telemetry_run["landing_geography_scored"] TO landing_geography_scored.
-    IF reentry_shadow_guidance {
+    IF reentry_shadow_guidance OR airbrake_control_mode = "range_p" {
         SET predictor_telemetry_run["shadow_guidance_reference_run_id"] TO 1795043502.
         SET predictor_telemetry_run["shadow_guidance_base_angle_deg"] TO shadow_base_angle_deg.
         SET predictor_telemetry_run["shadow_guidance_handoff_lead_m"] TO shadow_handoff_lead_m.
@@ -552,6 +554,41 @@ FUNCTION record_shadow_guidance_sample {
     SET sample["shadow_airbrake_saturated"] TO suggested_angle_deg <= 60 OR suggested_angle_deg >= 90.
 }
 
+FUNCTION update_range_p_angle {
+    IF range_p_state = "fallback" {
+        RETURN shadow_base_angle_deg.
+    }
+    LOCAL inputs IS LEXICON().
+    SET inputs["phase"] TO "entry".
+    SET inputs["altitude_asl_m"] TO SHIP:ALTITUDE.
+    SET inputs["latitude_deg"] TO SHIP:GEOPOSITION:LAT.
+    SET inputs["longitude_deg"] TO SHIP:GEOPOSITION:LNG.
+    LOCAL entry_velocity IS SHIP:VELOCITY:SURFACE.
+    SET inputs["surface_speed_mps"] TO entry_velocity:MAG.
+    SET inputs["vertical_speed_mps"] TO SHIP:VERTICALSPEED.
+    SET inputs["vessel_part_count"] TO SHIP:PARTS:LENGTH.
+    SET inputs["airbrake_part_count"] TO SHIP:PARTSTAGGED("airbrake"):LENGTH.
+    record_shadow_guidance_sample(inputs, VXCL(UP:FOREVECTOR, entry_velocity)).
+    LOCAL estimate_status IS inputs["shadow_guidance_status"].
+    IF estimate_status = "valid" {
+        IF range_p_state = "waiting" {
+            SET range_p_state TO "active".
+            record_predictor_event("range_p_activated", "altitude " + ROUND(SHIP:ALTITUDE) + " m").
+            log_line("  Live range-P active.").
+        }
+        RETURN ROUND(inputs["shadow_airbrake_angle_deg"]).
+    }
+    // Only the expected above-reference warm-up may remain waiting.
+    IF range_p_state = "waiting" AND estimate_status = "outside_reference_altitude" AND SHIP:ALTITUDE > shadow_reference_rows[0][0] {
+        RETURN shadow_base_angle_deg.
+    }
+    SET range_p_state TO "fallback".
+    SET range_p_fallback_reason TO estimate_status.
+    record_predictor_event("range_p_fallback", estimate_status + " at " + ROUND(SHIP:ALTITUDE) + " m").
+    log_line("  Range-P fallback: 70 deg for the remainder of entry (" + estimate_status + ").").
+    RETURN shadow_base_angle_deg.
+}
+
 FUNCTION capture_predictor_sample {
     PARAMETER phase, airbrake_angle, airbrake_pid_output, airbrake_pid_gain, throttle_command.
     LOCAL sample IS LEXICON().
@@ -693,8 +730,12 @@ FUNCTION capture_predictor_sample {
     SET sample["airbrake_pid_kp"] TO airbrake_pid_gain.
     SET sample["throttle_command"] TO throttle_command.
     SET sample["has_trajectories_impact"] TO has_impact.
-    IF reentry_shadow_guidance AND (phase = "entry" OR phase = "reentry_survival_milestone") {
+    IF (reentry_shadow_guidance OR airbrake_control_mode = "range_p") AND (phase = "entry" OR phase = "reentry_survival_milestone") {
         record_shadow_guidance_sample(sample, horizontal_velocity).
+    }
+    IF airbrake_control_mode = "range_p" {
+        SET sample["range_p_state"] TO range_p_state.
+        SET sample["range_p_fallback_reason"] TO range_p_fallback_reason.
     }
 
     IF has_impact {
@@ -907,6 +948,9 @@ check_line(pad_geo:BODY:NAME = SHIP:BODY:NAME, "Target body", "target " + pad_ge
 IF reentry_shadow_guidance {
     check_line(reentry_survival_experiment_mode AND airbrake_control_mode = "fixed" AND configured_fixed_airbrake_angle() = shadow_base_angle_deg AND trajectories_profile_id = "matched0" AND entry_corridor_id = "entry_fpa29", "Shadow guidance configuration", "fixed 70 deg, matched-zero AoA, entry_fpa29, survival mode required").
 }
+IF airbrake_control_mode = "range_p" {
+    check_line(entry_brakes_enabled AND reentry_survival_experiment_mode AND trajectories_profile_id = "matched0" AND entry_corridor_id = "entry_fpa29", "Live range-P configuration", "entry brakes, matched-zero AoA, entry_fpa29 and survival mode required").
+}
 check_line(entry_brakes_retract_speed_mps > 0, "Entry brake retract speed", ROUND(entry_brakes_retract_speed_mps) + " m/s").
 check_line(airbrake_hot_q_threshold_kpa > 0, "Airbrake hot-q threshold", ROUND(airbrake_hot_q_threshold_kpa, 1) + " kPa").
 check_line(airbrake_hot_max_deployed_seconds > 0, "Airbrake hot deployed limit", ROUND(airbrake_hot_max_deployed_seconds, 1) + " s").
@@ -919,7 +963,7 @@ FOR field_authority IN preflight_airbrake_authority_fields {
     }
 }
 check_line(airbrake_authority_ok, "Airbrake control authority locked", airbrake_authority_command_percent + "% across " + preflight_airbrake_authority_fields:LENGTH + " surfaces").
-check_line(airbrake_control_mode = "off" OR is_fixed_airbrake_mode() OR airbrake_control_mode = "pid", "Airbrake control mode", airbrake_control_mode).
+check_line(airbrake_control_mode = "off" OR is_fixed_airbrake_mode() OR airbrake_control_mode = "pid" OR airbrake_control_mode = "range_p", "Airbrake control mode", airbrake_control_mode).
 check_line(airbrake_control_mode <> "fixed" OR (custom_fixed_airbrake_angle_deg >= 0 AND custom_fixed_airbrake_angle_deg <= airbrake_base_angle), "Custom fixed airbrake angle", ROUND(custom_fixed_airbrake_angle_deg, 2) + " deg within 0-" + airbrake_base_angle).
 check_line(trajectories_profile_id = "proxy" OR trajectories_profile_id = "matched10" OR trajectories_profile_id = "matched0", "Trajectories profile ID", trajectories_profile_id).
 check_line(entry_corridor_id = "trajectories_miss" OR entry_corridor_id = "entry_fpa29", "Entry corridor ID", entry_corridor_id).
@@ -971,7 +1015,9 @@ IF entry_brakes_deployed {
 }
 LOCAL ab_angle IS 0.
 IF airbrake_control_active {
-    IF is_fixed_airbrake_mode() {
+    IF airbrake_control_mode = "range_p" {
+        SET ab_angle TO shadow_base_angle_deg.
+    } ELSE IF is_fixed_airbrake_mode() {
         SET ab_angle TO configured_fixed_airbrake_angle().
     } ELSE {
         SET ab_angle TO airbrake_base_angle.
@@ -1058,8 +1104,17 @@ UNTIL (reentry_survival_experiment_mode AND survival_milestone_reached AND NOT a
         }
     }
 
+    IF airbrake_control_mode = "range_p" AND TIME:SECONDS >= next_brake_update {
+        SET ab_angle TO update_range_p_angle().
+        SET ab_correction TO ab_angle - shadow_base_angle_deg.
+        SET next_brake_update TO TIME:SECONDS + predictor_telemetry_sample_interval.
+    }
+
     IF airbrake_cooldown_active {
         BRAKES OFF.
+    } ELSE IF airbrake_control_mode = "range_p" {
+        // The range loop only sets the angle; the q safeguard owns deployment.
+        set_airbrake_angle(ab_angle).
     } ELSE IF airbrake_control_mode = "off" {
         SET ab_angle TO 0.
         SET ab_correction TO 0.
@@ -1083,7 +1138,7 @@ UNTIL (reentry_survival_experiment_mode AND survival_milestone_reached AND NOT a
         SET ab_angle TO clamp(airbrake_base_angle + ab_correction, airbrake_min_angle, airbrake_base_angle).
         SET next_brake_update TO TIME:SECONDS + 2.
     }
-    IF airbrake_control_mode <> "off" AND NOT airbrake_cooldown_active {
+    IF airbrake_control_mode <> "off" AND airbrake_control_mode <> "range_p" AND NOT airbrake_cooldown_active {
         set_airbrake_angle(ab_angle).
     }
 
@@ -1092,7 +1147,16 @@ UNTIL (reentry_survival_experiment_mode AND survival_milestone_reached AND NOT a
     }
 
     IF TIME:SECONDS >= next_print {
-        log_line("  Alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  spd: " + ROUND(surface_speed, 1) + " m/s  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s  |  cmd: " + ROUND(entry_aoa_command(), 1) + " deg  |  actual: " + ROUND(actual_entry_aoa(), 1) + " deg").
+        LOCAL range_status IS "".
+        IF airbrake_control_mode = "range_p" {
+            SET range_status TO "  |  brakes cmd: " + ROUND(ab_angle) + " deg (" + range_p_state + ")".
+            IF airbrake_cooldown_active {
+                SET range_status TO range_status + "  |  retracted for cooldown".
+            } ELSE IF NOT BRAKES {
+                SET range_status TO range_status + "  |  not deployed".
+            }
+        }
+        log_line("  Alt: " + ROUND(SHIP:ALTITUDE/1000, 1) + " km  |  spd: " + ROUND(surface_speed, 1) + " m/s  |  vs: " + ROUND(SHIP:VERTICALSPEED, 1) + " m/s  |  cmd: " + ROUND(entry_aoa_command(), 1) + " deg  |  actual: " + ROUND(actual_entry_aoa(), 1) + " deg" + range_status).
         IF ADDONS:TR:AVAILABLE AND ADDONS:TR:HASIMPACT {
             LOCAL impact_geo IS ADDONS:TR:IMPACTPOS.
             LOCAL tr_miss IS target_miss_distance(impact_geo, pad_geo).

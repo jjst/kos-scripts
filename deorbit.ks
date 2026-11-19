@@ -289,7 +289,8 @@ log_line("Landing target: " + ROUND(pad_geo:LAT, 5) + ", " + ROUND(pad_geo:LNG, 
 
 log_line("--- Preflight checks ---").
 check_line(pad_geo:BODY:NAME = SHIP:BODY:NAME, "Target body", "target " + pad_geo:BODY:NAME + ", current " + SHIP:BODY:NAME).
-check_line(reentry_airbrake_control_mode = "off" OR reentry_airbrake_control_mode = "fixed" OR reentry_airbrake_control_mode = "fixed30" OR reentry_airbrake_control_mode = "fixed45" OR reentry_airbrake_control_mode = "fixed50" OR reentry_airbrake_control_mode = "fixed60" OR reentry_airbrake_control_mode = "fixed90" OR reentry_airbrake_control_mode = "pid", "Reentry airbrake mode", reentry_airbrake_control_mode).
+check_line(reentry_airbrake_control_mode = "off" OR reentry_airbrake_control_mode = "fixed" OR reentry_airbrake_control_mode = "fixed30" OR reentry_airbrake_control_mode = "fixed45" OR reentry_airbrake_control_mode = "fixed50" OR reentry_airbrake_control_mode = "fixed60" OR reentry_airbrake_control_mode = "fixed90" OR reentry_airbrake_control_mode = "pid" OR reentry_airbrake_control_mode = "range_p", "Reentry airbrake mode", reentry_airbrake_control_mode).
+check_line(reentry_airbrake_control_mode <> "range_p" OR (reentry_survival_experiment_mode AND trajectories_profile_id = "matched0" AND deorbit_guidance_mode = "entry_fpa29"), "Live range-P configuration", "matched-zero AoA, entry_fpa29 and survival mode required").
 check_line(reentry_airbrake_control_mode <> "fixed" OR (custom_fixed_airbrake_angle_deg >= 0 AND custom_fixed_airbrake_angle_deg <= 90), "Custom fixed airbrake angle", ROUND(custom_fixed_airbrake_angle_deg, 2) + " deg within 0-90").
 check_line(trajectories_profile_id = "proxy" OR trajectories_profile_id = "matched10" OR trajectories_profile_id = "matched0", "Trajectories profile", trajectories_profile_id).
 check_line(deorbit_guidance_mode = "trajectories_miss" OR deorbit_guidance_mode = "entry_fpa29", "Deorbit guidance mode", deorbit_guidance_mode).

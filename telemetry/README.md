@@ -373,6 +373,17 @@ to the flight controls and the existing q safeguard is unchanged. Compare
 early valid predictions and saturation to `shadow_observed_handoff_error_m`
 at stable subsonic before attempting actual closed-loop guidance.
 
+Option C runs the same proportional rule live (`range_p` telemetry mode),
+starting at 70 degrees and applying rounded 60–90 degree commands every two
+seconds when a valid estimate is available. The q safeguard still owns brake
+retraction and redeployment. Above the reference the command stays at 70;
+any invalid estimate once in the reference, including leaving its lower edge,
+latches 70 degrees for the rest of entry. The console prints the commanded
+angle, control state and any cooldown retraction. Activation and fallback
+(including reason and altitude) are logged. Use option B as the fixed-70
+comparison; score the live test by intact handoff and observed handoff error,
+not touchdown.
+
 Run `1794868644` is excluded from survival evidence because atmospheric physics
 warp was enabled. It diverged sharply from the clean traces, lost three parts and
 three airbrakes, reached 112.05 kPa peak q, and ended without a completed outcome.
