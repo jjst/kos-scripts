@@ -17,6 +17,7 @@ PARAMETER landing_geography_scored IS TRUE.
 PARAMETER target_deorbit_ignition_phase_deg IS -1.
 PARAMETER deorbit_burn_cutoff_phase_angle_deg IS -1.
 PARAMETER reentry_shadow_guidance IS FALSE.
+PARAMETER range_p_test_target_east_m IS 0.
 
 // --- CONFIG (edit these) ------------------------------------
 SET entry_telemetry_interval TO 20.
@@ -402,6 +403,7 @@ FUNCTION initialize_predictor_telemetry {
         SET predictor_telemetry_run["shadow_guidance_reference_run_id"] TO 1795043502.
         SET predictor_telemetry_run["shadow_guidance_base_angle_deg"] TO shadow_base_angle_deg.
         SET predictor_telemetry_run["shadow_guidance_handoff_lead_m"] TO shadow_handoff_lead_m.
+        SET predictor_telemetry_run["range_p_test_target_east_m"] TO range_p_test_target_east_m.
         SET predictor_telemetry_run["shadow_guidance_gain_deg_per_km"] TO shadow_gain_deg_per_km.
         SET predictor_telemetry_run["shadow_guidance_speed_tolerance_mps"] TO shadow_speed_tolerance_mps.
         SET predictor_telemetry_run["shadow_guidance_fpa_tolerance_deg"] TO shadow_fpa_tolerance_deg.
@@ -494,7 +496,7 @@ FUNCTION shadow_needed_eastward_range {
     IF to_pad_deg < -180 {
         SET to_pad_deg TO to_pad_deg + 360.
     }
-    RETURN to_pad_deg * SHIP:BODY:RADIUS * CONSTANT:PI / 180 - shadow_handoff_lead_m.
+    RETURN to_pad_deg * SHIP:BODY:RADIUS * CONSTANT:PI / 180 - shadow_handoff_lead_m + range_p_test_target_east_m.
 }
 
 FUNCTION record_shadow_guidance_sample {
@@ -950,6 +952,7 @@ IF reentry_shadow_guidance {
 }
 IF airbrake_control_mode = "range_p" {
     check_line(entry_brakes_enabled AND reentry_survival_experiment_mode AND trajectories_profile_id = "matched0" AND entry_corridor_id = "entry_fpa29", "Live range-P configuration", "entry brakes, matched-zero AoA, entry_fpa29 and survival mode required").
+    info_line("Range-P virtual handoff target shift", range_p_test_target_east_m + " m east of nominal").
 }
 check_line(entry_brakes_retract_speed_mps > 0, "Entry brake retract speed", ROUND(entry_brakes_retract_speed_mps) + " m/s").
 check_line(airbrake_hot_q_threshold_kpa > 0, "Airbrake hot-q threshold", ROUND(airbrake_hot_q_threshold_kpa, 1) + " kPa").

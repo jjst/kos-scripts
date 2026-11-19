@@ -13,6 +13,7 @@ PARAMETER landing_geography_scored IS TRUE.
 PARAMETER deorbit_phase_override_deg IS -1.
 PARAMETER target_deorbit_ignition_phase_deg IS -1.
 PARAMETER reentry_shadow_guidance IS FALSE.
+PARAMETER range_p_test_target_east_m IS 0.
 
 // --- CONFIG (edit these) ------------------------------------
 SET reentry_script_path TO "1:/reentry.ks".
@@ -47,10 +48,9 @@ IF reentry_survival_experiment_mode AND NOT landing_geography_scored {
 SET deorbit_phase_start_tolerance_deg TO 1.
 SET deorbit_phase_warp_rate TO 4.
 SET deorbit_ignition_tolerance_deg TO 0.1.
-// The baseline took about 13.3 deg to align. Stage around 17 deg ahead
-// rather than coasting the extra 20+ deg at 1x.
-SET deorbit_alignment_lead_deg TO 17.
-SET deorbit_alignment_min_lead_deg TO 15.
+// Keep the staging window close to ignition to limit the idle 1x wait.
+SET deorbit_alignment_lead_deg TO 10.
+SET deorbit_alignment_min_lead_deg TO 8.
 SET deorbit_staging_slow_warp TO 2.
 SET slow_burn_miss_meters TO 10000.
 SET min_deorbit_throttle TO 0.01.
@@ -593,4 +593,4 @@ UNTIL SHIP:ALTITUDE <= reentry_handoff_alt_meters {
 SET WARP TO 0.
 
 log_line("Running reentry script: " + reentry_script_path + "  |  airbrakes: " + reentry_airbrake_control_mode + "  |  fixed angle: " + ROUND(custom_fixed_airbrake_angle_deg, 2) + "  |  Trajectories profile: " + trajectories_profile_id + "  |  corridor: " + deorbit_guidance_mode + "  |  survival experiment: " + reentry_survival_experiment_mode).
-RUNPATH(reentry_script_path, reentry_airbrake_control_mode, trajectories_profile_id, custom_fixed_airbrake_angle_deg, deorbit_guidance_mode, target_entry_fpa_down_deg, achieved_entry_fpa_down_deg, target_deorbit_phase_angle_deg, actual_deorbit_burn_phase_angle_deg, reentry_survival_experiment_mode, landing_geography_scored, target_deorbit_ignition_phase_deg, deorbit_burn_cutoff_phase_angle_deg, reentry_shadow_guidance).
+RUNPATH(reentry_script_path, reentry_airbrake_control_mode, trajectories_profile_id, custom_fixed_airbrake_angle_deg, deorbit_guidance_mode, target_entry_fpa_down_deg, achieved_entry_fpa_down_deg, target_deorbit_phase_angle_deg, actual_deorbit_burn_phase_angle_deg, reentry_survival_experiment_mode, landing_geography_scored, target_deorbit_ignition_phase_deg, deorbit_burn_cutoff_phase_angle_deg, reentry_shadow_guidance, range_p_test_target_east_m).

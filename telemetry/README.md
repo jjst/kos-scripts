@@ -384,6 +384,11 @@ angle, control state and any cooldown retraction. Activation and fallback
 comparison; score the live test by intact handoff and observed handoff error,
 not touchdown.
 
+Option D is the same live control test as C with the virtual handoff target
+8 km east of nominal. Only the error calculation and handoff score use the
+offset; the real pad, deorbit and recovery script are unchanged. Look for
+commands below 70 degrees and score against the virtual handoff target.
+
 Run `1794868644` is excluded from survival evidence because atmospheric physics
 warp was enabled. It diverged sharply from the clean traces, lost three parts and
 three airbrakes, reached 112.05 kPa peak q, and ended without a completed outcome.
