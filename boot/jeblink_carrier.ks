@@ -17,14 +17,16 @@ FUNCTION log_line {
 }
 
 FUNCTION coast_display {
-    PARAMETER event_name, seconds_left.
+    PARAMETER event_name, seconds_left, aligning IS FALSE.
     IF TIME:SECONDS < next_display { RETURN. }
     SET next_display TO TIME:SECONDS + 2.
     LOCAL seconds_remaining IS MAX(0, CEILING(seconds_left)).
     CLEARSCREEN.
     PRINT event_name + " in " + FLOOR(seconds_remaining / 60) + "m "
         + MOD(seconds_remaining, 60) + "s".
-    IF KUNIVERSE:TIMEWARP:RATE > 1.01 {
+    IF aligning {
+        PRINT "Aligning for insertion. Stay on the carrier at 1x.".
+    } ELSE IF KUNIVERSE:TIMEWARP:RATE > 1.01 {
         PRINT "Auto-warping. Stay on the carrier.".
     } ELSE {
         PRINT "Stay on the carrier. No input needed.".
@@ -241,7 +243,8 @@ FUNCTION deploy_constellation {
             UNLOCK THROTTLE.
             RETURN.
         }
-        PRINT "Aligning for insertion. Stay on the carrier at 1x.".
+        SET next_display TO 0.
+        coast_display("Planned ignition", ignition_time - TIME:SECONDS, TRUE).
         SET NAVMODE TO "ORBIT".
         SAS OFF.
         WAIT 0.
@@ -256,6 +259,7 @@ FUNCTION deploy_constellation {
             AND VANG(SHIP:FACING:FOREVECTOR, -SHIP:VELOCITY:ORBIT) <= 5)
             OR TIME:SECONDS >= latest_ignition OR SHIP <> KUNIVERSE:ACTIVEVESSEL
             OR NOT SHIP:UNPACKED OR KUNIVERSE:TIMEWARP:RATE > 1.01 {
+            coast_display("Planned ignition", ignition_time - TIME:SECONDS, TRUE).
             IF TIME:SECONDS >= next_sas_request AND SAS AND SASMODE <> "RETROGRADE" {
                 SET SASMODE TO "RETROGRADE".
                 WAIT 0.
