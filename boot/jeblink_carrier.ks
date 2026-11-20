@@ -405,21 +405,49 @@ FUNCTION deploy_constellation {
             RETURN.
         }
         LOCAL release_module IS separator:GETMODULE("ModuleAnchoredDecoupler").
-        log_line("Releasing satellite at ETA Ap " + ROUND(ETA:APOAPSIS, 2)
-            + " s, carrier period error " + ROUND(SHIP:OBT:PERIOD - target_period, 2) + " s.").
-        IF release_module:HASEVENT("Decouple") {
-            release_module:DOEVENT("Decouple").
-        } ELSE IF release_module:HASACTION("Decouple") {
-            release_module:DOACTION("Decouple", TRUE).
-        } ELSE {
+        LOCAL use_event IS release_module:HASEVENT("Decouple").
+        IF NOT use_event AND NOT release_module:HASACTION("Decouple") {
             log_line("Decouple unavailable. Events: " + release_module:ALLEVENTNAMES
                 + ", actions: " + release_module:ALLACTIONNAMES).
             RETURN.
+        }
+        LOCAL probe_batteries IS LIST().
+        FOR resource IN satellites[0]:RESOURCES {
+            IF resource:NAME = "ElectricCharge" { probe_batteries:ADD(resource). }
+        }
+        IF probe_batteries:LENGTH <> 1 {
+            log_line("Release blocked: expected one QBE battery, found " + probe_batteries:LENGTH + ".").
+            RETURN.
+        }
+        LOCAL probe_battery IS probe_batteries[0].
+        LOCAL battery_was_enabled IS probe_battery:ENABLED.
+        // Enable the reserve while the carrier can still power the probe processor.
+        IF NOT battery_was_enabled AND probe_battery:TOGGLEABLE {
+            SET probe_battery:ENABLED TO TRUE.
+        }
+        log_line("Probe battery at release: " + ROUND(probe_battery:AMOUNT, 2) + "/"
+            + probe_battery:CAPACITY + " EC, flow=" + probe_battery:ENABLED + ".").
+        IF NOT probe_battery:ENABLED OR probe_battery:AMOUNT <= 0 {
+            IF NOT battery_was_enabled AND probe_battery:ENABLED {
+                SET probe_battery:ENABLED TO FALSE.
+            }
+            log_line("Release blocked: probe battery needs charge and enabled flow.").
+            RETURN.
+        }
+        log_line("Releasing satellite at ETA Ap " + ROUND(ETA:APOAPSIS, 2)
+            + " s, carrier period error " + ROUND(SHIP:OBT:PERIOD - target_period, 2) + " s.").
+        IF use_event {
+            release_module:DOEVENT("Decouple").
+        } ELSE {
+            release_module:DOACTION("Decouple", TRUE).
         }
         LOCAL release_time IS TIME:SECONDS.
         LOCAL verify_deadline IS release_time + 2.
         WAIT UNTIL SHIP:PARTSNAMED("probeCoreCube"):LENGTH <> remaining
             OR TIME:SECONDS >= verify_deadline.
+        IF SHIP:PARTSNAMED("probeCoreCube"):LENGTH = remaining AND NOT battery_was_enabled {
+            SET probe_battery:ENABLED TO FALSE.
+        }
         SET remaining TO remaining - 1.
         IF SHIP:PARTSNAMED("probeCoreCube"):LENGTH <> remaining {
             log_line("Expected exactly one QBE to detach. Releases stopped.").
