@@ -7,6 +7,7 @@ LOCAL log_path IS "1:/" + log_name.
 LOCAL checkpoint_interval IS 20.
 LOCAL next_checkpoint IS TIME:SECONDS + checkpoint_interval.
 LOCAL next_display IS 0.
+LOCAL warp_buffer IS 20.
 
 FUNCTION log_line {
     PARAMETER msg, show_in_terminal IS TRUE.
@@ -16,25 +17,17 @@ FUNCTION log_line {
 }
 
 FUNCTION coast_display {
-    PARAMETER event_name, seconds_left, automatic_warp IS FALSE.
+    PARAMETER event_name, seconds_left.
     IF TIME:SECONDS < next_display { RETURN. }
     SET next_display TO TIME:SECONDS + 2.
     LOCAL seconds_remaining IS MAX(0, CEILING(seconds_left)).
     CLEARSCREEN.
     PRINT event_name + " in " + FLOOR(seconds_remaining / 60) + "m "
         + MOD(seconds_remaining, 60) + "s".
-    IF automatic_warp {
-        IF KUNIVERSE:TIMEWARP:RATE > 1.01 {
-            PRINT "Auto-warping. Stay on the carrier.".
-        } ELSE {
-            PRINT "Stay on the carrier. No input needed.".
-        }
-    } ELSE IF seconds_remaining > 20 {
-        LOCAL warp_seconds IS seconds_remaining - 20.
-        PRINT "You may warp during this coast.".
-        PRINT "Return to 1x in " + FLOOR(warp_seconds / 60) + "m " + MOD(warp_seconds, 60) + "s.".
+    IF KUNIVERSE:TIMEWARP:RATE > 1.01 {
+        PRINT "Auto-warping. Stay on the carrier.".
     } ELSE {
-        PRINT "Return to 1x now and stay there.".
+        PRINT "Stay on the carrier. No input needed.".
     }
     PRINT "The carrier acts automatically.".
 }
@@ -46,6 +39,16 @@ FUNCTION time_to_release {
     LOCAL first_eligible_time IS MAX(TIME:SECONDS, earliest_release).
     LOCAL extra_laps IS MAX(0, CEILING((first_eligible_time - next_pass) / period)).
     RETURN next_pass + extra_laps * period - TIME:SECONDS.
+}
+
+FUNCTION warp_to_coast_end {
+    PARAMETER event_name, seconds_until_event.
+    IF seconds_until_event > warp_buffer {
+        log_line("Auto-warping to " + warp_buffer + " s before " + event_name
+            + ". Planned " + event_name + " in " + ROUND(seconds_until_event, 1) + " s.").
+        transmit_log().
+        KUNIVERSE:TIMEWARP:WARPTO(TIME:SECONDS + seconds_until_event - warp_buffer).
+    }
 }
 
 FUNCTION transmit_log {
@@ -213,6 +216,11 @@ FUNCTION deploy_constellation {
         LOCAL burn_lead IS MAX(0.5, delta_v * SHIP:MASS / thrust_available / 2).
         log_line("Insertion burn: " + ROUND(delta_v, 1) + " m/s, ignition "
             + ROUND(burn_lead, 1) + " s before apoapsis.").
+        LOCAL seconds_until_insertion IS ETA:APOAPSIS - burn_lead.
+        IF seconds_until_insertion <= 0 {
+            SET seconds_until_insertion TO seconds_until_insertion + SHIP:OBT:PERIOD.
+        }
+        warp_to_coast_end("insertion ignition", seconds_until_insertion).
         SET next_display TO 0.
         UNTIL ETA:APOAPSIS > burn_lead OR SHIP <> KUNIVERSE:ACTIVEVESSEL {
             coast_display("Insertion burn", ETA:APOAPSIS + SHIP:OBT:PERIOD - burn_lead).
@@ -227,6 +235,14 @@ FUNCTION deploy_constellation {
         CLEARSCREEN.
         PRINT "Insertion window reached. Keep the carrier at 1x.".
         log_insertion_state("Insertion window opened").
+        IF KUNIVERSE:TIMEWARP:RATE > 1.01 OR NOT KUNIVERSE:TIMEWARP:ISSETTLED OR NOT SHIP:UNPACKED {
+            carrier_engine:SHUTDOWN().
+            UNLOCK THROTTLE.
+            log_line("Insertion skipped: warp had not settled in full physics. Rate "
+                + KUNIVERSE:TIMEWARP:RATE + "x, settled=" + KUNIVERSE:TIMEWARP:ISSETTLED
+                + ", unpacked=" + SHIP:UNPACKED + ". Return to 1x and rerun.").
+            RETURN.
+        }
         LOCAL arrival_deadline IS TIME:SECONDS + 2 * burn_lead + 10.
         LOCAL next_sample IS TIME:SECONDS + 0.5.
         UNTIL orbit_ready() OR SHIP:PERIAPSIS <= target_pe
@@ -252,7 +268,6 @@ FUNCTION deploy_constellation {
     }
 
     LOCAL release_lead IS 45.
-    LOCAL warp_buffer IS 20.
     LOCAL earliest_release IS 0.
     LOCAL release_deadline IS 0.
     UNTIL remaining = 0 {
@@ -281,23 +296,18 @@ FUNCTION deploy_constellation {
             log_line("Scheduled release pass already missed. No warp started.").
             RETURN.
         }
-        IF seconds_until_release > warp_buffer {
-            log_line("Auto-warping to " + warp_buffer + " s before release. Planned release in "
-                + ROUND(seconds_until_release, 1) + " s.").
-            transmit_log().
-            KUNIVERSE:TIMEWARP:WARPTO(TIME:SECONDS + seconds_until_release - warp_buffer).
-        }
+        warp_to_coast_end("release", seconds_until_release).
         SET next_display TO 0.
         IF earliest_release = 0 {
             UNTIL ETA:APOAPSIS > release_lead {
-                coast_display(release_label + " release", ETA:APOAPSIS + SHIP:OBT:PERIOD - release_lead, TRUE).
+                coast_display(release_label + " release", ETA:APOAPSIS + SHIP:OBT:PERIOD - release_lead).
                 checkpoint_log("Waiting for current release window to pass").
                 WAIT 0.
             }
         }
         UNTIL (TIME:SECONDS >= earliest_release AND ETA:APOAPSIS <= release_lead)
             OR (release_deadline > 0 AND TIME:SECONDS >= release_deadline) {
-            coast_display(release_label + " release", time_to_release(earliest_release, release_lead), TRUE).
+            coast_display(release_label + " release", time_to_release(earliest_release, release_lead)).
             checkpoint_log("Coasting to release").
             WAIT 0.
         }
