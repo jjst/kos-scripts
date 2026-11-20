@@ -17,14 +17,16 @@ FUNCTION log_line {
 }
 
 FUNCTION coast_display {
-    PARAMETER event_name, seconds_left.
+    PARAMETER event_name, seconds_left, aligning IS FALSE.
     IF TIME:SECONDS < next_display { RETURN. }
     SET next_display TO TIME:SECONDS + 2.
     LOCAL seconds_remaining IS MAX(0, CEILING(seconds_left)).
     CLEARSCREEN.
     PRINT event_name + " in " + FLOOR(seconds_remaining / 60) + "m "
         + MOD(seconds_remaining, 60) + "s".
-    IF KUNIVERSE:TIMEWARP:RATE > 1.01 {
+    IF aligning {
+        PRINT "Aligning for insertion. Stay on the carrier at 1x.".
+    } ELSE IF KUNIVERSE:TIMEWARP:RATE > 1.01 {
         PRINT "Auto-warping. Stay on the carrier.".
     } ELSE {
         PRINT "Stay on the carrier. No input needed.".
@@ -93,6 +95,22 @@ FUNCTION parking_orbit_ready {
         AND SHIP:PERIAPSIS >= 75000.
 }
 
+FUNCTION padded_number {
+    PARAMETER number.
+    IF number < 10 { RETURN "0" + number. }
+    RETURN "" + number.
+}
+
+FUNCTION random_train_code {
+    LOCAL alphabet IS "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".
+    LOCAL train_code IS "".
+    UNTIL train_code:LENGTH = 4 {
+        LOCAL index IS FLOOR(RANDOM() * alphabet:LENGTH).
+        SET train_code TO train_code + alphabet:SUBSTRING(index, 1).
+    }
+    RETURN train_code.
+}
+
 FUNCTION deploy_constellation {
     log_line("Jeblink carrier booted. Waiting for an active Kerbin parking orbit with Pe at least 75 km.").
     transmit_log().
@@ -126,11 +144,39 @@ FUNCTION deploy_constellation {
 
     LOCAL satellites IS SHIP:PARTSNAMED("probeCoreCube").
     LOCAL remaining IS satellites:LENGTH.
+    LOCAL train_name IS "".
+    // Keep the original constellation size with the code across processor reboots.
+    IF SHIP:ROOTPART:TAG:MATCHESPATTERN("^[A-Z0-9]{4}/[0-9]+$") {
+        LOCAL train_fields IS SHIP:ROOTPART:TAG:SPLIT("/").
+        SET train_name TO train_fields[0].
+        LOCAL original_count IS train_fields[1]:TONUMBER().
+        IF constellation_size <> 0 AND constellation_size <> original_count {
+            log_line("This train already has " + original_count + " relay slots. Rerun with that count.").
+            RETURN.
+        }
+        SET constellation_size TO original_count.
+    }
     IF constellation_size = 0 { SET constellation_size TO remaining. }
     IF remaining = 0 OR constellation_size < remaining OR constellation_size < 2
         OR constellation_size <> FLOOR(constellation_size) {
         log_line("No valid Jeblink constellation count.").
         RETURN.
+    }
+    IF train_name = "" {
+        SET train_name TO random_train_code().
+        SET SHIP:ROOTPART:TAG TO train_name + "/" + constellation_size.
+    }
+    LOCAL carrier_name IS "Jeblink JL-" + train_name + "-CARRIER".
+    SET SHIP:NAME TO carrier_name.
+    SET SHIP:TYPE TO "Probe".
+    log_line("Carrier identity: " + SHIP:NAME + ", core UID " + SHIP:ROOTPART:UID + ".").
+    LOCAL relay_slot IS constellation_size - remaining + 1.
+    FOR probe_core IN satellites {
+        IF NOT probe_core:TAG:MATCHESPATTERN("^" + train_name + "-[0-9]{2,}$") {
+            SET probe_core:TAG TO train_name + "-" + padded_number(relay_slot).
+        }
+        log_line("Mounted relay " + probe_core:TAG + ", QBE UID " + probe_core:UID + ".", FALSE).
+        SET relay_slot TO relay_slot + 1.
     }
 
     LOCAL mu IS SHIP:BODY:MU.
@@ -241,7 +287,8 @@ FUNCTION deploy_constellation {
             UNLOCK THROTTLE.
             RETURN.
         }
-        PRINT "Aligning for insertion. Stay on the carrier at 1x.".
+        SET next_display TO 0.
+        coast_display("Planned ignition", ignition_time - TIME:SECONDS, TRUE).
         SET NAVMODE TO "ORBIT".
         SAS OFF.
         WAIT 0.
@@ -256,6 +303,7 @@ FUNCTION deploy_constellation {
             AND VANG(SHIP:FACING:FOREVECTOR, -SHIP:VELOCITY:ORBIT) <= 5)
             OR TIME:SECONDS >= latest_ignition OR SHIP <> KUNIVERSE:ACTIVEVESSEL
             OR NOT SHIP:UNPACKED OR KUNIVERSE:TIMEWARP:RATE > 1.01 {
+            coast_display("Planned ignition", ignition_time - TIME:SECONDS, TRUE).
             IF TIME:SECONDS >= next_sas_request AND SAS AND SASMODE <> "RETROGRADE" {
                 SET SASMODE TO "RETROGRADE".
                 WAIT 0.
@@ -318,7 +366,7 @@ FUNCTION deploy_constellation {
         transmit_log().
     }
 
-    LOCAL release_lead IS 45.
+    LOCAL release_lead IS 30.
     LOCAL earliest_release IS 0.
     LOCAL release_deadline IS 0.
     UNTIL remaining = 0 {
@@ -327,9 +375,12 @@ FUNCTION deploy_constellation {
             RETURN.
         }
         LOCAL satellite_number IS constellation_size - remaining + 1.
-        LOCAL release_label IS "Satellite " + satellite_number + " of " + constellation_size.
+        LOCAL relay_name IS satellites[0]:TAG.
+        LOCAL relay_uid IS satellites[0]:UID.
+        LOCAL release_label IS relay_name + " (" + satellite_number + " of " + constellation_size + ")".
         IF earliest_release > 0 {
-            log_line("After returning from the probe, press Enter to arm " + release_label + " and auto-warp.").
+            log_line("After confirming the previous probe's burn, press Enter to arm "
+                + release_label + " and auto-warp.").
         } ELSE {
             log_line("Press Enter to arm " + release_label + " and auto-warp.").
         }
@@ -386,8 +437,8 @@ FUNCTION deploy_constellation {
         }
 
         SET satellites TO SHIP:PARTSNAMED("probeCoreCube").
-        IF satellites:LENGTH <> remaining {
-            log_line("Mounted satellite count changed unexpectedly. Releases stopped.").
+        IF satellites:LENGTH <> remaining OR satellites[0]:UID <> relay_uid {
+            log_line("Mounted satellite count or release order changed. Releases stopped.").
             RETURN.
         }
         LOCAL separator IS satellites[0]:DECOUPLER.
@@ -400,28 +451,59 @@ FUNCTION deploy_constellation {
             RETURN.
         }
         LOCAL release_module IS separator:GETMODULE("ModuleAnchoredDecoupler").
-        log_line("Releasing satellite at ETA Ap " + ROUND(ETA:APOAPSIS, 2)
-            + " s, carrier period error " + ROUND(SHIP:OBT:PERIOD - target_period, 2) + " s.").
-        IF release_module:HASEVENT("Decouple") {
-            release_module:DOEVENT("Decouple").
-        } ELSE IF release_module:HASACTION("Decouple") {
-            release_module:DOACTION("Decouple", TRUE).
-        } ELSE {
+        LOCAL use_event IS release_module:HASEVENT("Decouple").
+        IF NOT use_event AND NOT release_module:HASACTION("Decouple") {
             log_line("Decouple unavailable. Events: " + release_module:ALLEVENTNAMES
                 + ", actions: " + release_module:ALLACTIONNAMES).
             RETURN.
+        }
+        LOCAL probe_batteries IS LIST().
+        FOR resource IN satellites[0]:RESOURCES {
+            IF resource:NAME = "ElectricCharge" { probe_batteries:ADD(resource). }
+        }
+        IF probe_batteries:LENGTH <> 1 {
+            log_line("Release blocked: expected one QBE battery, found " + probe_batteries:LENGTH + ".").
+            RETURN.
+        }
+        LOCAL probe_battery IS probe_batteries[0].
+        LOCAL battery_was_enabled IS probe_battery:ENABLED.
+        // Enable the reserve while the carrier can still power the probe processor.
+        IF NOT battery_was_enabled AND probe_battery:TOGGLEABLE {
+            SET probe_battery:ENABLED TO TRUE.
+        }
+        log_line("Probe battery at release: " + ROUND(probe_battery:AMOUNT, 2) + "/"
+            + probe_battery:CAPACITY + " EC, flow=" + probe_battery:ENABLED + ".").
+        IF NOT probe_battery:ENABLED OR probe_battery:AMOUNT <= 0 {
+            IF NOT battery_was_enabled AND probe_battery:ENABLED {
+                SET probe_battery:ENABLED TO FALSE.
+            }
+            log_line("Release blocked: probe battery needs charge and enabled flow.").
+            RETURN.
+        }
+        log_line("Releasing satellite at ETA Ap " + ROUND(ETA:APOAPSIS, 2)
+            + " s, carrier period error " + ROUND(SHIP:OBT:PERIOD - target_period, 2) + " s.").
+        log_line("Releasing relay " + relay_name + ", QBE UID " + relay_uid + ".").
+        IF use_event {
+            release_module:DOEVENT("Decouple").
+        } ELSE {
+            release_module:DOACTION("Decouple", TRUE).
         }
         LOCAL release_time IS TIME:SECONDS.
         LOCAL verify_deadline IS release_time + 2.
         WAIT UNTIL SHIP:PARTSNAMED("probeCoreCube"):LENGTH <> remaining
             OR TIME:SECONDS >= verify_deadline.
+        IF SHIP:PARTSNAMED("probeCoreCube"):LENGTH = remaining AND NOT battery_was_enabled {
+            SET probe_battery:ENABLED TO FALSE.
+        }
         SET remaining TO remaining - 1.
         IF SHIP:PARTSNAMED("probeCoreCube"):LENGTH <> remaining {
             log_line("Expected exactly one QBE to detach. Releases stopped.").
             RETURN.
         }
-        log_line(release_label + " released. Switch to the probe now for circularization.").
-        IF remaining > 0 { PRINT "Return to the carrier after the probe finishes its burn.". }
+        SET satellites TO SHIP:PARTSNAMED("probeCoreCube").
+        SET SHIP:NAME TO carrier_name.
+        SET SHIP:TYPE TO "Probe".
+        log_line(release_label + " released. Stay on the carrier at 1x while the probe circularizes.").
         transmit_log().
         SET earliest_release TO release_time + (coast_laps - 0.5) * target_period.
         SET release_deadline TO earliest_release + target_period.
