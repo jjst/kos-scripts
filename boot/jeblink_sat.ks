@@ -126,8 +126,20 @@ FUNCTION deploy_satellite {
             + ", relative speed " + ROUND(relative_speed, 1) + " m/s").
     }
 
+    FUNCTION log_orbit_distances {
+        PARAMETER label, vessel_ref.
+        LOCAL distances IS vessel_ref:LOADDISTANCE:ORBIT.
+        log_line(label + " orbital thresholds: pack=" + distances:PACK
+            + " m, unpack=" + distances:UNPACK + " m, load=" + distances:LOAD
+            + " m, unload=" + distances:UNLOAD + " m.").
+    }
+
     log_line("Jeblink: target Pe " + ROUND(target_periapsis / 1000, 2)
         + " km, Ap cutoff " + ROUND(apoapsis_limit / 1000, 2) + " km.").
+    log_orbit_distances("Probe", SHIP).
+    IF SHIP <> KUNIVERSE:ACTIVEVESSEL {
+        log_orbit_distances("Active vessel", KUNIVERSE:ACTIVEVESSEL).
+    }
     log_burn_state("Before alignment").
     LOCK THROTTLE TO throttle_cmd.
     SAS OFF.
