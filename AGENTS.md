@@ -1,9 +1,5 @@
-# Flight script telemetry
+# Flight telemetry
 
-- Use the preflight pattern in `deorbit.ks` and `reentry.ks` as the reference. Their `check_line(ok, label, detail)` calls log named pass/fail results with measurements and limits, collect failures, and only then decide whether to proceed. A summary such as “preflight checks failed” belongs after those details.
-- Give every readiness rejection, skipped burn, timeout, and cutoff a specific reason. When several checks can fail at once, report each failed check with the actual value, expected limit, and units. For discrete checks, report the relevant state. Keep normal completion distinguishable from an abort.
-- Capture the state that caused a cutoff before changing throttle, shutting down an engine, or releasing steering. For readiness checks that can be corrected in flight, keep the script available for another attempt when it is safe to do so.
-- Follow the `log_line` pattern in `launch.ks` and the Jeblink boot scripts. Print timestamped status to the kOS terminal and write the same entries to the processor's local volume. Use a distinct archive filename for each run or vessel, and export with `COPYPATH` when `HOMECONNECTION:ISCONNECTED`. Keep the local copy so a lost connection does not erase the evidence.
-- Log the initial conditions, calculated targets and tolerances, state transitions, and final result. During alignment and burns, sample at a bounded cadence. Include the measurements needed to explain decisions, such as active vessel and control reference, SAS or steering mode, pointing error, requested throttle, actual thrust, flameout state, apoapsis and periapsis, and time to apoapsis. Include target period error when constellation spacing matters.
-- Export at useful checkpoints such as an insertion cutoff, a verified release, or an abort so partial runs can be diagnosed. A command or mode readback can show that a request was accepted. Use observed thrust, attitude, orbit, or deployment state to verify the requested effect.
-- For telemetry that will be analyzed after flight, follow the event, sample, and checkpoint pattern in `reentry.ks`. Keep structured samples and discrete events alongside the operator's readable log.
+- Log named preflight checks with pass/fail results, actual values, limits, and units. Report each failed check before the summary.
+- Record initial conditions, targets, state changes, and outcomes. Sample at a bounded rate. Log the exact reason and measured state before an abort or cutoff.
+- Print and save the same timestamped messages locally. Export to a unique archive file at checkpoints when connected. Verify outcomes from measured behavior.
