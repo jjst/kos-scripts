@@ -4,6 +4,8 @@ DECLARE PARAMETER constellation_size IS 0.
 
 LOCAL log_name IS "jeblink-carrier-" + ROUND(TIME:SECONDS * 1000) + ".log".
 LOCAL log_path IS "1:/" + log_name.
+LOCAL checkpoint_interval IS 20.
+LOCAL next_checkpoint IS TIME:SECONDS + checkpoint_interval.
 
 FUNCTION log_line {
     PARAMETER msg.
@@ -18,6 +20,36 @@ FUNCTION transmit_log {
     }
 }
 
+FUNCTION checkpoint_log {
+    PARAMETER phase.
+    IF TIME:SECONDS < next_checkpoint { RETURN. }
+    IF phase <> "" {
+        LOCAL detail IS phase + ": " + SHIP:STATUS + ", active "
+            + (SHIP = KUNIVERSE:ACTIVEVESSEL) + ", unpacked " + SHIP:UNPACKED
+            + ", warp " + KUNIVERSE:TIMEWARP:RATE + "x".
+        IF SHIP:STATUS = "ORBITING" {
+            SET detail TO detail + ", Ap " + ROUND(SHIP:APOAPSIS / 1000, 2)
+                + " km, Pe " + ROUND(SHIP:PERIAPSIS / 1000, 2)
+                + " km, ETA Ap " + ROUND(ETA:APOAPSIS, 1) + " s".
+        }
+        log_line(detail + ".").
+    }
+    transmit_log().
+    SET next_checkpoint TO TIME:SECONDS + checkpoint_interval.
+}
+
+FUNCTION wait_for_enter {
+    PARAMETER phase.
+    TERMINAL:INPUT:CLEAR().
+    UNTIL FALSE {
+        IF TERMINAL:INPUT:HASCHAR {
+            IF TERMINAL:INPUT:GETCHAR() = TERMINAL:INPUT:RETURN { RETURN. }
+        }
+        checkpoint_log(phase).
+        WAIT 0.
+    }
+}
+
 FUNCTION parking_orbit_ready {
     RETURN SHIP = KUNIVERSE:ACTIVEVESSEL AND SHIP:UNPACKED
         AND SHIP:BODY:NAME = "Kerbin" AND SHIP:STATUS = "ORBITING"
@@ -26,12 +58,16 @@ FUNCTION parking_orbit_ready {
 
 FUNCTION deploy_constellation {
     log_line("Jeblink carrier booted. Waiting for an active Kerbin parking orbit with Pe at least 75 km.").
-    WAIT UNTIL parking_orbit_ready().
+    transmit_log().
+    UNTIL parking_orbit_ready() {
+        checkpoint_log("Waiting for parking orbit").
+        WAIT 0.
+    }
     LOCAL armed IS FALSE.
     UNTIL armed {
         log_line("Press Enter to begin phasing once the parking orbit is final and any ascent script has finished.").
-        TERMINAL:INPUT:CLEAR().
-        WAIT UNTIL TERMINAL:INPUT:GETCHAR() = TERMINAL:INPUT:RETURN.
+        transmit_log().
+        wait_for_enter("Waiting for phasing confirmation").
         LOCAL active_carrier IS SHIP = KUNIVERSE:ACTIVEVESSEL.
         LOCAL warp_rate IS KUNIVERSE:TIMEWARP:RATE.
         SET armed TO parking_orbit_ready() AND warp_rate <= 1.01.
@@ -143,8 +179,14 @@ FUNCTION deploy_constellation {
         LOCAL burn_lead IS MAX(0.5, delta_v * SHIP:MASS / thrust_available / 2).
         log_line("Insertion burn: " + ROUND(delta_v, 1) + " m/s, ignition "
             + ROUND(burn_lead, 1) + " s before apoapsis.").
-        WAIT UNTIL ETA:APOAPSIS > burn_lead OR SHIP <> KUNIVERSE:ACTIVEVESSEL.
-        WAIT UNTIL ETA:APOAPSIS <= burn_lead OR SHIP <> KUNIVERSE:ACTIVEVESSEL.
+        UNTIL ETA:APOAPSIS > burn_lead OR SHIP <> KUNIVERSE:ACTIVEVESSEL {
+            checkpoint_log("Waiting for current insertion window to pass").
+            WAIT 0.
+        }
+        UNTIL ETA:APOAPSIS <= burn_lead OR SHIP <> KUNIVERSE:ACTIVEVESSEL {
+            checkpoint_log("Coasting to insertion").
+            WAIT 0.
+        }
         log_insertion_state("Insertion window opened").
         LOCAL arrival_deadline IS TIME:SECONDS + 2 * burn_lead + 10.
         LOCAL next_sample IS TIME:SECONDS + 0.5.
@@ -157,6 +199,7 @@ FUNCTION deploy_constellation {
                 log_insertion_state("Insertion burn").
                 SET next_sample TO TIME:SECONDS + 0.5.
             }
+            checkpoint_log("").
             WAIT 0.
         }
         SET throttle_cmd TO 0.
@@ -178,13 +221,19 @@ FUNCTION deploy_constellation {
             RETURN.
         }
         log_line("Press Enter on the carrier to arm the next release. Switch to the probe after release.").
-        TERMINAL:INPUT:CLEAR().
-        WAIT UNTIL TERMINAL:INPUT:GETCHAR() = TERMINAL:INPUT:RETURN.
+        transmit_log().
+        wait_for_enter("Waiting for release arming").
         IF earliest_release = 0 {
-            WAIT UNTIL ETA:APOAPSIS > release_lead.
+            UNTIL ETA:APOAPSIS > release_lead {
+                checkpoint_log("Waiting for current release window to pass").
+                WAIT 0.
+            }
         }
-        WAIT UNTIL (TIME:SECONDS >= earliest_release AND ETA:APOAPSIS <= release_lead)
-            OR (release_deadline > 0 AND TIME:SECONDS >= release_deadline).
+        UNTIL (TIME:SECONDS >= earliest_release AND ETA:APOAPSIS <= release_lead)
+            OR (release_deadline > 0 AND TIME:SECONDS >= release_deadline) {
+            checkpoint_log("Coasting to release").
+            WAIT 0.
+        }
         IF (release_deadline > 0 AND TIME:SECONDS >= release_deadline)
             OR ETA:APOAPSIS < release_lead - 5 OR NOT orbit_ready()
             OR SHIP <> KUNIVERSE:ACTIVEVESSEL OR NOT SHIP:UNPACKED
