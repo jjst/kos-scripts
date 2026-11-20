@@ -329,7 +329,8 @@ FUNCTION deploy_constellation {
         LOCAL satellite_number IS constellation_size - remaining + 1.
         LOCAL release_label IS "Satellite " + satellite_number + " of " + constellation_size.
         IF earliest_release > 0 {
-            log_line("After returning from the probe, press Enter to arm " + release_label + " and auto-warp.").
+            log_line("After confirming the previous probe's burn, press Enter to arm "
+                + release_label + " and auto-warp.").
         } ELSE {
             log_line("Press Enter to arm " + release_label + " and auto-warp.").
         }
@@ -420,8 +421,7 @@ FUNCTION deploy_constellation {
             log_line("Expected exactly one QBE to detach. Releases stopped.").
             RETURN.
         }
-        log_line(release_label + " released. Switch to the probe now for circularization.").
-        IF remaining > 0 { PRINT "Return to the carrier after the probe finishes its burn.". }
+        log_line(release_label + " released. Stay on the carrier at 1x while the probe circularizes.").
         transmit_log().
         SET earliest_release TO release_time + (coast_laps - 0.5) * target_period.
         SET release_deadline TO earliest_release + target_period.

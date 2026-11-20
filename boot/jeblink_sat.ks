@@ -6,6 +6,7 @@ FUNCTION deploy_satellite {
     LOCAL apoapsis_margin IS 1000.
     LOCAL periapsis_tolerance IS 150.
     LOCAL angular_tolerance IS 2.
+    LOCAL turn_rate_tolerance IS 2.
     LOCAL log_path IS "1:/jeblink_control.log".
 
     FUNCTION log_line {
@@ -68,6 +69,19 @@ FUNCTION deploy_satellite {
         RETURN VANG(SHIP:FACING:FOREVECTOR, SHIP:VELOCITY:ORBIT).
     }
 
+    FUNCTION turn_rate {
+        RETURN SHIP:ANGULARVEL:MAG * 180 / CONSTANT:PI.
+    }
+
+    FUNCTION aligned {
+        RETURN pointing_error() <= angular_tolerance AND turn_rate() <= turn_rate_tolerance.
+    }
+
+    FUNCTION release_controls {
+        UNLOCK THROTTLE.
+        UNLOCK STEERING.
+    }
+
     FUNCTION log_alignment {
         PARAMETER phase.
         LOCAL facing_vector IS SHIP:FACING:FOREVECTOR.
@@ -75,9 +89,10 @@ FUNCTION deploy_satellite {
         LOCAL prograde_vector IS SHIP:PROGRADE:FOREVECTOR.
         log_line("Alignment " + phase
             + ": active=" + KUNIVERSE:ACTIVEVESSEL:NAME
+            + ", probe_active=" + (SHIP = KUNIVERSE:ACTIVEVESSEL)
             + ", control=" + SHIP:CONTROLPART:NAME
             + ", unpacked=" + SHIP:UNPACKED
-            + ", SAS=" + SAS + "/" + SASMODE + ", nav=" + NAVMODE).
+            + ", SAS=" + SAS + ", turn rate=" + ROUND(turn_rate(), 2) + " deg/s").
         log_line("  facing=" + facing_vector + ", orbit velocity=" + orbit_velocity
             + ", prograde=" + prograde_vector + ", angular velocity=" + SHIP:ANGULARVEL).
         log_line("  facing to orbit velocity=" + ROUND(VANG(facing_vector, orbit_velocity), 3)
@@ -101,30 +116,24 @@ FUNCTION deploy_satellite {
             + " deg, throttle " + ROUND(throttle_cmd, 2)
             + ", thrust " + ROUND(sat_engine:THRUST, 3)
             + " kN, flameout " + sat_engine:FLAMEOUT
-            + ", SAS " + SAS + "/" + SASMODE).
+            + ", turn rate " + ROUND(turn_rate(), 2) + " deg/s"
+            + ", active " + KUNIVERSE:ACTIVEVESSEL:NAME
+            + ", probe_active " + (SHIP = KUNIVERSE:ACTIVEVESSEL)).
     }
 
     log_line("Jeblink: target Pe " + ROUND(target_periapsis / 1000, 2)
         + " km, Ap cutoff " + ROUND(apoapsis_limit / 1000, 2) + " km.").
     log_burn_state("Before alignment").
     LOCK THROTTLE TO throttle_cmd.
-    log_alignment("before SAS setup").
-    SET NAVMODE TO "ORBIT".
     SAS OFF.
     WAIT 0.
-    log_alignment("after SAS OFF").
-    SAS ON.
-    WAIT 0.
-    SET SASMODE TO "STABILITYASSIST".
-    WAIT 0.
-    log_alignment("after selecting STABILITYASSIST").
-    SET SASMODE TO "PROGRADE".
-    WAIT 0.
-    log_alignment("after selecting PROGRADE").
+    LOCK STEERING TO SHIP:PROGRADE.
+    log_alignment("kOS prograde steering started").
+    transmit_log().
 
     LOCAL alignment_deadline IS TIME:SECONDS + 20.
     LOCAL next_alignment_sample IS TIME:SECONDS + 0.5.
-    UNTIL pointing_error() <= angular_tolerance
+    UNTIL aligned()
         OR TIME:SECONDS >= alignment_deadline OR NOT SHIP:UNPACKED {
         IF TIME:SECONDS >= next_alignment_sample {
             log_alignment("waiting").
@@ -136,8 +145,8 @@ FUNCTION deploy_satellite {
     LOCAL cutoff_reason IS "periapsis target reached".
     IF NOT SHIP:UNPACKED {
         SET cutoff_reason TO "vessel left full physics before ignition".
-    } ELSE IF pointing_error() > angular_tolerance {
-        SET cutoff_reason TO "alignment timed out".
+    } ELSE IF NOT aligned() {
+        SET cutoff_reason TO "alignment timed out (limits 2 deg and 2 deg/s)".
     } ELSE IF SHIP:PERIAPSIS < target_periapsis {
         sat_engine:ACTIVATE().
         WAIT 0.
@@ -149,7 +158,7 @@ FUNCTION deploy_satellite {
         LOCAL available_thrust IS sat_engine:AVAILABLETHRUST.
         IF available_thrust <= 0 {
             sat_engine:SHUTDOWN().
-            UNLOCK THROTTLE.
+            release_controls().
             log_line("Jeblink: no available thrust for burn timing.").
             transmit_log().
             RETURN.
@@ -159,12 +168,21 @@ FUNCTION deploy_satellite {
             + " m/s, ignition lead " + ROUND(burn_lead, 1)
             + " s, ETA Ap " + ROUND(ETA:APOAPSIS, 1) + " s.").
         LOCAL coast_deadline IS TIME:SECONDS + 180.
-        WAIT UNTIL ETA:APOAPSIS <= burn_lead
-            OR NOT SHIP:UNPACKED OR TIME:SECONDS >= coast_deadline.
-        IF NOT SHIP:UNPACKED OR ETA:APOAPSIS > burn_lead OR pointing_error() > angular_tolerance {
+        LOCAL next_coast_sample IS TIME:SECONDS.
+        UNTIL ETA:APOAPSIS <= burn_lead
+            OR NOT SHIP:UNPACKED OR TIME:SECONDS >= coast_deadline {
+            IF TIME:SECONDS >= next_coast_sample {
+                log_burn_state("Coasting to ignition").
+                transmit_log().
+                SET next_coast_sample TO TIME:SECONDS + 20.
+            }
+            WAIT 0.
+        }
+        IF NOT SHIP:UNPACKED OR ETA:APOAPSIS > burn_lead OR NOT aligned() {
+            log_burn_state("Timed ignition skipped: unpacked " + SHIP:UNPACKED
+                + ", ignition lead " + ROUND(burn_lead, 1) + " s, alignment limits 2 deg and 2 deg/s").
             sat_engine:SHUTDOWN().
-            UNLOCK THROTTLE.
-            log_burn_state("Timed ignition skipped: out of physics, outside window, or misaligned").
+            release_controls().
             transmit_log().
             RETURN.
         }
@@ -203,7 +221,7 @@ FUNCTION deploy_satellite {
         sat_engine:SHUTDOWN().
     }
     WAIT 0.
-    UNLOCK THROTTLE.
+    release_controls().
 
     LOCAL cutoff_entry IS "Jeblink: " + cutoff_reason
         + " (error " + ROUND(pointing_error(), 1) + " deg, Ap "
