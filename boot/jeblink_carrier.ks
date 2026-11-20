@@ -1,5 +1,5 @@
-// Run from the Jeblink carrier in a bound Kerbin parking orbit at 1x.
-// On restart, pass the original constellation size to keep the planned spacing.
+// Assign /boot/jeblink_carrier.ks to the carrier processor.
+// To restart manually, RUNPATH("0:/boot/jeblink_carrier.ks", original_count).
 DECLARE PARAMETER constellation_size IS 0.
 
 LOCAL log_name IS "jeblink-carrier-" + ROUND(TIME:SECONDS * 1000) + ".log".
@@ -18,16 +18,29 @@ FUNCTION transmit_log {
     }
 }
 
+FUNCTION parking_orbit_ready {
+    RETURN SHIP = KUNIVERSE:ACTIVEVESSEL AND SHIP:UNPACKED
+        AND SHIP:BODY:NAME = "Kerbin" AND SHIP:STATUS = "ORBITING"
+        AND SHIP:PERIAPSIS >= 75000.
+}
+
 FUNCTION deploy_constellation {
+    log_line("Jeblink carrier booted. Waiting for an active Kerbin parking orbit with Pe at least 75 km.").
+    WAIT UNTIL parking_orbit_ready().
+    log_line("Press Enter to begin phasing once the parking orbit is final and any ascent script has finished.").
+    TERMINAL:INPUT:CLEAR().
+    WAIT UNTIL TERMINAL:INPUT:GETCHAR() = TERMINAL:INPUT:RETURN.
+    IF NOT parking_orbit_ready() OR KUNIVERSE:TIMEWARP:RATE > 1.01 {
+        log_line("Carrier is not in its parking orbit at 1x. Restart once ready.").
+        RETURN.
+    }
+
     LOCAL satellites IS SHIP:PARTSNAMED("probeCoreCube").
     LOCAL remaining IS satellites:LENGTH.
     IF constellation_size = 0 { SET constellation_size TO remaining. }
     IF remaining = 0 OR constellation_size < remaining OR constellation_size < 2
-        OR constellation_size <> FLOOR(constellation_size)
-        OR SHIP <> KUNIVERSE:ACTIVEVESSEL OR NOT SHIP:UNPACKED
-        OR SHIP:BODY:NAME <> "Kerbin" OR SHIP:STATUS <> "ORBITING"
-        OR SHIP:PERIAPSIS < 75000 {
-        log_line("Use the active Jeblink carrier in Kerbin orbit with Pe at least 75 km.").
+        OR constellation_size <> FLOOR(constellation_size) {
+        log_line("No valid Jeblink constellation count.").
         RETURN.
     }
 
