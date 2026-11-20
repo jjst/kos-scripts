@@ -35,10 +35,10 @@ FUNCTION deploy_satellite {
 
     log_line("Jeblink: separated as " + SHIP:NAME + ".").
 
-    FOR panel IN SHIP:MODULESNAMED("ModuleDeployableSolarPanel") {
-        IF panel:HASEVENT("Extend Panels") {
-            panel:DOEVENT("Extend Panels").
-        }
+    // Deploy after the separation delay so the panels clear the carrier.
+    IF SHIP:MODULESNAMED("ModuleDeployableSolarPanel"):LENGTH > 0 {
+        PANELS ON.
+        log_line("Jeblink: solar panel extension commanded.").
     }
 
     FUNCTION log_control_reference {
@@ -218,6 +218,7 @@ FUNCTION deploy_satellite {
         log_line("Jeblink: circularization incomplete.").
     }
     log_burn_state("Final").
+    log_line("Jeblink: solar panels extended=" + PANELS + ".").
     LOCAL target_radius IS SHIP:BODY:RADIUS + release_apoapsis.
     LOCAL target_period IS 2 * CONSTANT:PI * SQRT(target_radius^3 / SHIP:BODY:MU).
     log_line("Jeblink: period error " + ROUND(SHIP:OBT:PERIOD - target_period, 2)
