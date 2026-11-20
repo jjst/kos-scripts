@@ -23,6 +23,29 @@ FUNCTION deploy_satellite {
         }
     }
 
+    FUNCTION log_control_reference {
+        PARAMETER phase.
+        LOCAL entry IS ROUND(TIME:SECONDS, 2) + " " + SHIP:NAME + " " + phase
+            + ": root=" + SHIP:ROOTPART:NAME + ", control=" + SHIP:CONTROLPART:NAME
+            + ", forward=" + SHIP:FACING:FOREVECTOR:TOSTRING.
+        PRINT entry.
+        LOG entry TO "1:/jeblink_control.log".
+    }
+
+    LOCAL probe_cores IS SHIP:PARTSNAMED("probeCoreCube").
+    IF probe_cores:LENGTH <> 1 {
+        PRINT "Jeblink: expected one QBE. No burn.".
+        RETURN.
+    }
+    log_control_reference("before CONTROLFROM").
+    probe_cores[0]:CONTROLFROM().
+    WAIT 0.
+    log_control_reference("after CONTROLFROM").
+    IF SHIP:CONTROLPART:NAME <> probe_cores[0]:NAME {
+        PRINT "Jeblink: QBE control reference did not take. No burn.".
+        RETURN.
+    }
+
     FUNCTION pointing_error {
         RETURN VANG(SHIP:FACING:FOREVECTOR, SHIP:VELOCITY:ORBIT).
     }
