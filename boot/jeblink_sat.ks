@@ -82,15 +82,18 @@ FUNCTION deploy_satellite {
             + " s, error " + ROUND(pointing_error(), 1)
             + " deg, throttle " + ROUND(throttle_cmd, 2)
             + ", thrust " + ROUND(sat_engine:THRUST, 3)
-            + " kN, flameout " + sat_engine:FLAMEOUT).
+            + " kN, flameout " + sat_engine:FLAMEOUT
+            + ", SAS " + SAS + "/" + SASMODE).
     }
 
     log_line("Jeblink: target Pe " + ROUND(target_periapsis / 1000, 2)
         + " km, Ap cutoff " + ROUND(apoapsis_limit / 1000, 2) + " km.").
     log_burn_state("Before alignment").
     LOCK THROTTLE TO throttle_cmd.
-    SAS OFF.
-    LOCK STEERING TO PROGRADE.
+    SET NAVMODE TO "ORBIT".
+    SAS ON.
+    WAIT 0.
+    SET SASMODE TO "PROGRADE".
 
     LOCAL alignment_deadline IS TIME:SECONDS + 20.
     WAIT UNTIL pointing_error() <= angular_tolerance
@@ -137,7 +140,6 @@ FUNCTION deploy_satellite {
     }
     WAIT 0.
     UNLOCK THROTTLE.
-    UNLOCK STEERING.
 
     LOCAL cutoff_entry IS "Jeblink: " + cutoff_reason
         + " (error " + ROUND(pointing_error(), 1) + " deg, Ap "
