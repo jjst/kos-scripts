@@ -166,9 +166,10 @@ FUNCTION deploy_constellation {
         SET train_name TO random_train_code().
         SET SHIP:ROOTPART:TAG TO train_name + "/" + constellation_size.
     }
-    SET SHIP:NAME TO train_name.
+    LOCAL carrier_name IS "Jeblink JL-" + train_name + "-CARRIER".
+    SET SHIP:NAME TO carrier_name.
     SET SHIP:TYPE TO "Probe".
-    log_line("Jeblink carrier " + train_name + ", core UID " + SHIP:ROOTPART:UID + ".").
+    log_line("Carrier identity: " + SHIP:NAME + ", core UID " + SHIP:ROOTPART:UID + ".").
     LOCAL relay_slot IS constellation_size - remaining + 1.
     FOR probe_core IN satellites {
         IF NOT probe_core:TAG:MATCHESPATTERN("^" + train_name + "-[0-9]{2,}$") {
@@ -500,7 +501,7 @@ FUNCTION deploy_constellation {
             RETURN.
         }
         SET satellites TO SHIP:PARTSNAMED("probeCoreCube").
-        SET SHIP:NAME TO train_name.
+        SET SHIP:NAME TO carrier_name.
         SET SHIP:TYPE TO "Probe".
         log_line(release_label + " released. Stay on the carrier at 1x while the probe circularizes.").
         transmit_log().

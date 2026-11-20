@@ -57,7 +57,8 @@ FUNCTION deploy_satellite {
     }
     LOCAL relay_name IS probe_cores[0]:TAG.
     IF relay_name:MATCHESPATTERN("^[A-Z0-9]{4}-[0-9]{2,}$") {
-        SET SHIP:NAME TO relay_name.
+        LOCAL relay_fields IS relay_name:SPLIT("-").
+        SET SHIP:NAME TO "Jeblink JL-" + relay_fields[0] + "-RELAY-" + relay_fields[1].
     } ELSE {
         log_line("Jeblink: no assigned relay ID on QBE. Tag is '" + relay_name + "'.").
     }
