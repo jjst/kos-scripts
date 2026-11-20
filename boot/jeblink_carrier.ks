@@ -16,14 +16,20 @@ FUNCTION log_line {
 }
 
 FUNCTION coast_display {
-    PARAMETER event_name, seconds_left.
+    PARAMETER event_name, seconds_left, automatic_warp IS FALSE.
     IF TIME:SECONDS < next_display { RETURN. }
     SET next_display TO TIME:SECONDS + 2.
     LOCAL seconds_remaining IS MAX(0, CEILING(seconds_left)).
     CLEARSCREEN.
     PRINT event_name + " in " + FLOOR(seconds_remaining / 60) + "m "
         + MOD(seconds_remaining, 60) + "s".
-    IF seconds_remaining > 20 {
+    IF automatic_warp {
+        IF KUNIVERSE:TIMEWARP:RATE > 1.01 {
+            PRINT "Auto-warping. Stay on the carrier.".
+        } ELSE {
+            PRINT "Stay on the carrier. No input needed.".
+        }
+    } ELSE IF seconds_remaining > 20 {
         LOCAL warp_seconds IS seconds_remaining - 20.
         PRINT "You may warp during this coast.".
         PRINT "Return to 1x in " + FLOOR(warp_seconds / 60) + "m " + MOD(warp_seconds, 60) + "s.".
@@ -31,6 +37,15 @@ FUNCTION coast_display {
         PRINT "Return to 1x now and stay there.".
     }
     PRINT "The carrier acts automatically.".
+}
+
+FUNCTION time_to_release {
+    PARAMETER earliest_release, release_lead.
+    LOCAL next_pass IS TIME:SECONDS + ETA:APOAPSIS - release_lead.
+    LOCAL period IS SHIP:OBT:PERIOD.
+    LOCAL first_eligible_time IS MAX(TIME:SECONDS, earliest_release).
+    LOCAL extra_laps IS MAX(0, CEILING((first_eligible_time - next_pass) / period)).
+    RETURN next_pass + extra_laps * period - TIME:SECONDS.
 }
 
 FUNCTION transmit_log {
@@ -237,6 +252,7 @@ FUNCTION deploy_constellation {
     }
 
     LOCAL release_lead IS 45.
+    LOCAL warp_buffer IS 20.
     LOCAL earliest_release IS 0.
     LOCAL release_deadline IS 0.
     UNTIL remaining = 0 {
@@ -247,28 +263,41 @@ FUNCTION deploy_constellation {
         LOCAL satellite_number IS constellation_size - remaining + 1.
         LOCAL release_label IS "Satellite " + satellite_number + " of " + constellation_size.
         IF earliest_release > 0 {
-            log_line("After returning from the probe, press Enter to arm " + release_label + ".").
+            log_line("After returning from the probe, press Enter to arm " + release_label + " and auto-warp.").
         } ELSE {
-            log_line("Press Enter to arm " + release_label + ".").
+            log_line("Press Enter to arm " + release_label + " and auto-warp.").
         }
         transmit_log().
         wait_for_enter("Waiting for release arming").
+        IF SHIP <> KUNIVERSE:ACTIVEVESSEL OR NOT orbit_ready() {
+            log_line("Cannot arm auto-warp: active="
+                + (SHIP = KUNIVERSE:ACTIVEVESSEL) + ", period error "
+                + ROUND(SHIP:OBT:PERIOD - target_period, 2) + " s (limit "
+                + ROUND(period_tolerance, 2) + " s). Select the carrier in its phasing orbit and rerun.").
+            RETURN.
+        }
+        LOCAL seconds_until_release IS time_to_release(earliest_release, release_lead).
+        IF (release_deadline > 0 AND TIME:SECONDS + seconds_until_release >= release_deadline) {
+            log_line("Scheduled release pass already missed. No warp started.").
+            RETURN.
+        }
+        IF seconds_until_release > warp_buffer {
+            log_line("Auto-warping to " + warp_buffer + " s before release. Planned release in "
+                + ROUND(seconds_until_release, 1) + " s.").
+            transmit_log().
+            KUNIVERSE:TIMEWARP:WARPTO(TIME:SECONDS + seconds_until_release - warp_buffer).
+        }
         SET next_display TO 0.
         IF earliest_release = 0 {
             UNTIL ETA:APOAPSIS > release_lead {
-                coast_display(release_label + " release", ETA:APOAPSIS + SHIP:OBT:PERIOD - release_lead).
+                coast_display(release_label + " release", ETA:APOAPSIS + SHIP:OBT:PERIOD - release_lead, TRUE).
                 checkpoint_log("Waiting for current release window to pass").
                 WAIT 0.
             }
         }
         UNTIL (TIME:SECONDS >= earliest_release AND ETA:APOAPSIS <= release_lead)
             OR (release_deadline > 0 AND TIME:SECONDS >= release_deadline) {
-            LOCAL next_pass IS TIME:SECONDS + ETA:APOAPSIS - release_lead.
-            LOCAL extra_laps IS MAX(0, CEILING((earliest_release - next_pass) / SHIP:OBT:PERIOD)).
-            IF next_pass < TIME:SECONDS {
-                SET extra_laps TO MAX(1, extra_laps).
-            }
-            coast_display(release_label + " release", next_pass + extra_laps * SHIP:OBT:PERIOD - TIME:SECONDS).
+            coast_display(release_label + " release", time_to_release(earliest_release, release_lead), TRUE).
             checkpoint_log("Coasting to release").
             WAIT 0.
         }
@@ -276,7 +305,7 @@ FUNCTION deploy_constellation {
         IF (release_deadline > 0 AND TIME:SECONDS >= release_deadline)
             OR ETA:APOAPSIS < release_lead - 5 OR NOT orbit_ready()
             OR SHIP <> KUNIVERSE:ACTIVEVESSEL OR NOT SHIP:UNPACKED
-            OR KUNIVERSE:TIMEWARP:RATE > 1.01 OR SHIP:THRUST > 0 {
+            OR KUNIVERSE:TIMEWARP:RATE > 1.01 OR NOT KUNIVERSE:TIMEWARP:ISSETTLED OR SHIP:THRUST > 0 {
             IF ETA:APOAPSIS < release_lead - 5 OR (release_deadline > 0 AND TIME:SECONDS >= release_deadline) {
                 log_line("Release window missed. ETA to apoapsis: " + ROUND(ETA:APOAPSIS, 1) + " s.").
             }
@@ -287,7 +316,9 @@ FUNCTION deploy_constellation {
             IF SHIP <> KUNIVERSE:ACTIVEVESSEL OR NOT SHIP:UNPACKED {
                 log_line("Select the carrier and return to full physics.").
             }
-            IF KUNIVERSE:TIMEWARP:RATE > 1.01 { log_line("Return to 1x before the release window."). }
+            IF KUNIVERSE:TIMEWARP:RATE > 1.01 OR NOT KUNIVERSE:TIMEWARP:ISSETTLED {
+                log_line("Warp had not settled at 1x. Actual rate: " + KUNIVERSE:TIMEWARP:RATE + "x.").
+            }
             IF SHIP:THRUST > 0 { log_line("Release blocked by thrust: " + ROUND(SHIP:THRUST, 2) + " kN."). }
             log_line("No satellite released. Restart the carrier script with the original count to replan.").
             RETURN.
