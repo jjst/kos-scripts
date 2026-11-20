@@ -246,9 +246,11 @@ FUNCTION deploy_constellation {
         SAS OFF.
         WAIT 0.
         SAS ON.
-        // KSP can reset the selected mode after SAS is toggled on.
-        // Give it time to settle and retry if Retrograde does not latch.
-        LOCAL next_sas_request IS TIME:SECONDS + 0.5.
+        WAIT 0.5.
+        SET SASMODE TO "STABILITYASSIST".
+        WAIT 0.
+        log_insertion_state("Stability Assist selected after coast").
+        LOCAL next_sas_request IS TIME:SECONDS.
         UNTIL (TIME:SECONDS >= ignition_time
             AND SAS AND SASMODE = "RETROGRADE"
             AND VANG(SHIP:FACING:FOREVECTOR, -SHIP:VELOCITY:ORBIT) <= 5)
