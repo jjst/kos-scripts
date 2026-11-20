@@ -195,13 +195,6 @@ FUNCTION deploy_constellation {
                 + ", SAS " + SAS + "/" + SASMODE, FALSE).
         }
         LOCK THROTTLE TO throttle_cmd.
-        SET NAVMODE TO "ORBIT".
-        SAS OFF.
-        WAIT 0.
-        SAS ON.
-        WAIT 0.
-        SET SASMODE TO "RETROGRADE".
-        WAIT 0.
         carrier_engine:ACTIVATE().
         WAIT 0.
         LOCAL thrust_available IS carrier_engine:AVAILABLETHRUST.
@@ -220,29 +213,66 @@ FUNCTION deploy_constellation {
         IF seconds_until_insertion <= 0 {
             SET seconds_until_insertion TO seconds_until_insertion + SHIP:OBT:PERIOD.
         }
+        LOCAL ignition_time IS TIME:SECONDS + seconds_until_insertion.
+        LOCAL latest_ignition IS ignition_time + 2.
+        log_line("Planned insertion ignition UT " + ROUND(ignition_time, 2) + " s.", FALSE).
         warp_to_coast_end("insertion ignition", seconds_until_insertion).
         SET next_display TO 0.
-        UNTIL ETA:APOAPSIS > burn_lead OR SHIP <> KUNIVERSE:ACTIVEVESSEL {
-            coast_display("Insertion burn", ETA:APOAPSIS + SHIP:OBT:PERIOD - burn_lead).
-            checkpoint_log("Waiting for current insertion window to pass").
-            WAIT 0.
-        }
-        UNTIL ETA:APOAPSIS <= burn_lead OR SHIP <> KUNIVERSE:ACTIVEVESSEL {
-            coast_display("Insertion burn", ETA:APOAPSIS - burn_lead).
+        UNTIL TIME:SECONDS >= ignition_time - warp_buffer OR SHIP <> KUNIVERSE:ACTIVEVESSEL {
+            coast_display("Insertion burn", ignition_time - TIME:SECONDS).
             checkpoint_log("Coasting to insertion").
             WAIT 0.
         }
+        UNTIL (KUNIVERSE:TIMEWARP:ISSETTLED AND KUNIVERSE:TIMEWARP:RATE <= 1.01 AND SHIP:UNPACKED)
+            OR TIME:SECONDS >= latest_ignition OR SHIP <> KUNIVERSE:ACTIVEVESSEL {
+            checkpoint_log("Waiting for full physics after insertion warp").
+            WAIT 0.
+        }
         CLEARSCREEN.
-        PRINT "Insertion window reached. Keep the carrier at 1x.".
-        log_insertion_state("Insertion window opened").
-        IF KUNIVERSE:TIMEWARP:RATE > 1.01 OR NOT KUNIVERSE:TIMEWARP:ISSETTLED OR NOT SHIP:UNPACKED {
+        log_insertion_state("After insertion coast").
+        IF SHIP <> KUNIVERSE:ACTIVEVESSEL OR KUNIVERSE:TIMEWARP:RATE > 1.01
+            OR NOT KUNIVERSE:TIMEWARP:ISSETTLED OR NOT SHIP:UNPACKED OR TIME:SECONDS >= latest_ignition {
+            log_line("Insertion skipped: carrier did not reach the ignition window ready. Active="
+                + (SHIP = KUNIVERSE:ACTIVEVESSEL) + ", rate "
+                + KUNIVERSE:TIMEWARP:RATE + "x, settled=" + KUNIVERSE:TIMEWARP:ISSETTLED
+                + ", unpacked=" + SHIP:UNPACKED + ", seconds past planned ignition="
+                + ROUND(TIME:SECONDS - ignition_time, 2) + " (limit 2).").
             carrier_engine:SHUTDOWN().
             UNLOCK THROTTLE.
-            log_line("Insertion skipped: warp had not settled in full physics. Rate "
-                + KUNIVERSE:TIMEWARP:RATE + "x, settled=" + KUNIVERSE:TIMEWARP:ISSETTLED
-                + ", unpacked=" + SHIP:UNPACKED + ". Return to 1x and rerun.").
             RETURN.
         }
+        PRINT "Aligning for insertion. Stay on the carrier at 1x.".
+        SET NAVMODE TO "ORBIT".
+        SAS OFF.
+        WAIT 0.
+        SAS ON.
+        WAIT 0.
+        SET SASMODE TO "RETROGRADE".
+        WAIT 0.
+        log_insertion_state("Retrograde reselected after coast").
+        UNTIL (TIME:SECONDS >= ignition_time
+            AND SAS AND SASMODE = "RETROGRADE"
+            AND VANG(SHIP:FACING:FOREVECTOR, -SHIP:VELOCITY:ORBIT) <= 5)
+            OR TIME:SECONDS >= latest_ignition OR SHIP <> KUNIVERSE:ACTIVEVESSEL
+            OR NOT SHIP:UNPACKED OR KUNIVERSE:TIMEWARP:RATE > 1.01 {
+            checkpoint_log("Aligning and waiting for timed insertion").
+            WAIT 0.
+        }
+        LOCAL ignition_error IS VANG(SHIP:FACING:FOREVECTOR, -SHIP:VELOCITY:ORBIT).
+        log_insertion_state("Insertion ignition check").
+        IF TIME:SECONDS >= latest_ignition OR SHIP <> KUNIVERSE:ACTIVEVESSEL
+            OR NOT SHIP:UNPACKED OR KUNIVERSE:TIMEWARP:RATE > 1.01
+            OR NOT SAS OR SASMODE <> "RETROGRADE" OR ignition_error > 5 {
+            log_line("Insertion skipped: error " + ROUND(ignition_error, 2)
+                + " deg (limit 5), SAS " + SAS + "/" + SASMODE + ", active="
+                + (SHIP = KUNIVERSE:ACTIVEVESSEL) + ", unpacked=" + SHIP:UNPACKED
+                + ", warp " + KUNIVERSE:TIMEWARP:RATE + "x, seconds past planned ignition="
+                + ROUND(TIME:SECONDS - ignition_time, 2) + " (limit 2).").
+            carrier_engine:SHUTDOWN().
+            UNLOCK THROTTLE.
+            RETURN.
+        }
+        log_line("Insertion burn started. Stay on the carrier at 1x.").
         LOCAL arrival_deadline IS TIME:SECONDS + 2 * burn_lead + 10.
         LOCAL next_sample IS TIME:SECONDS + 0.5.
         UNTIL orbit_ready() OR SHIP:PERIAPSIS <= target_pe
@@ -257,12 +287,26 @@ FUNCTION deploy_constellation {
             checkpoint_log("").
             WAIT 0.
         }
+        LOCAL cutoff_reason IS "target orbit reached".
+        IF NOT orbit_ready() {
+            IF SHIP:PERIAPSIS <= target_pe {
+                SET cutoff_reason TO "periapsis reached the target, but the orbit is outside tolerance".
+            } ELSE IF SHIP <> KUNIVERSE:ACTIVEVESSEL OR NOT SHIP:UNPACKED {
+                SET cutoff_reason TO "carrier lost focus or full physics".
+            } ELSE IF KUNIVERSE:TIMEWARP:RATE > 1.01 {
+                SET cutoff_reason TO "warp exceeded 1x".
+            } ELSE IF TIME:SECONDS >= arrival_deadline {
+                SET cutoff_reason TO "burn time limit reached".
+            } ELSE {
+                SET cutoff_reason TO "retrograde error exceeded 5 deg".
+            }
+        }
+        log_insertion_state("Insertion cutoff: " + cutoff_reason).
         SET throttle_cmd TO 0.
         WAIT 0.
-        log_insertion_state("Insertion cutoff").
         carrier_engine:SHUTDOWN().
         UNLOCK THROTTLE.
-        log_line("Insertion ended at Pe " + ROUND(SHIP:PERIAPSIS / 1000, 2)
+        log_line("Insertion ended: " + cutoff_reason + ". Pe " + ROUND(SHIP:PERIAPSIS / 1000, 2)
             + " km, period error " + ROUND(SHIP:OBT:PERIOD - target_period, 2) + " s.").
         transmit_log().
     }
