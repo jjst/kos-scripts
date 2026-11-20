@@ -9,7 +9,8 @@
 - Lead with the operator's next action. Keep the prompt visible until input arrives. Example: “Press Enter to arm satellite 2 of 4 and auto-warp.”
 - During automatic phases, show what happens next and a countdown to the scheduled event. Example: “Satellite 2 of 4 releases in 1m 12s. Auto-warping. Stay on the carrier.”
 - At a handoff, name the vessel to switch to and when to return. On failure, say whether the action happened, why it stopped, and how to recover.
-- Refresh the current status in place during long waits. Keep raw samples in the log so they do not push the current instruction off screen.
+- Use `CLEARSCREEN.` to redraw a single status view at a bounded cadence during automatic waits and clear it before the next instruction. Keep raw samples in the log.
+- Use `TERMINAL:INPUT:CLEAR()` once before waiting for a fresh confirmation to discard buffered keystrokes. Leave the prompt visible while waiting.
 
 ## Known quirks and workarounds
 
