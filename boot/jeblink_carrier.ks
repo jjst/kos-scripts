@@ -169,6 +169,14 @@ FUNCTION deploy_constellation {
     SET SHIP:NAME TO train_name.
     SET SHIP:TYPE TO "Probe".
     log_line("Jeblink carrier " + train_name + ", core UID " + SHIP:ROOTPART:UID + ".").
+    LOCAL relay_slot IS constellation_size - remaining + 1.
+    FOR probe_core IN satellites {
+        IF NOT probe_core:TAG:MATCHESPATTERN("^" + train_name + "-[0-9]{2,}$") {
+            SET probe_core:TAG TO train_name + "-" + padded_number(relay_slot).
+        }
+        log_line("Mounted relay " + probe_core:TAG + ", QBE UID " + probe_core:UID + ".", FALSE).
+        SET relay_slot TO relay_slot + 1.
+    }
 
     LOCAL mu IS SHIP:BODY:MU.
     LOCAL radius IS SHIP:BODY:RADIUS.
@@ -366,7 +374,8 @@ FUNCTION deploy_constellation {
             RETURN.
         }
         LOCAL satellite_number IS constellation_size - remaining + 1.
-        LOCAL relay_name IS train_name + "-" + padded_number(satellite_number).
+        LOCAL relay_name IS satellites[0]:TAG.
+        LOCAL relay_uid IS satellites[0]:UID.
         LOCAL release_label IS relay_name + " (" + satellite_number + " of " + constellation_size + ")".
         IF earliest_release > 0 {
             log_line("After confirming the previous probe's burn, press Enter to arm "
@@ -427,8 +436,8 @@ FUNCTION deploy_constellation {
         }
 
         SET satellites TO SHIP:PARTSNAMED("probeCoreCube").
-        IF satellites:LENGTH <> remaining {
-            log_line("Mounted satellite count changed unexpectedly. Releases stopped.").
+        IF satellites:LENGTH <> remaining OR satellites[0]:UID <> relay_uid {
+            log_line("Mounted satellite count or release order changed. Releases stopped.").
             RETURN.
         }
         LOCAL separator IS satellites[0]:DECOUPLER.
@@ -472,8 +481,7 @@ FUNCTION deploy_constellation {
         }
         log_line("Releasing satellite at ETA Ap " + ROUND(ETA:APOAPSIS, 2)
             + " s, carrier period error " + ROUND(SHIP:OBT:PERIOD - target_period, 2) + " s.").
-        SET satellites[0]:TAG TO relay_name.
-        log_line("Assigned relay " + relay_name + " to QBE UID " + satellites[0]:UID + ".").
+        log_line("Releasing relay " + relay_name + ", QBE UID " + relay_uid + ".").
         IF use_event {
             release_module:DOEVENT("Decouple").
         } ELSE {
@@ -491,6 +499,7 @@ FUNCTION deploy_constellation {
             log_line("Expected exactly one QBE to detach. Releases stopped.").
             RETURN.
         }
+        SET satellites TO SHIP:PARTSNAMED("probeCoreCube").
         SET SHIP:NAME TO train_name.
         SET SHIP:TYPE TO "Probe".
         log_line(release_label + " released. Stay on the carrier at 1x while the probe circularizes.").
