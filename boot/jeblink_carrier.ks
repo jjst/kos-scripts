@@ -95,6 +95,38 @@ FUNCTION parking_orbit_ready {
         AND SHIP:PERIAPSIS >= 75000.
 }
 
+FUNCTION padded_number {
+    PARAMETER number.
+    IF number < 10 { RETURN "0" + number. }
+    RETURN "" + number.
+}
+
+FUNCTION assign_train_name {
+    PARAMETER state_path, initial_count.
+    IF EXISTS(state_path) { RETURN READJSON(state_path):train_name. }
+
+    LOCAL counter_path IS "0:/jeblink_train_counter.json".
+    LOCAL has_archive IS HOMECONNECTION:ISCONNECTED.
+    LOCAL highest_train IS 0.
+    IF has_archive AND EXISTS(counter_path) {
+        SET highest_train TO READJSON(counter_path):last_train.
+    }
+    LIST TARGETS IN existing_vessels.
+    FOR vessel_ref IN existing_vessels {
+        IF vessel_ref:NAME:MATCHESPATTERN("^JL-[0-9]+(-[0-9]+)?$") {
+            LOCAL fields IS vessel_ref:NAME:SPLIT("-").
+            SET highest_train TO MAX(highest_train, fields[1]:TONUMBER()).
+        }
+    }
+    LOCAL train_number IS highest_train + 1.
+    LOCAL train_name IS "JL-" + padded_number(train_number).
+    IF has_archive {
+        WRITEJSON(LEXICON("last_train", train_number), counter_path).
+    }
+    WRITEJSON(LEXICON("train_name", train_name, "train_size", initial_count), state_path).
+    RETURN train_name.
+}
+
 FUNCTION deploy_constellation {
     log_line("Jeblink carrier booted. Waiting for an active Kerbin parking orbit with Pe at least 75 km.").
     transmit_log().
@@ -128,12 +160,20 @@ FUNCTION deploy_constellation {
 
     LOCAL satellites IS SHIP:PARTSNAMED("probeCoreCube").
     LOCAL remaining IS satellites:LENGTH.
+    LOCAL train_state_path IS "1:/jeblink_train.json".
+    IF constellation_size = 0 AND EXISTS(train_state_path) {
+        SET constellation_size TO READJSON(train_state_path):train_size.
+    }
     IF constellation_size = 0 { SET constellation_size TO remaining. }
     IF remaining = 0 OR constellation_size < remaining OR constellation_size < 2
         OR constellation_size <> FLOOR(constellation_size) {
         log_line("No valid Jeblink constellation count.").
         RETURN.
     }
+    LOCAL train_name IS assign_train_name(train_state_path, constellation_size).
+    SET SHIP:NAME TO train_name.
+    SET SHIP:TYPE TO "Probe".
+    log_line("Jeblink carrier " + train_name + ", core UID " + SHIP:ROOTPART:UID + ".").
 
     LOCAL mu IS SHIP:BODY:MU.
     LOCAL radius IS SHIP:BODY:RADIUS.
@@ -331,7 +371,8 @@ FUNCTION deploy_constellation {
             RETURN.
         }
         LOCAL satellite_number IS constellation_size - remaining + 1.
-        LOCAL release_label IS "Satellite " + satellite_number + " of " + constellation_size.
+        LOCAL relay_name IS train_name + "-" + padded_number(satellite_number).
+        LOCAL release_label IS relay_name + " (" + satellite_number + " of " + constellation_size + ")".
         IF earliest_release > 0 {
             log_line("After confirming the previous probe's burn, press Enter to arm "
                 + release_label + " and auto-warp.").
@@ -436,6 +477,8 @@ FUNCTION deploy_constellation {
         }
         log_line("Releasing satellite at ETA Ap " + ROUND(ETA:APOAPSIS, 2)
             + " s, carrier period error " + ROUND(SHIP:OBT:PERIOD - target_period, 2) + " s.").
+        SET satellites[0]:TAG TO relay_name.
+        log_line("Assigned relay " + relay_name + " to QBE UID " + satellites[0]:UID + ".").
         IF use_event {
             release_module:DOEVENT("Decouple").
         } ELSE {
@@ -453,6 +496,8 @@ FUNCTION deploy_constellation {
             log_line("Expected exactly one QBE to detach. Releases stopped.").
             RETURN.
         }
+        SET SHIP:NAME TO train_name.
+        SET SHIP:TYPE TO "Probe".
         log_line(release_label + " released. Stay on the carrier at 1x while the probe circularizes.").
         transmit_log().
         SET earliest_release TO release_time + (coast_laps - 0.5) * target_period.

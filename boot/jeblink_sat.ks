@@ -55,6 +55,12 @@ FUNCTION deploy_satellite {
         transmit_log().
         RETURN.
     }
+    LOCAL relay_name IS probe_cores[0]:TAG.
+    IF relay_name:MATCHESPATTERN("^JL-[0-9]+-[0-9]+$") {
+        SET SHIP:NAME TO relay_name.
+    }
+    SET SHIP:TYPE TO "Relay".
+    log_line("Relay identity: " + SHIP:NAME + ", QBE UID " + probe_cores[0]:UID + ".").
     log_control_reference("before CONTROLFROM").
     probe_cores[0]:CONTROLFROM().
     WAIT 0.
