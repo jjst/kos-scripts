@@ -6,8 +6,16 @@ FUNCTION deploy_satellite {
     LOCAL apoapsis_margin IS 1000.
     LOCAL periapsis_tolerance IS 150.
     LOCAL angular_tolerance IS 2.
+    LOCAL log_path IS "1:/jeblink_control.log".
 
-    PRINT "Jeblink: waiting for separation.".
+    FUNCTION log_line {
+        PARAMETER msg.
+        LOCAL entry IS ROUND(TIME:SECONDS, 2) + " " + msg.
+        PRINT entry.
+        LOG entry TO log_path.
+    }
+
+    log_line("Jeblink: waiting for separation.").
     // The carrier and each satellite have their own command core and engine.
     // Check both so the last satellite also waits until it is off the carrier.
     UNTIL SHIP:UNPACKED AND SHIP:MODULESNAMED("ModuleCommand"):LENGTH = 1
@@ -16,6 +24,16 @@ FUNCTION deploy_satellite {
     }
     WAIT 3.
     WAIT UNTIL SHIP:UNPACKED.
+    LOCAL archive_path IS "0:/jeblink-" + ROUND(TIME:SECONDS * 1000) + ".log".
+
+    FUNCTION transmit_log {
+        IF HOMECONNECTION:ISCONNECTED {
+            COPYPATH(log_path, archive_path).
+            PRINT "Jeblink: copied log to " + archive_path.
+        }
+    }
+
+    log_line("Jeblink: separated as " + SHIP:NAME + ".").
 
     FOR panel IN SHIP:MODULESNAMED("ModuleDeployableSolarPanel") {
         IF panel:HASEVENT("Extend Panels") {
@@ -25,16 +43,15 @@ FUNCTION deploy_satellite {
 
     FUNCTION log_control_reference {
         PARAMETER phase.
-        LOCAL entry IS ROUND(TIME:SECONDS, 2) + " " + SHIP:NAME + " " + phase
+        log_line(phase
             + ": root=" + SHIP:ROOTPART:NAME + ", control=" + SHIP:CONTROLPART:NAME
-            + ", forward=" + SHIP:FACING:FOREVECTOR:TOSTRING.
-        PRINT entry.
-        LOG entry TO "1:/jeblink_control.log".
+            + ", forward=" + SHIP:FACING:FOREVECTOR:TOSTRING).
     }
 
     LOCAL probe_cores IS SHIP:PARTSNAMED("probeCoreCube").
     IF probe_cores:LENGTH <> 1 {
-        PRINT "Jeblink: expected one QBE. No burn.".
+        log_line("Jeblink: expected one QBE. No burn.").
+        transmit_log().
         RETURN.
     }
     log_control_reference("before CONTROLFROM").
@@ -42,7 +59,8 @@ FUNCTION deploy_satellite {
     WAIT 0.
     log_control_reference("after CONTROLFROM").
     IF SHIP:CONTROLPART:NAME <> probe_cores[0]:NAME {
-        PRINT "Jeblink: QBE control reference did not take. No burn.".
+        log_line("Jeblink: QBE control reference did not take. No burn.").
+        transmit_log().
         RETURN.
     }
 
@@ -55,6 +73,21 @@ FUNCTION deploy_satellite {
     LOCAL apoapsis_limit IS release_apoapsis + apoapsis_margin.
     LOCAL sat_engine IS SHIP:ENGINES[0].
     LOCAL throttle_cmd IS 0.
+
+    FUNCTION log_burn_state {
+        PARAMETER phase.
+        log_line(phase + ": Ap " + ROUND(SHIP:APOAPSIS / 1000, 2)
+            + " km, Pe " + ROUND(SHIP:PERIAPSIS / 1000, 2)
+            + " km, ETA Ap " + ROUND(ETA:APOAPSIS, 1)
+            + " s, error " + ROUND(pointing_error(), 1)
+            + " deg, throttle " + ROUND(throttle_cmd, 2)
+            + ", thrust " + ROUND(sat_engine:THRUST, 3)
+            + " kN, flameout " + sat_engine:FLAMEOUT).
+    }
+
+    log_line("Jeblink: target Pe " + ROUND(target_periapsis / 1000, 2)
+        + " km, Ap cutoff " + ROUND(apoapsis_limit / 1000, 2) + " km.").
+    log_burn_state("Before alignment").
     LOCK THROTTLE TO throttle_cmd.
     SAS OFF.
     LOCK STEERING TO PROGRADE.
@@ -73,6 +106,7 @@ FUNCTION deploy_satellite {
         // Let the engine and throttle command reach a physics tick before
         // interpreting flameout as an ignition or fuel failure.
         LOCAL check_flameout_after IS TIME:SECONDS + 0.5.
+        LOCAL next_sample IS check_flameout_after.
         UNTIL SHIP:PERIAPSIS >= target_periapsis {
             IF NOT SHIP:UNPACKED {
                 SET cutoff_reason TO "vessel left full physics during burn".
@@ -90,9 +124,14 @@ FUNCTION deploy_satellite {
                 SET cutoff_reason TO "engine reported flameout after ignition".
                 BREAK.
             }
+            IF TIME:SECONDS >= next_sample {
+                log_burn_state("Burn").
+                SET next_sample TO TIME:SECONDS + 1.
+            }
             SET throttle_cmd TO MAX(0.08, MIN(1, (target_periapsis - SHIP:PERIAPSIS) / 3000)).
             WAIT 0.
         }
+        log_burn_state("Before shutdown").
         SET throttle_cmd TO 0.
         sat_engine:SHUTDOWN().
     }
@@ -104,17 +143,16 @@ FUNCTION deploy_satellite {
         + " (error " + ROUND(pointing_error(), 1) + " deg, Ap "
         + ROUND(SHIP:APOAPSIS / 1000, 2) + " km, limit "
         + ROUND(apoapsis_limit / 1000, 2) + " km).".
-    PRINT cutoff_entry.
-    LOG cutoff_entry TO "1:/jeblink_control.log".
+    log_line(cutoff_entry).
 
     IF SHIP:PERIAPSIS >= target_periapsis
         AND SHIP:APOAPSIS <= apoapsis_limit {
-        PRINT "Jeblink: circularization complete.".
+        log_line("Jeblink: circularization complete.").
     } ELSE {
-        PRINT "Jeblink: circularization incomplete. Check attitude and orbit.".
+        log_line("Jeblink: circularization incomplete.").
     }
-    PRINT "Ap " + ROUND(SHIP:APOAPSIS / 1000, 2)
-        + " km, Pe " + ROUND(SHIP:PERIAPSIS / 1000, 2) + " km.".
+    log_burn_state("Final").
+    transmit_log().
 }
 
 deploy_satellite().
