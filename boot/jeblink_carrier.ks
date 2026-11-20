@@ -27,12 +27,28 @@ FUNCTION parking_orbit_ready {
 FUNCTION deploy_constellation {
     log_line("Jeblink carrier booted. Waiting for an active Kerbin parking orbit with Pe at least 75 km.").
     WAIT UNTIL parking_orbit_ready().
-    log_line("Press Enter to begin phasing once the parking orbit is final and any ascent script has finished.").
-    TERMINAL:INPUT:CLEAR().
-    WAIT UNTIL TERMINAL:INPUT:GETCHAR() = TERMINAL:INPUT:RETURN.
-    IF NOT parking_orbit_ready() OR KUNIVERSE:TIMEWARP:RATE > 1.01 {
-        log_line("Carrier is not in its parking orbit at 1x. Restart once ready.").
-        RETURN.
+    LOCAL armed IS FALSE.
+    UNTIL armed {
+        log_line("Press Enter to begin phasing once the parking orbit is final and any ascent script has finished.").
+        TERMINAL:INPUT:CLEAR().
+        WAIT UNTIL TERMINAL:INPUT:GETCHAR() = TERMINAL:INPUT:RETURN.
+        LOCAL active_carrier IS SHIP = KUNIVERSE:ACTIVEVESSEL.
+        LOCAL warp_rate IS KUNIVERSE:TIMEWARP:RATE.
+        SET armed TO parking_orbit_ready() AND warp_rate <= 1.01.
+        IF NOT armed {
+            IF NOT active_carrier { log_line("Cannot arm: carrier is not the active vessel."). }
+            IF NOT SHIP:UNPACKED { log_line("Cannot arm: carrier is outside full physics."). }
+            IF SHIP:BODY:NAME <> "Kerbin" OR SHIP:STATUS <> "ORBITING" {
+                log_line("Cannot arm: expected Kerbin orbit, got " + SHIP:BODY:NAME + " / " + SHIP:STATUS + ".").
+            }
+            IF SHIP:PERIAPSIS < 75000 {
+                log_line("Cannot arm: Pe is " + ROUND(SHIP:PERIAPSIS / 1000, 3) + " km. Minimum is 75 km.").
+            }
+            IF warp_rate > 1.01 {
+                log_line("Cannot arm: time warp is " + ROUND(warp_rate, 2) + "x. Return to 1x.").
+            }
+            transmit_log().
+        }
     }
 
     LOCAL satellites IS SHIP:PARTSNAMED("probeCoreCube").
