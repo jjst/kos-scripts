@@ -103,7 +103,11 @@ FUNCTION padded_number {
 
 FUNCTION assign_train_name {
     PARAMETER state_path, initial_count.
-    IF EXISTS(state_path) { RETURN READJSON(state_path):train_name. }
+    IF EXISTS(state_path) {
+        LOCAL saved_train IS READJSON(state_path).
+        LOCAL saved_fields IS saved_train:train_name:SPLIT("-").
+        RETURN "JT-" + saved_fields[1].
+    }
 
     LOCAL counter_path IS "0:/jeblink_train_counter.json".
     LOCAL has_archive IS HOMECONNECTION:ISCONNECTED.
@@ -113,13 +117,13 @@ FUNCTION assign_train_name {
     }
     LIST TARGETS IN existing_vessels.
     FOR vessel_ref IN existing_vessels {
-        IF vessel_ref:NAME:MATCHESPATTERN("^JL-[0-9]+(-[0-9]+)?$") {
+        IF vessel_ref:NAME:MATCHESPATTERN("^(JT-[0-9]+|JR-[0-9]+-[0-9]+|JL-[0-9]+(-[0-9]+)?)$") {
             LOCAL fields IS vessel_ref:NAME:SPLIT("-").
             SET highest_train TO MAX(highest_train, fields[1]:TONUMBER()).
         }
     }
     LOCAL train_number IS highest_train + 1.
-    LOCAL train_name IS "JL-" + padded_number(train_number).
+    LOCAL train_name IS "JT-" + padded_number(train_number).
     IF has_archive {
         WRITEJSON(LEXICON("last_train", train_number), counter_path).
     }
@@ -171,6 +175,8 @@ FUNCTION deploy_constellation {
         RETURN.
     }
     LOCAL train_name IS assign_train_name(train_state_path, constellation_size).
+    LOCAL train_fields IS train_name:SPLIT("-").
+    LOCAL relay_prefix IS "JR-" + train_fields[1] + "-".
     SET SHIP:NAME TO train_name.
     SET SHIP:TYPE TO "Probe".
     log_line("Jeblink carrier " + train_name + ", core UID " + SHIP:ROOTPART:UID + ".").
@@ -371,7 +377,7 @@ FUNCTION deploy_constellation {
             RETURN.
         }
         LOCAL satellite_number IS constellation_size - remaining + 1.
-        LOCAL relay_name IS train_name + "-" + padded_number(satellite_number).
+        LOCAL relay_name IS relay_prefix + padded_number(satellite_number).
         LOCAL release_label IS relay_name + " (" + satellite_number + " of " + constellation_size + ")".
         IF earliest_release > 0 {
             log_line("After confirming the previous probe's burn, press Enter to arm "
