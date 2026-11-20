@@ -110,10 +110,16 @@ FUNCTION deploy_satellite {
     LOCK THROTTLE TO throttle_cmd.
     log_alignment("before SAS setup").
     SET NAVMODE TO "ORBIT".
+    SAS OFF.
+    WAIT 0.
+    log_alignment("after SAS OFF").
     SAS ON.
     WAIT 0.
-    log_alignment("after SAS ON").
+    SET SASMODE TO "STABILITYASSIST".
+    WAIT 0.
+    log_alignment("after selecting STABILITYASSIST").
     SET SASMODE TO "PROGRADE".
+    WAIT 0.
     log_alignment("after selecting PROGRADE").
 
     LOCAL alignment_deadline IS TIME:SECONDS + 20.
@@ -134,6 +140,35 @@ FUNCTION deploy_satellite {
         SET cutoff_reason TO "alignment timed out".
     } ELSE IF SHIP:PERIAPSIS < target_periapsis {
         sat_engine:ACTIVATE().
+        WAIT 0.
+        LOCAL apo_radius IS SHIP:BODY:RADIUS + release_apoapsis.
+        LOCAL semi_major IS (apo_radius + SHIP:BODY:RADIUS + SHIP:PERIAPSIS) / 2.
+        LOCAL mu IS SHIP:BODY:MU.
+        LOCAL burn_delta_v IS SQRT(mu / apo_radius)
+            - SQRT(mu * (2 / apo_radius - 1 / semi_major)).
+        LOCAL available_thrust IS sat_engine:AVAILABLETHRUST.
+        IF available_thrust <= 0 {
+            sat_engine:SHUTDOWN().
+            UNLOCK THROTTLE.
+            log_line("Jeblink: no available thrust for burn timing.").
+            transmit_log().
+            RETURN.
+        }
+        LOCAL burn_lead IS burn_delta_v * SHIP:MASS / available_thrust / 2.
+        log_line("Jeblink: estimated dV " + ROUND(burn_delta_v, 1)
+            + " m/s, ignition lead " + ROUND(burn_lead, 1)
+            + " s, ETA Ap " + ROUND(ETA:APOAPSIS, 1) + " s.").
+        LOCAL coast_deadline IS TIME:SECONDS + 180.
+        WAIT UNTIL ETA:APOAPSIS <= burn_lead
+            OR NOT SHIP:UNPACKED OR TIME:SECONDS >= coast_deadline.
+        IF NOT SHIP:UNPACKED OR ETA:APOAPSIS > burn_lead OR pointing_error() > angular_tolerance {
+            sat_engine:SHUTDOWN().
+            UNLOCK THROTTLE.
+            log_burn_state("Timed ignition skipped: out of physics, outside window, or misaligned").
+            transmit_log().
+            RETURN.
+        }
+        log_burn_state("Timed ignition").
         LOCAL burn_deadline IS TIME:SECONDS + 30.
         // Let the engine and throttle command reach a physics tick before
         // interpreting flameout as an ignition or fuel failure.
@@ -183,6 +218,10 @@ FUNCTION deploy_satellite {
         log_line("Jeblink: circularization incomplete.").
     }
     log_burn_state("Final").
+    LOCAL target_radius IS SHIP:BODY:RADIUS + release_apoapsis.
+    LOCAL target_period IS 2 * CONSTANT:PI * SQRT(target_radius^3 / SHIP:BODY:MU).
+    log_line("Jeblink: period error " + ROUND(SHIP:OBT:PERIOD - target_period, 2)
+        + " s relative to a circular orbit at release apoapsis.").
     transmit_log().
 }
 
