@@ -1,5 +1,5 @@
 # Flight telemetry
 
-- Log named preflight checks with pass/fail results, actual values, limits, and units. Report each failed check before the summary.
-- Record initial conditions, targets, state changes, and outcomes. Sample at a bounded rate. Log the exact reason and measured state before an abort or cutoff.
-- Print and save the same timestamped messages locally. Export to a unique archive file at checkpoints when connected. Verify outcomes from measured behavior.
+- Follow `deorbit.ks` and `reentry.ks`. Use `check_line(ok, label, detail)` for named pass/fail checks with actual values, limits, and units before the summary.
+- Use `log_line` to print and append timestamped messages to `1:/`. Use `transmit_log` with `HOMECONNECTION:ISCONNECTED` and `COPYPATH` to export to a unique `0:/` filename at checkpoints.
+- Log targets, transitions, bounded samples, and measured outcomes. Record the exact rejection or cutoff reason and state before cleanup.
