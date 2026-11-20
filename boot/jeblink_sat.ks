@@ -68,6 +68,24 @@ FUNCTION deploy_satellite {
         RETURN VANG(SHIP:FACING:FOREVECTOR, SHIP:VELOCITY:ORBIT).
     }
 
+    FUNCTION log_alignment {
+        PARAMETER phase.
+        LOCAL facing_vector IS SHIP:FACING:FOREVECTOR.
+        LOCAL orbit_velocity IS SHIP:VELOCITY:ORBIT.
+        LOCAL prograde_vector IS SHIP:PROGRADE:FOREVECTOR.
+        log_line("Alignment " + phase
+            + ": active=" + KUNIVERSE:ACTIVEVESSEL:NAME
+            + ", control=" + SHIP:CONTROLPART:NAME
+            + ", unpacked=" + SHIP:UNPACKED
+            + ", SAS=" + SAS + "/" + SASMODE + ", nav=" + NAVMODE).
+        log_line("  facing=" + facing_vector + ", orbit velocity=" + orbit_velocity
+            + ", prograde=" + prograde_vector + ", angular velocity=" + SHIP:ANGULARVEL).
+        log_line("  facing to orbit velocity=" + ROUND(VANG(facing_vector, orbit_velocity), 3)
+            + " deg, facing to prograde=" + ROUND(VANG(facing_vector, prograde_vector), 3)
+            + " deg, prograde to orbit velocity=" + ROUND(VANG(prograde_vector, orbit_velocity), 3)
+            + " deg").
+    }
+
     LOCAL release_apoapsis IS SHIP:APOAPSIS.
     LOCAL target_periapsis IS release_apoapsis - periapsis_tolerance.
     LOCAL apoapsis_limit IS release_apoapsis + apoapsis_margin.
@@ -90,14 +108,25 @@ FUNCTION deploy_satellite {
         + " km, Ap cutoff " + ROUND(apoapsis_limit / 1000, 2) + " km.").
     log_burn_state("Before alignment").
     LOCK THROTTLE TO throttle_cmd.
+    log_alignment("before SAS setup").
     SET NAVMODE TO "ORBIT".
     SAS ON.
     WAIT 0.
+    log_alignment("after SAS ON").
     SET SASMODE TO "PROGRADE".
+    log_alignment("after selecting PROGRADE").
 
     LOCAL alignment_deadline IS TIME:SECONDS + 20.
-    WAIT UNTIL pointing_error() <= angular_tolerance
-        OR TIME:SECONDS >= alignment_deadline OR NOT SHIP:UNPACKED.
+    LOCAL next_alignment_sample IS TIME:SECONDS + 0.5.
+    UNTIL pointing_error() <= angular_tolerance
+        OR TIME:SECONDS >= alignment_deadline OR NOT SHIP:UNPACKED {
+        IF TIME:SECONDS >= next_alignment_sample {
+            log_alignment("waiting").
+            SET next_alignment_sample TO TIME:SECONDS + 0.5.
+        }
+        WAIT 0.
+    }
+    log_alignment("wait ended").
     LOCAL cutoff_reason IS "periapsis target reached".
     IF NOT SHIP:UNPACKED {
         SET cutoff_reason TO "vessel left full physics before ignition".
