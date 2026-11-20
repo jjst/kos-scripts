@@ -277,6 +277,8 @@ FUNCTION deploy_satellite {
         log_line("Jeblink: circularization incomplete.").
     }
     log_burn_state("Final").
+    log_line("Jeblink: remaining propellant " + ROUND(SHIP:LIQUIDFUEL, 3)
+        + " units LiquidFuel, " + ROUND(SHIP:OXIDIZER, 3) + " units Oxidizer.").
     log_line("Jeblink: solar panels extended=" + PANELS + ".").
     LOCAL target_radius IS SHIP:BODY:RADIUS + release_apoapsis.
     LOCAL target_period IS 2 * CONSTANT:PI * SQRT(target_radius^3 / SHIP:BODY:MU).
