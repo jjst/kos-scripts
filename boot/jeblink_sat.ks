@@ -56,7 +56,7 @@ FUNCTION deploy_satellite {
         RETURN.
     }
     LOCAL relay_name IS probe_cores[0]:TAG.
-    IF relay_name:MATCHESPATTERN("^(JR|JL)-[0-9]+-[0-9]+$") {
+    IF relay_name:MATCHESPATTERN("^[A-Z0-9]{4}-[0-9]{2,}$") {
         SET SHIP:NAME TO relay_name.
     }
     SET SHIP:TYPE TO "Relay".

@@ -101,34 +101,14 @@ FUNCTION padded_number {
     RETURN "" + number.
 }
 
-FUNCTION assign_train_name {
-    PARAMETER state_path, initial_count.
-    IF EXISTS(state_path) {
-        LOCAL saved_train IS READJSON(state_path).
-        LOCAL saved_fields IS saved_train:train_name:SPLIT("-").
-        RETURN "JT-" + saved_fields[1].
+FUNCTION random_train_code {
+    LOCAL alphabet IS "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".
+    LOCAL train_code IS "".
+    UNTIL train_code:LENGTH = 4 {
+        LOCAL index IS FLOOR(RANDOM() * alphabet:LENGTH).
+        SET train_code TO train_code + alphabet:SUBSTRING(index, 1).
     }
-
-    LOCAL counter_path IS "0:/jeblink_train_counter.json".
-    LOCAL has_archive IS HOMECONNECTION:ISCONNECTED.
-    LOCAL highest_train IS 0.
-    IF has_archive AND EXISTS(counter_path) {
-        SET highest_train TO READJSON(counter_path):last_train.
-    }
-    LIST TARGETS IN existing_vessels.
-    FOR vessel_ref IN existing_vessels {
-        IF vessel_ref:NAME:MATCHESPATTERN("^(JT-[0-9]+|JR-[0-9]+-[0-9]+|JL-[0-9]+(-[0-9]+)?)$") {
-            LOCAL fields IS vessel_ref:NAME:SPLIT("-").
-            SET highest_train TO MAX(highest_train, fields[1]:TONUMBER()).
-        }
-    }
-    LOCAL train_number IS highest_train + 1.
-    LOCAL train_name IS "JT-" + padded_number(train_number).
-    IF has_archive {
-        WRITEJSON(LEXICON("last_train", train_number), counter_path).
-    }
-    WRITEJSON(LEXICON("train_name", train_name, "train_size", initial_count), state_path).
-    RETURN train_name.
+    RETURN train_code.
 }
 
 FUNCTION deploy_constellation {
@@ -164,9 +144,17 @@ FUNCTION deploy_constellation {
 
     LOCAL satellites IS SHIP:PARTSNAMED("probeCoreCube").
     LOCAL remaining IS satellites:LENGTH.
-    LOCAL train_state_path IS "1:/jeblink_train.json".
-    IF constellation_size = 0 AND EXISTS(train_state_path) {
-        SET constellation_size TO READJSON(train_state_path):train_size.
+    LOCAL train_name IS "".
+    // Keep the original constellation size with the code across processor reboots.
+    IF SHIP:ROOTPART:TAG:MATCHESPATTERN("^[A-Z0-9]{4}/[0-9]+$") {
+        LOCAL train_fields IS SHIP:ROOTPART:TAG:SPLIT("/").
+        SET train_name TO train_fields[0].
+        LOCAL original_count IS train_fields[1]:TONUMBER().
+        IF constellation_size <> 0 AND constellation_size <> original_count {
+            log_line("This train already has " + original_count + " relay slots. Rerun with that count.").
+            RETURN.
+        }
+        SET constellation_size TO original_count.
     }
     IF constellation_size = 0 { SET constellation_size TO remaining. }
     IF remaining = 0 OR constellation_size < remaining OR constellation_size < 2
@@ -174,9 +162,10 @@ FUNCTION deploy_constellation {
         log_line("No valid Jeblink constellation count.").
         RETURN.
     }
-    LOCAL train_name IS assign_train_name(train_state_path, constellation_size).
-    LOCAL train_fields IS train_name:SPLIT("-").
-    LOCAL relay_prefix IS "JR-" + train_fields[1] + "-".
+    IF train_name = "" {
+        SET train_name TO random_train_code().
+        SET SHIP:ROOTPART:TAG TO train_name + "/" + constellation_size.
+    }
     SET SHIP:NAME TO train_name.
     SET SHIP:TYPE TO "Probe".
     log_line("Jeblink carrier " + train_name + ", core UID " + SHIP:ROOTPART:UID + ".").
@@ -377,7 +366,7 @@ FUNCTION deploy_constellation {
             RETURN.
         }
         LOCAL satellite_number IS constellation_size - remaining + 1.
-        LOCAL relay_name IS relay_prefix + padded_number(satellite_number).
+        LOCAL relay_name IS train_name + "-" + padded_number(satellite_number).
         LOCAL release_label IS relay_name + " (" + satellite_number + " of " + constellation_size + ")".
         IF earliest_release > 0 {
             log_line("After confirming the previous probe's burn, press Enter to arm "
