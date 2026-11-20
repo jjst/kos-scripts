@@ -246,15 +246,20 @@ FUNCTION deploy_constellation {
         SAS OFF.
         WAIT 0.
         SAS ON.
-        WAIT 0.
-        SET SASMODE TO "RETROGRADE".
-        WAIT 0.
-        log_insertion_state("Retrograde reselected after coast").
+        // KSP can reset the selected mode after SAS is toggled on.
+        // Give it time to settle and retry if Retrograde does not latch.
+        LOCAL next_sas_request IS TIME:SECONDS + 0.5.
         UNTIL (TIME:SECONDS >= ignition_time
             AND SAS AND SASMODE = "RETROGRADE"
             AND VANG(SHIP:FACING:FOREVECTOR, -SHIP:VELOCITY:ORBIT) <= 5)
             OR TIME:SECONDS >= latest_ignition OR SHIP <> KUNIVERSE:ACTIVEVESSEL
             OR NOT SHIP:UNPACKED OR KUNIVERSE:TIMEWARP:RATE > 1.01 {
+            IF TIME:SECONDS >= next_sas_request AND SAS AND SASMODE <> "RETROGRADE" {
+                SET SASMODE TO "RETROGRADE".
+                WAIT 0.
+                log_insertion_state("Retrograde requested after coast").
+                SET next_sas_request TO TIME:SECONDS + 0.5.
+            }
             checkpoint_log("Aligning and waiting for timed insertion").
             WAIT 0.
         }
