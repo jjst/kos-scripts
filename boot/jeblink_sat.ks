@@ -106,6 +106,7 @@ FUNCTION deploy_satellite {
     LOCAL apoapsis_limit IS release_apoapsis + apoapsis_margin.
     LOCAL sat_engine IS SHIP:ENGINES[0].
     LOCAL throttle_cmd IS 0.
+    LOCAL original_pack_distance IS -1.
 
     FUNCTION log_burn_state {
         PARAMETER phase.
@@ -203,6 +204,18 @@ FUNCTION deploy_satellite {
             transmit_log().
             RETURN.
         }
+        IF SHIP <> KUNIVERSE:ACTIVEVESSEL {
+            LOCAL probe_distances IS SHIP:LOADDISTANCE:ORBIT.
+            IF probe_distances:PACK < 1000 AND probe_distances:LOAD >= 1000 {
+                SET original_pack_distance TO probe_distances:PACK.
+                SET probe_distances:PACK TO 1000.
+                log_line("Jeblink: probe orbital PACK " + original_pack_distance
+                    + " -> " + probe_distances:PACK + " m for this burn.").
+            } ELSE {
+                log_line("Jeblink: orbital PACK kept at " + probe_distances:PACK
+                    + " m (LOAD " + probe_distances:LOAD + " m).").
+            }
+        }
         log_burn_state("Timed ignition").
         LOCAL burn_deadline IS TIME:SECONDS + 30.
         // Let the engine and throttle command reach a physics tick before
@@ -258,6 +271,10 @@ FUNCTION deploy_satellite {
     LOCAL target_period IS 2 * CONSTANT:PI * SQRT(target_radius^3 / SHIP:BODY:MU).
     log_line("Jeblink: period error " + ROUND(SHIP:OBT:PERIOD - target_period, 2)
         + " s relative to a circular orbit at release apoapsis.").
+    IF original_pack_distance >= 0 {
+        SET SHIP:LOADDISTANCE:ORBIT:PACK TO original_pack_distance.
+        log_line("Jeblink: restored probe orbital PACK to " + SHIP:LOADDISTANCE:ORBIT:PACK + " m.").
+    }
     transmit_log().
 }
 
