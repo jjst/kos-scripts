@@ -322,7 +322,7 @@ FUNCTION deploy_constellation {
         transmit_log().
     }
 
-    LOCAL release_lead IS 45.
+    LOCAL release_lead IS 30.
     LOCAL earliest_release IS 0.
     LOCAL release_deadline IS 0.
     UNTIL remaining = 0 {

@@ -109,6 +109,9 @@ FUNCTION deploy_satellite {
 
     FUNCTION log_burn_state {
         PARAMETER phase.
+        LOCAL active_vessel IS KUNIVERSE:ACTIVEVESSEL.
+        LOCAL active_range IS (active_vessel:POSITION - SHIP:POSITION):MAG.
+        LOCAL relative_speed IS (active_vessel:VELOCITY:ORBIT - SHIP:VELOCITY:ORBIT):MAG.
         log_line(phase + ": Ap " + ROUND(SHIP:APOAPSIS / 1000, 2)
             + " km, Pe " + ROUND(SHIP:PERIAPSIS / 1000, 2)
             + " km, ETA Ap " + ROUND(ETA:APOAPSIS, 1)
@@ -117,8 +120,10 @@ FUNCTION deploy_satellite {
             + ", thrust " + ROUND(sat_engine:THRUST, 3)
             + " kN, flameout " + sat_engine:FLAMEOUT
             + ", turn rate " + ROUND(turn_rate(), 2) + " deg/s"
-            + ", active " + KUNIVERSE:ACTIVEVESSEL:NAME
-            + ", probe_active " + (SHIP = KUNIVERSE:ACTIVEVESSEL)).
+            + ", active " + active_vessel:NAME
+            + ", probe_active " + (SHIP = active_vessel)
+            + ", active range " + ROUND(active_range, 1) + " m"
+            + ", relative speed " + ROUND(relative_speed, 1) + " m/s").
     }
 
     log_line("Jeblink: target Pe " + ROUND(target_periapsis / 1000, 2)
