@@ -6,12 +6,31 @@ LOCAL log_name IS "jeblink-carrier-" + ROUND(TIME:SECONDS * 1000) + ".log".
 LOCAL log_path IS "1:/" + log_name.
 LOCAL checkpoint_interval IS 20.
 LOCAL next_checkpoint IS TIME:SECONDS + checkpoint_interval.
+LOCAL next_display IS 0.
 
 FUNCTION log_line {
-    PARAMETER msg.
+    PARAMETER msg, show_in_terminal IS TRUE.
     LOCAL entry IS ROUND(TIME:SECONDS, 2) + " " + msg.
-    PRINT entry.
+    IF show_in_terminal { PRINT entry. }
     LOG entry TO log_path.
+}
+
+FUNCTION coast_display {
+    PARAMETER event_name, seconds_left.
+    IF TIME:SECONDS < next_display { RETURN. }
+    SET next_display TO TIME:SECONDS + 2.
+    LOCAL seconds_remaining IS MAX(0, CEILING(seconds_left)).
+    CLEARSCREEN.
+    PRINT event_name + " in " + FLOOR(seconds_remaining / 60) + "m "
+        + MOD(seconds_remaining, 60) + "s".
+    IF seconds_remaining > 20 {
+        LOCAL warp_seconds IS seconds_remaining - 20.
+        PRINT "You may warp during this coast.".
+        PRINT "Return to 1x in " + FLOOR(warp_seconds / 60) + "m " + MOD(warp_seconds, 60) + "s.".
+    } ELSE {
+        PRINT "Return to 1x now and stay there.".
+    }
+    PRINT "The carrier acts automatically.".
 }
 
 FUNCTION transmit_log {
@@ -32,7 +51,7 @@ FUNCTION checkpoint_log {
                 + " km, Pe " + ROUND(SHIP:PERIAPSIS / 1000, 2)
                 + " km, ETA Ap " + ROUND(ETA:APOAPSIS, 1) + " s".
         }
-        log_line(detail + ".").
+        log_line(detail + ".", FALSE).
     }
     transmit_log().
     SET next_checkpoint TO TIME:SECONDS + checkpoint_interval.
@@ -155,7 +174,7 @@ FUNCTION deploy_constellation {
                 + " s, retrograde error " + ROUND(VANG(SHIP:FACING:FOREVECTOR, -SHIP:VELOCITY:ORBIT), 2)
                 + " deg, throttle " + ROUND(throttle_cmd, 2) + ", thrust "
                 + ROUND(carrier_engine:THRUST, 2) + " kN, flameout " + carrier_engine:FLAMEOUT
-                + ", SAS " + SAS + "/" + SASMODE).
+                + ", SAS " + SAS + "/" + SASMODE, FALSE).
         }
         LOCK THROTTLE TO throttle_cmd.
         SET NAVMODE TO "ORBIT".
@@ -179,14 +198,19 @@ FUNCTION deploy_constellation {
         LOCAL burn_lead IS MAX(0.5, delta_v * SHIP:MASS / thrust_available / 2).
         log_line("Insertion burn: " + ROUND(delta_v, 1) + " m/s, ignition "
             + ROUND(burn_lead, 1) + " s before apoapsis.").
+        SET next_display TO 0.
         UNTIL ETA:APOAPSIS > burn_lead OR SHIP <> KUNIVERSE:ACTIVEVESSEL {
+            coast_display("Insertion burn", ETA:APOAPSIS + SHIP:OBT:PERIOD - burn_lead).
             checkpoint_log("Waiting for current insertion window to pass").
             WAIT 0.
         }
         UNTIL ETA:APOAPSIS <= burn_lead OR SHIP <> KUNIVERSE:ACTIVEVESSEL {
+            coast_display("Insertion burn", ETA:APOAPSIS - burn_lead).
             checkpoint_log("Coasting to insertion").
             WAIT 0.
         }
+        CLEARSCREEN.
+        PRINT "Insertion window reached. Keep the carrier at 1x.".
         log_insertion_state("Insertion window opened").
         LOCAL arrival_deadline IS TIME:SECONDS + 2 * burn_lead + 10.
         LOCAL next_sample IS TIME:SECONDS + 0.5.
@@ -220,25 +244,52 @@ FUNCTION deploy_constellation {
             log_line("Carrier is outside the phasing orbit tolerance. Releases stopped.").
             RETURN.
         }
-        log_line("Press Enter on the carrier to arm the next release. Switch to the probe after release.").
+        LOCAL satellite_number IS constellation_size - remaining + 1.
+        LOCAL release_label IS "Satellite " + satellite_number + " of " + constellation_size.
+        IF earliest_release > 0 {
+            log_line("After returning from the probe, press Enter to arm " + release_label + ".").
+        } ELSE {
+            log_line("Press Enter to arm " + release_label + ".").
+        }
         transmit_log().
         wait_for_enter("Waiting for release arming").
+        SET next_display TO 0.
         IF earliest_release = 0 {
             UNTIL ETA:APOAPSIS > release_lead {
+                coast_display(release_label + " release", ETA:APOAPSIS + SHIP:OBT:PERIOD - release_lead).
                 checkpoint_log("Waiting for current release window to pass").
                 WAIT 0.
             }
         }
         UNTIL (TIME:SECONDS >= earliest_release AND ETA:APOAPSIS <= release_lead)
             OR (release_deadline > 0 AND TIME:SECONDS >= release_deadline) {
+            LOCAL next_pass IS TIME:SECONDS + ETA:APOAPSIS - release_lead.
+            LOCAL extra_laps IS MAX(0, CEILING((earliest_release - next_pass) / SHIP:OBT:PERIOD)).
+            IF next_pass < TIME:SECONDS {
+                SET extra_laps TO MAX(1, extra_laps).
+            }
+            coast_display(release_label + " release", next_pass + extra_laps * SHIP:OBT:PERIOD - TIME:SECONDS).
             checkpoint_log("Coasting to release").
             WAIT 0.
         }
+        CLEARSCREEN.
         IF (release_deadline > 0 AND TIME:SECONDS >= release_deadline)
             OR ETA:APOAPSIS < release_lead - 5 OR NOT orbit_ready()
             OR SHIP <> KUNIVERSE:ACTIVEVESSEL OR NOT SHIP:UNPACKED
             OR KUNIVERSE:TIMEWARP:RATE > 1.01 OR SHIP:THRUST > 0 {
-            log_line("Release window missed or carrier not ready. Releases stopped.").
+            IF ETA:APOAPSIS < release_lead - 5 OR (release_deadline > 0 AND TIME:SECONDS >= release_deadline) {
+                log_line("Release window missed. ETA to apoapsis: " + ROUND(ETA:APOAPSIS, 1) + " s.").
+            }
+            IF NOT orbit_ready() {
+                log_line("Carrier outside phasing orbit tolerance. Period error "
+                    + ROUND(SHIP:OBT:PERIOD - target_period, 2) + " s, limit " + ROUND(period_tolerance, 2) + " s.").
+            }
+            IF SHIP <> KUNIVERSE:ACTIVEVESSEL OR NOT SHIP:UNPACKED {
+                log_line("Select the carrier and return to full physics.").
+            }
+            IF KUNIVERSE:TIMEWARP:RATE > 1.01 { log_line("Return to 1x before the release window."). }
+            IF SHIP:THRUST > 0 { log_line("Release blocked by thrust: " + ROUND(SHIP:THRUST, 2) + " kN."). }
+            log_line("No satellite released. Restart the carrier script with the original count to replan.").
             RETURN.
         }
 
@@ -277,7 +328,8 @@ FUNCTION deploy_constellation {
             log_line("Expected exactly one QBE to detach. Releases stopped.").
             RETURN.
         }
-        log_line("Satellite released. " + remaining + " still mounted.").
+        log_line(release_label + " released. Switch to the probe now for circularization.").
+        IF remaining > 0 { PRINT "Return to the carrier after the probe finishes its burn.". }
         transmit_log().
         SET earliest_release TO release_time + (coast_laps - 0.5) * target_period.
         SET release_deadline TO earliest_release + target_period.
