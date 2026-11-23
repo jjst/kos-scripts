@@ -476,16 +476,8 @@ FUNCTION deploy_constellation {
     }
 }
 
-IF HOMECONNECTION:ISCONNECTED {
-    IF EXISTS("0:/lib/telemetry.ks") {
-        COPYPATH("0:/lib/telemetry.ks", "1:/lib/telemetry.ks").
-    }
-}
-IF NOT EXISTS("1:/lib/telemetry.ks") {
-    PRINT "Carrier stopped before phasing. Install lib/telemetry.ks in the archive and restart while connected.".
-} ELSE {
-    RUNONCEPATH(PATH("1:/lib/telemetry.ks")).
-    open_log("jeblink-carrier").
-    deploy_constellation().
-    transmit_log().
-}
+COPYPATH("0:/lib/telemetry.ks", "1:/lib/telemetry.ks").
+RUNONCEPATH(PATH("1:/lib/telemetry.ks")).
+open_log("jeblink-carrier").
+deploy_constellation().
+transmit_log().
