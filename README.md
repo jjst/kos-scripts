@@ -17,7 +17,9 @@ A bunch of [kOS](https://ksp-kos.github.io/KOS/) scripts for [Kerbal Space Progr
 
 Assign `boot/jeblink_carrier.ks` to the carrier CPU. Set up one Poodle as the
 last ascent engine and a stock payload fairing with manual deploy available.
-Disable staging for the fairing and keep relay separators out of ascent staging.
+Disable staging for the fairing and all relay separators. In the pad tests, the
+Poodle stage delta-v reading agreed with the vessel reading after staging was
+disabled for the relay separators (see [issue #42](https://github.com/jjst/kos-scripts/issues/42)).
 On the pad, enter the launch heading and target altitude, then press Enter to
 arm launch. After circularisation the carrier prompts separately to begin phasing.
 Starting the script in orbit goes straight to the parking-orbit flow.

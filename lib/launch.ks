@@ -57,13 +57,14 @@ FUNCTION launch_to_orbit {
         }
         LOCAL pe_ok IS check_line(pe >= minimum_pe, "Periapsis",
             ROUND(pe, 1) + " m, minimum " + minimum_pe + " m").
-        info_line("Vessel delta-v readout", ROUND(remaining_dv, 1) + " m/s reported by KSP").
+        LOCAL dv_ok IS check_line(remaining_dv > 0, "Remaining delta-v",
+            ROUND(remaining_dv, 1) + " m/s, required > 0 m/s").
         LOCAL orbit_ok IS check_line(SHIP:STATUS = "ORBITING", "Vessel status",
             SHIP:STATUS + ", required ORBITING").
-        LOCAL success IS burn_completed AND pe_ok AND orbit_ok.
+        LOCAL success IS burn_completed AND pe_ok AND dv_ok AND orbit_ok.
         LOCAL result_reason IS reason.
         IF burn_completed AND NOT success {
-            SET result_reason TO reason + ", post-burn orbit checks failed".
+            SET result_reason TO reason + ", post-burn orbit or delta-v checks failed".
         }
         log_line("Launch result: success=" + success + ", " + result_reason + ".").
         transmit_log().
