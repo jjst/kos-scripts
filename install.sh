@@ -36,9 +36,10 @@ if [[ ! -d "$DEST" ]]; then
     exit 1
 fi
 
-mkdir -p "$DEST/boot"
+mkdir -p "$DEST/boot" "$DEST/lib"
 
 cp "$SCRIPT_DIR"/*.ks "$DEST/"
 cp "$SCRIPT_DIR"/boot/*.ks "$DEST/boot/"
+cp "$SCRIPT_DIR"/lib/*.ks "$DEST/lib/"
 
 echo "Installed kOS scripts to: $DEST"
