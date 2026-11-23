@@ -72,6 +72,36 @@ FUNCTION carrier_poodles {
     RETURN poodles.
 }
 
+FUNCTION poodle_reserve_dv {
+    PARAMETER poodle.
+    LOCAL propellants IS poodle:CONSUMEDRESOURCES.
+    IF NOT (propellants:HASKEY("LiquidFuel") AND propellants:HASKEY("Oxidizer")) {
+        warn_line("Poodle propellants", "LiquidFuel and Oxidizer data are required for the reserve estimate").
+        RETURN 0.
+    }
+    LOCAL fuel IS propellants["LiquidFuel"].
+    LOCAL oxidizer IS propellants["Oxidizer"].
+    LOCAL wet_mass IS SHIP:MASS.
+    LOCAL vacuum_isp IS poodle:VACUUMISP.
+    info_line("Poodle propellant", "LiquidFuel " + ROUND(fuel:AMOUNT, 2) + " u, Oxidizer "
+        + ROUND(oxidizer:AMOUNT, 2) + " u, vessel mass " + ROUND(wet_mass, 3)
+        + " t, vacuum Isp " + ROUND(vacuum_isp, 1) + " s").
+    IF fuel:RATIO <= 0 OR oxidizer:RATIO <= 0 OR fuel:DENSITY <= 0
+        OR oxidizer:DENSITY <= 0 OR vacuum_isp <= 0 {
+        warn_line("Poodle propellant", "Fuel ratios, densities, and vacuum Isp must be positive").
+        RETURN 0.
+    }
+    LOCAL mixtures IS MIN(fuel:AMOUNT / fuel:RATIO, oxidizer:AMOUNT / oxidizer:RATIO).
+    LOCAL usable_mass IS mixtures * (fuel:RATIO * fuel:DENSITY + oxidizer:RATIO * oxidizer:DENSITY).
+    IF usable_mass <= 0 OR usable_mass >= wet_mass {
+        warn_line("Poodle propellant", ROUND(usable_mass, 3) + " t usable, must be > 0 and below "
+            + ROUND(wet_mass, 3) + " t wet mass").
+        RETURN 0.
+    }
+    info_line("Poodle usable propellant", ROUND(usable_mass, 3) + " t at the engine mixture ratio").
+    RETURN vacuum_isp * CONSTANT:G0 * LN(wet_mass / (wet_mass - usable_mass)).
+}
+
 FUNCTION carrier_phasing_plan {
     PARAMETER relay_count.
     LOCAL mu IS SHIP:BODY:MU.
@@ -212,11 +242,14 @@ FUNCTION launch_carrier_from_pad {
         + ", ignition=" + poodle:IGNITION + ", flameout=" + poodle:FLAMEOUT
         + ", engine " + ROUND(poodle:AVAILABLETHRUST, 2) + " kN, vessel "
         + ROUND(SHIP:AVAILABLETHRUST, 2) + " kN (extra thrust limit 0.01 kN)").
-    LOCAL remaining_dv IS STAGE:DELTAV:VACUUM.
+    info_line("KSP delta-v readouts", "stage " + ROUND(STAGE:DELTAV:VACUUM, 1)
+        + " m/s, vessel " + ROUND(result["remaining_dv"], 1) + " m/s").
+    LOCAL remaining_dv IS 0.
+    IF poodle_ready { SET remaining_dv TO poodle_reserve_dv(poodle). }
     LOCAL insertion_dv IS plan["insertion_dv"].
     LOCAL required_dv IS MAX(0, insertion_dv) + 10.
     LOCAL dv_ok IS check_line(remaining_dv >= required_dv, "Poodle insertion delta-v",
-        ROUND(remaining_dv, 1) + " m/s available, " + ROUND(MAX(0, insertion_dv), 1)
+        ROUND(remaining_dv, 1) + " m/s estimated from accessible propellant, " + ROUND(MAX(0, insertion_dv), 1)
         + " m/s burn plus 10 m/s margin").
     IF NOT (poodle_ready AND dv_ok) {
         log_line("Phasing was skipped. Confirm the Poodle is the sole active engine and has the logged fuel margin.").
