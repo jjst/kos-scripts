@@ -1,8 +1,7 @@
 // ============================================================
 //  land_guided.ks — descent and landing guidance after reentry
 // ============================================================
-//  Performs PID-guided descent with active guidance back to the
-//  launch position saved by launch.ks.
+//  Performs PID-guided descent with active guidance to the configured landing target.
 
 PARAMETER reentry_run_id IS -1.
 PARAMETER reentry_telemetry_base_name IS "".

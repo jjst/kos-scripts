@@ -6,11 +6,23 @@ A bunch of [kOS](https://ksp-kos.github.io/KOS/) scripts for [Kerbal Space Progr
 
 - `boot/boomerang.ks` - boot script that copies scripts to local volume and prompts which phase to start
 - `launch.ks` - gravity-turn ascent to circular orbit
+- `lib/launch.ks` - reusable gravity-turn ascent and circularisation for the Jeblink carrier
 - `deorbit.ks` - Trajectories-guided deorbit burn and handoff to `reentry.ks`
 - `reentry.ks` - atmospheric guidance; hands off to `land_guided.ks` when inside the descent envelope, otherwise `land_unguided.ks`
 - `land_guided.ks` - PID-guided descent and landing burn
 - `land_unguided.ks` - fallback airbrake descent and landing burn
 - `hop.ks` - standalone VTVL vertical hop and landing
+
+## Jeblink pad launch
+
+Assign `boot/jeblink_carrier.ks` to the carrier CPU. Set up one Poodle as the
+last ascent engine and a stock payload fairing with manual deploy available.
+Disable staging for the fairing and all relay separators. In the pad tests, the
+Poodle stage delta-v reading agreed with the vessel reading after staging was
+disabled for the relay separators (see [issue #42](https://github.com/jjst/kos-scripts/issues/42)).
+On the pad, enter the launch heading and target altitude, then press Enter to
+arm launch. After circularisation the carrier prompts separately to begin phasing.
+Starting the script in orbit goes straight to the parking-orbit flow.
 
 ## Installation
 

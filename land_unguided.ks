@@ -182,8 +182,8 @@ FUNCTION suicide_burn_altitude {
 }
 
 FUNCTION target_descent_rate {
-    PARAMETER alt_agl.
-    LOCAL t IS clamp(alt_agl / suicide_burn_alt_meters, 0, 1).
+    PARAMETER alt_agl, burn_altitude.
+    LOCAL t IS clamp(alt_agl / burn_altitude, 0, 1).
     RETURN lerp(-touchdown_speed, descent_min_rate, t).
 }
 
@@ -261,7 +261,7 @@ UNTIL SHIP:STATUS = "LANDED" OR SHIP:STATUS = "SPLASHED" {
         BREAK.
     }
 
-    LOCAL target_vs IS target_descent_rate(alt_agl).
+    LOCAL target_vs IS target_descent_rate(alt_agl, suicide_burn_alt_meters).
     SET descent_pid:SETPOINT TO target_vs.
     LOCAL hover IS (SHIP:MASS * g) / SHIP:AVAILABLETHRUST.
     LOCAL pid_correction IS descent_pid:UPDATE(TIME:SECONDS, vs).
