@@ -154,10 +154,24 @@ FUNCTION launch_to_orbit {
     FUNCTION ascent_sample {
         IF TIME:SECONDS < next_sample { RETURN. }
         SET next_sample TO TIME:SECONDS + 5.
+        LOCAL radial_unit IS (SHIP:POSITION - SHIP:BODY:POSITION):NORMALIZED.
+        LOCAL nose_vector IS SHIP:FACING:FOREVECTOR.
+        LOCAL surface_velocity IS SHIP:VELOCITY:SURFACE.
+        LOCAL surface_speed_now IS surface_velocity:MAG.
+        LOCAL actual_pitch IS ARCSIN(MAX(-1, MIN(1, VDOT(nose_vector, radial_unit)))).
+        LOCAL flight_path_detail IS "flight-path angle and AoA unavailable at zero surface speed".
+        IF surface_speed_now > 0 {
+            LOCAL vertical_fraction IS VDOT(surface_velocity, radial_unit) / surface_speed_now.
+            LOCAL flight_path_angle IS ARCSIN(MAX(-1, MIN(1, vertical_fraction))).
+            SET flight_path_detail TO "flight-path angle " + ROUND(flight_path_angle, 1)
+                + " deg, AoA " + ROUND(VANG(nose_vector, surface_velocity), 1) + " deg".
+        }
         log_line("Ascent: altitude " + ROUND(SHIP:ALTITUDE, 1)
             + " m, Ap " + ROUND(SHIP:APOAPSIS, 1) + " m, Pe " + ROUND(SHIP:PERIAPSIS, 1)
-            + " m, surface speed " + ROUND(SHIP:VELOCITY:SURFACE:MAG, 1)
-            + " m/s, pitch target " + ROUND(pitch, 1) + " deg, throttle " + ROUND(throttle_cmd, 2)
+            + " m, surface speed " + ROUND(surface_speed_now, 1)
+            + " m/s, pitch target " + ROUND(pitch, 1) + " deg, actual pitch " + ROUND(actual_pitch, 1)
+            + " deg, " + flight_path_detail + ", q " + ROUND(SHIP:Q * CONSTANT:ATMTOKPA, 2)
+            + " kPa, throttle " + ROUND(throttle_cmd, 2)
             + ", stage delta-v " + ROUND(STAGE:DELTAV:CURRENT, 1) + " m/s.", FALSE).
     }
 
@@ -216,6 +230,18 @@ FUNCTION launch_to_orbit {
 
     LOCAL turn_start IS SHIP:ALTITUDE + 100.
     LOCAL turn_end IS turn_start + 49900.
+    LOCAL turn_mid IS (turn_start + turn_end) / 2.
+    IF options:HASKEY("turn_mid_altitude") {
+        LOCAL requested_mid IS options["turn_mid_altitude"].
+        IF requested_mid > turn_start AND requested_mid < turn_end {
+            SET turn_mid TO requested_mid.
+        } ELSE {
+            warn_line("Gravity-turn midpoint", requested_mid + " m outside " + ROUND(turn_start, 1)
+                + " to " + ROUND(turn_end, 1) + " m. Using " + ROUND(turn_mid, 1) + " m").
+        }
+    }
+    info_line("Gravity turn", "90 deg at " + ROUND(turn_start, 1) + " m, 45 deg at "
+        + ROUND(turn_mid, 1) + " m, 0 deg at " + ROUND(turn_end, 1) + " m").
     LOCAL ascent_deadline IS TIME:SECONDS + 600.
     LOCAL liftoff_deadline IS TIME:SECONDS + 10.
     UNTIL SHIP:APOAPSIS >= target_ap - 100 {
@@ -234,8 +260,12 @@ FUNCTION launch_to_orbit {
         IF NOT has_live_engine() AND NOT fire_next_stage("engine flameout or no active thrust") {
             RETURN stop_launch("ascent ran out of thrust or allowed stages").
         }
-        LOCAL turn_fraction IS MAX(0, MIN(1, (SHIP:ALTITUDE - turn_start) / (turn_end - turn_start))).
-        SET pitch TO 90 * (1 - turn_fraction).
+        LOCAL altitude_now IS SHIP:ALTITUDE.
+        IF altitude_now <= turn_mid {
+            SET pitch TO 90 - 45 * MAX(0, (altitude_now - turn_start) / (turn_mid - turn_start)).
+        } ELSE {
+            SET pitch TO 45 * MAX(0, (turn_end - altitude_now) / (turn_end - turn_mid)).
+        }
         LOCAL gravity_here IS SHIP:BODY:MU / (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
         IF SHIP:AVAILABLETHRUST > 0 {
             SET throttle_cmd TO MAX(0.2, MIN(1, 2.5 * SHIP:MASS * gravity_here / SHIP:AVAILABLETHRUST)).
