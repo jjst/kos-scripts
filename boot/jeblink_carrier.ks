@@ -6,6 +6,7 @@ DECLARE PARAMETER constellation_size IS 0.
 
 LOCAL next_display IS 0.
 LOCAL warp_buffer IS 20.
+LOCAL circularisation_ignition_delay IS 1.
 
 FUNCTION coast_display {
     PARAMETER event_name, seconds_left, aligning IS FALSE.
@@ -185,7 +186,8 @@ FUNCTION launch_carrier_from_pad {
     wait_for_enter("Waiting for launch confirmation").
     CLEARSCREEN.
     LOCAL result IS launch_to_orbit(LEXICON("heading", azimuth, "target_altitude", altitude_km * 1000,
-        "minimum_pe", 75000, "fairing_policy", "atmosphere", "last_stage", poodle_stage)).
+        "minimum_pe", 75000, "fairing_policy", "atmosphere", "last_stage", poodle_stage,
+        "half_dv_timing", TRUE, "ignition_delay", circularisation_ignition_delay)).
     IF NOT result["success"] {
         log_line("Phasing was skipped. Launch stopped: " + result["reason"]
             + ". Check the logged orbit and recover the carrier before restarting.").

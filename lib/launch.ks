@@ -10,11 +10,15 @@ FUNCTION launch_to_orbit {
     LOCAL atmosphere_top IS SHIP:BODY:ATM:HEIGHT.
     LOCAL minimum_pe IS MAX(0, atmosphere_top + 5000).
     LOCAL last_stage IS 0.
+    LOCAL ignition_delay IS 0.
+    LOCAL half_dv_timing IS FALSE.
     IF options:HASKEY("heading") { SET azimuth TO options["heading"]. }
     IF options:HASKEY("target_altitude") { SET target_ap TO options["target_altitude"]. }
     IF options:HASKEY("fairing_policy") { SET fairing_policy TO options["fairing_policy"]. }
     IF options:HASKEY("minimum_pe") { SET minimum_pe TO options["minimum_pe"]. }
     IF options:HASKEY("last_stage") { SET last_stage TO options["last_stage"]. }
+    IF options:HASKEY("ignition_delay") { SET ignition_delay TO options["ignition_delay"]. }
+    IF options:HASKEY("half_dv_timing") { SET half_dv_timing TO options["half_dv_timing"]. }
 
     LOCAL throttle_cmd IS 0.
     LOCAL pitch IS 90.
@@ -147,15 +151,30 @@ FUNCTION launch_to_orbit {
         RETURN FALSE.
     }
 
-    FUNCTION flight_sample {
-        PARAMETER phase.
+    FUNCTION ascent_sample {
         IF TIME:SECONDS < next_sample { RETURN. }
         SET next_sample TO TIME:SECONDS + 5.
-        log_line(phase + ": altitude " + ROUND(SHIP:ALTITUDE, 1)
+        log_line("Ascent: altitude " + ROUND(SHIP:ALTITUDE, 1)
             + " m, Ap " + ROUND(SHIP:APOAPSIS, 1) + " m, Pe " + ROUND(SHIP:PERIAPSIS, 1)
             + " m, surface speed " + ROUND(SHIP:VELOCITY:SURFACE:MAG, 1)
             + " m/s, pitch target " + ROUND(pitch, 1) + " deg, throttle " + ROUND(throttle_cmd, 2)
             + ", stage delta-v " + ROUND(STAGE:DELTAV:CURRENT, 1) + " m/s.", FALSE).
+    }
+
+    FUNCTION circularisation_sample {
+        PARAMETER event_name.
+        LOCAL orbit_velocity IS SHIP:VELOCITY:ORBIT.
+        LOCAL radial_unit IS (SHIP:POSITION - SHIP:BODY:POSITION):NORMALIZED.
+        LOCAL radial_speed IS VDOT(orbit_velocity, radial_unit).
+        LOCAL tangential_speed IS (orbit_velocity - radial_speed * radial_unit):MAG.
+        log_line("Circularisation " + event_name + ": Ap " + ROUND(SHIP:APOAPSIS, 1)
+            + " m, Pe " + ROUND(SHIP:PERIAPSIS, 1) + " m, altitude " + ROUND(SHIP:ALTITUDE, 1)
+            + " m, eccentricity " + ROUND(SHIP:OBT:ECCENTRICITY, 8)
+            + ", ETA Ap " + ROUND(ETA:APOAPSIS, 2) + " s, radial " + ROUND(radial_speed, 2)
+            + " m/s, tangential " + ROUND(tangential_speed, 2) + " m/s, throttle "
+            + ROUND(throttle_cmd, 4) + ", thrust " + ROUND(SHIP:THRUST, 2)
+            + " kN, mass " + ROUND(SHIP:MASS, 4) + " t, prograde error "
+            + ROUND(VANG(SHIP:FACING:FOREVECTOR, orbit_velocity), 2) + " deg.", FALSE).
     }
 
     log_line("Launch target: heading " + azimuth + " deg, Ap " + target_ap + " m, minimum Pe "
@@ -221,7 +240,7 @@ FUNCTION launch_to_orbit {
         IF SHIP:AVAILABLETHRUST > 0 {
             SET throttle_cmd TO MAX(0.2, MIN(1, 2.5 * SHIP:MASS * gravity_here / SHIP:AVAILABLETHRUST)).
         }
-        flight_sample("Ascent").
+        ascent_sample().
         checkpoint_log("").
         WAIT 0.
     }
@@ -256,12 +275,40 @@ FUNCTION launch_to_orbit {
     LOCAL apo_radius IS SHIP:BODY:RADIUS + SHIP:APOAPSIS.
     LOCAL apo_speed IS SQRT(mu_body * (2 / apo_radius - 1 / SHIP:OBT:SEMIMAJORAXIS)).
     LOCAL circ_dv IS MAX(0, SQRT(mu_body / apo_radius) - apo_speed).
-    LOCAL burn_duration IS circ_dv * SHIP:MASS / SHIP:AVAILABLETHRUST.
-    LOCAL ignition_ut IS TIME:SECONDS + ETA:APOAPSIS - burn_duration / 2.
+    LOCAL wet_mass IS SHIP:MASS.
+    LOCAL available_thrust IS SHIP:AVAILABLETHRUST.
+    LOCAL burn_duration IS circ_dv * wet_mass / available_thrust.
+    LOCAL original_lead IS burn_duration / 2.
+    LOCAL ignition_lead IS original_lead.
+    LOCAL timing_method IS "constant starting mass".
+    IF half_dv_timing {
+        LOCAL mass_flow IS 0.
+        LOCAL modeled_thrust IS 0.
+        FOR eng IN SHIP:ENGINES {
+            IF eng:IGNITION AND NOT eng:FLAMEOUT AND eng:AVAILABLETHRUST > 0 AND eng:VACUUMISP > 0 {
+                LOCAL engine_thrust IS eng:AVAILABLETHRUST.
+                SET modeled_thrust TO modeled_thrust + engine_thrust.
+                SET mass_flow TO mass_flow + engine_thrust / (eng:VACUUMISP * CONSTANT:G0).
+            }
+        }
+        IF mass_flow > 0 AND ABS(modeled_thrust - available_thrust) <= 0.01 {
+            // Invert the rocket equation for the time to deliver each delta-v.
+            LOCAL exhaust_speed IS modeled_thrust / mass_flow.
+            SET burn_duration TO wet_mass / mass_flow * (1 - CONSTANT:E^(-circ_dv / exhaust_speed)).
+            SET ignition_lead TO wet_mass / mass_flow * (1 - CONSTANT:E^(-circ_dv / (2 * exhaust_speed))).
+            SET timing_method TO "half delta-v".
+        } ELSE {
+            warn_line("Circularisation timing", "engine data incomplete, using constant starting mass").
+        }
+    }
+    SET ignition_lead TO ignition_lead - ignition_delay.
+    LOCAL ignition_ut IS TIME:SECONDS + ETA:APOAPSIS - ignition_lead.
     LOCAL latest_ignition IS ignition_ut + 5.
     LOCAL warp_buffer IS 45.
     log_line("Circularisation plan: " + ROUND(circ_dv, 1) + " m/s, " + ROUND(burn_duration, 1)
-        + " s at full throttle, ignition UT " + ROUND(ignition_ut, 1) + " s.").
+        + " s at full throttle, timing " + timing_method + ", lead " + ROUND(ignition_lead, 2)
+        + " s, delay vs original " + ROUND(original_lead - ignition_lead, 2)
+        + " s, ignition UT " + ROUND(ignition_ut, 2) + " s.").
     transmit_log().
     IF ignition_ut > TIME:SECONDS + warp_buffer {
         KUNIVERSE:TIMEWARP:WARPTO(ignition_ut - warp_buffer).
@@ -289,23 +336,32 @@ FUNCTION launch_to_orbit {
     }
     log_line("Circularisation burn starting.").
     transmit_log().
+    circularisation_sample("ignition").
     // Preserve launch.ks's tested taper and eccentricity cutoff.
     LOCAL previous_eccentricity IS SHIP:OBT:ECCENTRICITY.
     LOCAL current_eccentricity IS previous_eccentricity.
-    SET next_sample TO TIME:SECONDS.
+    SET next_sample TO TIME:SECONDS + 1.
     UNTIL SHIP:AVAILABLETHRUST <= 0 OR current_eccentricity > previous_eccentricity {
-        IF NOT flight_ready() { RETURN stop_launch("lost flight controls during circularisation"). }
+        IF NOT flight_ready() {
+            circularisation_sample("abort").
+            RETURN stop_launch("lost flight controls during circularisation").
+        }
         SET pointing_error TO VANG(SHIP:FACING:FOREVECTOR, SHIP:VELOCITY:ORBIT).
         IF pointing_error > 5 {
+            circularisation_sample("abort").
             RETURN stop_launch("circularisation pointing error " + ROUND(pointing_error, 2) + " deg (limit 5)").
         }
         SET previous_eccentricity TO current_eccentricity.
         SET throttle_cmd TO MIN(1, current_eccentricity / 0.05).
-        flight_sample("Circularisation").
+        IF TIME:SECONDS >= next_sample {
+            SET next_sample TO TIME:SECONDS + 1.
+            circularisation_sample("sample").
+        }
         checkpoint_log("").
         WAIT 0.
         SET current_eccentricity TO SHIP:OBT:ECCENTRICITY.
     }
+    circularisation_sample("cutoff").
     IF SHIP:AVAILABLETHRUST <= 0 { RETURN stop_launch("circularisation ran out of thrust"). }
     log_line("Circularisation cutoff: eccentricity rose from " + ROUND(previous_eccentricity, 8)
         + " to " + ROUND(current_eccentricity, 8) + " at throttle " + ROUND(throttle_cmd, 2)
