@@ -72,6 +72,7 @@ FUNCTION carrier_poodles {
     RETURN poodles.
 }
 
+// Workaround for inconsistent KSP stage delta-v readings (GitHub issue #42).
 FUNCTION poodle_reserve_dv {
     PARAMETER poodle.
     LOCAL propellants IS poodle:CONSUMEDRESOURCES.
