@@ -1,20 +1,10 @@
 // Assign /boot/jeblink_carrier.ks to the carrier processor.
 // To restart manually, RUNPATH("0:/boot/jeblink_carrier.ks", original_count).
+// #include "0:/lib/telemetry.ks"
 DECLARE PARAMETER constellation_size IS 0.
 
-LOCAL log_name IS "jeblink-carrier-" + ROUND(TIME:SECONDS * 1000) + ".log".
-LOCAL log_path IS "1:/" + log_name.
-LOCAL checkpoint_interval IS 20.
-LOCAL next_checkpoint IS TIME:SECONDS + checkpoint_interval.
 LOCAL next_display IS 0.
 LOCAL warp_buffer IS 20.
-
-FUNCTION log_line {
-    PARAMETER msg, show_in_terminal IS TRUE.
-    LOCAL entry IS ROUND(TIME:SECONDS, 2) + " " + msg.
-    IF show_in_terminal { PRINT entry. }
-    LOG entry TO log_path.
-}
 
 FUNCTION coast_display {
     PARAMETER event_name, seconds_left, aligning IS FALSE.
@@ -51,30 +41,6 @@ FUNCTION warp_to_coast_end {
         transmit_log().
         KUNIVERSE:TIMEWARP:WARPTO(TIME:SECONDS + seconds_until_event - warp_buffer).
     }
-}
-
-FUNCTION transmit_log {
-    IF HOMECONNECTION:ISCONNECTED {
-        COPYPATH(log_path, "0:/" + log_name).
-    }
-}
-
-FUNCTION checkpoint_log {
-    PARAMETER phase.
-    IF TIME:SECONDS < next_checkpoint { RETURN. }
-    IF phase <> "" {
-        LOCAL detail IS phase + ": " + SHIP:STATUS + ", active "
-            + (SHIP = KUNIVERSE:ACTIVEVESSEL) + ", unpacked " + SHIP:UNPACKED
-            + ", warp " + KUNIVERSE:TIMEWARP:RATE + "x".
-        IF SHIP:STATUS = "ORBITING" {
-            SET detail TO detail + ", Ap " + ROUND(SHIP:APOAPSIS / 1000, 2)
-                + " km, Pe " + ROUND(SHIP:PERIAPSIS / 1000, 2)
-                + " km, ETA Ap " + ROUND(ETA:APOAPSIS, 1) + " s".
-        }
-        log_line(detail + ".", FALSE).
-    }
-    transmit_log().
-    SET next_checkpoint TO TIME:SECONDS + checkpoint_interval.
 }
 
 FUNCTION wait_for_enter {
@@ -510,5 +476,8 @@ FUNCTION deploy_constellation {
     }
 }
 
+COPYPATH("0:/lib/telemetry.ks", "1:/lib/telemetry.ks").
+RUNONCEPATH(PATH("1:/lib/telemetry.ks")).
+open_log("jeblink-carrier").
 deploy_constellation().
 transmit_log().

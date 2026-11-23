@@ -163,8 +163,8 @@ function main() {
 
   function scheduleSettle() {
     clearTimeout(settleTimer);
-    // Wait for any follow-up diagnostics before declaring done
-    settleTimer = setTimeout(finish, 500);
+    // KLS debounces workspace initialization for 4 s before resolving includes.
+    settleTimer = setTimeout(finish, 5000);
   }
 
   let buf = Buffer.alloc(0);
