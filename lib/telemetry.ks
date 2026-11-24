@@ -23,7 +23,8 @@ FUNCTION open_log {
         "local_path", "1:/" + filename,
         "archive_path", "0:/" + filename,
         "failures", 0,
-        "next_checkpoint", TIME:SECONDS + 20
+        "last_checkpoint", TIME:SECONDS,
+        "last_checkpoint_realtime", KUNIVERSE:REALTIME
     ).
     log_line("Opened " + name + " log.", FALSE).
 }
@@ -74,11 +75,14 @@ FUNCTION transmit_log {
 
 FUNCTION checkpoint_log {
     PARAMETER phase.
-    IF TIME:SECONDS < telemetry_state["next_checkpoint"] { RETURN. }
+    // At higher warp, limit archive copies and samples by elapsed real time.
+    LOCAL warp_rate IS KUNIVERSE:TIMEWARP:RATE.
+    IF TIME:SECONDS - telemetry_state["last_checkpoint"] < 20 { RETURN. }
+    IF warp_rate > 1.01 AND KUNIVERSE:REALTIME - telemetry_state["last_checkpoint_realtime"] < 20 { RETURN. }
     IF phase <> "" {
         LOCAL detail IS phase + ": " + SHIP:STATUS + ", active "
             + (SHIP = KUNIVERSE:ACTIVEVESSEL) + ", unpacked " + SHIP:UNPACKED
-            + ", warp " + KUNIVERSE:TIMEWARP:RATE + "x".
+            + ", warp " + warp_rate + "x".
         IF SHIP:STATUS = "ORBITING" {
             SET detail TO detail + ", Ap " + ROUND(SHIP:APOAPSIS / 1000, 2)
                 + " km, Pe " + ROUND(SHIP:PERIAPSIS / 1000, 2)
@@ -87,5 +91,6 @@ FUNCTION checkpoint_log {
         log_line(detail + ".", FALSE).
     }
     transmit_log().
-    SET telemetry_state["next_checkpoint"] TO TIME:SECONDS + 20.
+    SET telemetry_state["last_checkpoint"] TO TIME:SECONDS.
+    SET telemetry_state["last_checkpoint_realtime"] TO KUNIVERSE:REALTIME.
 }

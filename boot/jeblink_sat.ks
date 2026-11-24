@@ -10,13 +10,15 @@ FUNCTION deploy_satellite {
     LOCAL log_path IS "1:/jeblink_control.log".
 
     FUNCTION log_line {
-        PARAMETER msg.
+        PARAMETER msg, show_in_terminal IS TRUE.
         LOCAL entry IS ROUND(TIME:SECONDS, 2) + " " + msg.
-        PRINT entry.
+        IF show_in_terminal { PRINT entry. }
         LOG entry TO log_path.
     }
 
     log_line("Jeblink: waiting for separation.").
+    log_line("Relay message queues before separation: vessel " + SHIP:MESSAGES:LENGTH
+        + ", processor " + CORE:MESSAGES:LENGTH + ".", FALSE).
     // The carrier and each satellite have their own command core and engine.
     // Check both so the last satellite also waits until it is off the carrier.
     UNTIL SHIP:UNPACKED AND SHIP:MODULESNAMED("ModuleCommand"):LENGTH = 1
@@ -35,6 +37,9 @@ FUNCTION deploy_satellite {
     }
 
     log_line("Jeblink: separated as " + SHIP:NAME + ".").
+    LOCAL separated_at IS TIME:SECONDS.
+    log_line("Relay message queues after separation: vessel " + SHIP:MESSAGES:LENGTH
+        + ", processor " + CORE:MESSAGES:LENGTH + ".", FALSE).
 
     // Deploy after the separation delay so the panels clear the carrier.
     IF SHIP:MODULESNAMED("ModuleDeployableSolarPanel"):LENGTH > 0 {
@@ -51,18 +56,77 @@ FUNCTION deploy_satellite {
 
     LOCAL probe_cores IS SHIP:PARTSNAMED("probeCoreCube").
     IF probe_cores:LENGTH <> 1 {
-        log_line("Jeblink: expected one QBE. No burn.").
+        log_line("Jeblink: expected one QBE, found " + probe_cores:LENGTH
+            + ". No burn or report because relay identity is ambiguous.").
         transmit_log().
         RETURN.
     }
     LOCAL relay_name IS probe_cores[0]:TAG.
+    LOCAL relay_uid IS probe_cores[0]:UID.
+    LOCAL carrier_name IS "".
     IF relay_name:MATCHESPATTERN("^[A-Z0-9]{4}-[0-9]{2,}$") {
         LOCAL relay_fields IS relay_name:SPLIT("-").
         SET SHIP:NAME TO "Jeblink JL-" + relay_fields[0] + "-RELAY-" + relay_fields[1].
+        SET carrier_name TO "Jeblink JL-" + relay_fields[0] + "-CARRIER".
     } ELSE {
         log_line("Jeblink: no assigned relay ID on QBE. Tag is '" + relay_name + "'.").
     }
     SET SHIP:TYPE TO "Relay".
+    FUNCTION circular_period_error {
+        PARAMETER reference_ap.
+        LOCAL target_radius IS SHIP:BODY:RADIUS + reference_ap.
+        LOCAL target_period IS 2 * CONSTANT:PI * SQRT(target_radius^3 / SHIP:BODY:MU).
+        RETURN SHIP:OBT:PERIOD - target_period.
+    }
+
+    FUNCTION send_relay_report {
+        PARAMETER burn_ok, reason, reference_ap.
+        IF carrier_name = "" {
+            log_line("Relay report skipped: no valid tag to identify the carrier.").
+            transmit_log().
+            RETURN.
+        }
+        LOCAL report IS LEXICON("type", "jeblink-relay-result", "relay", relay_name,
+            "uid", relay_uid, "success", burn_ok, "reason", reason,
+            "ap", SHIP:APOAPSIS, "pe", SHIP:PERIAPSIS,
+            "period_error", circular_period_error(reference_ap),
+            "dv", SHIP:DELTAV:VACUUM, "ec", SHIP:ELECTRICCHARGE).
+        log_line("Relay report payload: " + report, FALSE).
+        LOCAL attempt IS 1.
+        UNTIL attempt > 4 {
+            LOCAL vessels IS LIST().
+            LIST TARGETS IN vessels.
+            LOCAL carrier_matches IS LIST().
+            FOR craft IN vessels {
+                IF craft:NAME = carrier_name { carrier_matches:ADD(craft). }
+            }
+            LOCAL active_craft IS KUNIVERSE:ACTIVEVESSEL.
+            IF carrier_matches:LENGTH = 0 AND active_craft <> SHIP AND active_craft:NAME = carrier_name {
+                carrier_matches:ADD(active_craft).
+            }
+            IF carrier_matches:LENGTH = 1 {
+                LOCAL link IS carrier_matches[0]:CONNECTION.
+                LOCAL connected IS link:ISCONNECTED.
+                LOCAL delay_seconds IS link:DELAY.
+                LOCAL sent IS link:SENDMESSAGE(report).
+                log_line("Relay report attempt " + attempt + " to " + carrier_name
+                    + ": connected=" + connected + ", delay " + ROUND(delay_seconds, 2)
+                    + " s, sent=" + sent + ", " + ROUND(TIME:SECONDS - separated_at, 2)
+                    + " s since separation observation.").
+                transmit_log().
+                IF sent { RETURN. }
+            } ELSE {
+                log_line("Relay report attempt " + attempt + ": found "
+                    + carrier_matches:LENGTH + " vessels named " + carrier_name + ", expected 1.").
+                transmit_log().
+            }
+            SET attempt TO attempt + 1.
+            IF attempt <= 4 { WAIT 2. }
+        }
+        log_line("Relay report undelivered after four attempts. Carrier will use manual confirmation.").
+        transmit_log().
+    }
+
     log_line("Relay identity: vessel=" + SHIP:NAME + ", tag=" + relay_name
         + ", QBE UID " + probe_cores[0]:UID + ".").
     transmit_log().
@@ -72,7 +136,7 @@ FUNCTION deploy_satellite {
     log_control_reference("after CONTROLFROM").
     IF SHIP:CONTROLPART:NAME <> probe_cores[0]:NAME {
         log_line("Jeblink: QBE control reference did not take. No burn.").
-        transmit_log().
+        send_relay_report(FALSE, "QBE control reference did not take", SHIP:APOAPSIS).
         RETURN.
     }
 
@@ -189,7 +253,7 @@ FUNCTION deploy_satellite {
             sat_engine:SHUTDOWN().
             release_controls().
             log_line("Jeblink: no available thrust for burn timing.").
-            transmit_log().
+            send_relay_report(FALSE, "no available thrust for burn timing", release_apoapsis).
             RETURN.
         }
         LOCAL burn_lead IS burn_delta_v * SHIP:MASS / available_thrust / 2.
@@ -208,11 +272,17 @@ FUNCTION deploy_satellite {
             WAIT 0.
         }
         IF NOT SHIP:UNPACKED OR ETA:APOAPSIS > burn_lead OR NOT aligned() {
+            LOCAL ignition_reason IS "alignment outside 2 deg or 2 deg/s".
+            IF NOT SHIP:UNPACKED {
+                SET ignition_reason TO "vessel left full physics before ignition".
+            } ELSE IF ETA:APOAPSIS > burn_lead {
+                SET ignition_reason TO "timed ignition wait exceeded 180 s".
+            }
             log_burn_state("Timed ignition skipped: unpacked " + SHIP:UNPACKED
                 + ", ignition lead " + ROUND(burn_lead, 1) + " s, alignment limits 2 deg and 2 deg/s").
             sat_engine:SHUTDOWN().
             release_controls().
-            transmit_log().
+            send_relay_report(FALSE, ignition_reason, release_apoapsis).
             RETURN.
         }
         IF SHIP <> KUNIVERSE:ACTIVEVESSEL {
@@ -270,8 +340,8 @@ FUNCTION deploy_satellite {
         + ROUND(apoapsis_limit / 1000, 2) + " km).".
     log_line(cutoff_entry).
 
-    IF SHIP:PERIAPSIS >= target_periapsis
-        AND SHIP:APOAPSIS <= apoapsis_limit {
+    LOCAL success IS SHIP:PERIAPSIS >= target_periapsis AND SHIP:APOAPSIS <= apoapsis_limit.
+    IF success {
         log_line("Jeblink: circularization complete.").
     } ELSE {
         log_line("Jeblink: circularization incomplete.").
@@ -281,15 +351,13 @@ FUNCTION deploy_satellite {
         + " units LiquidFuel, " + ROUND(SHIP:OXIDIZER, 3) + " units Oxidizer.").
     log_line("Jeblink: remaining ElectricCharge " + ROUND(SHIP:ELECTRICCHARGE, 2) + " EC.").
     log_line("Jeblink: solar panels extended=" + PANELS + ".").
-    LOCAL target_radius IS SHIP:BODY:RADIUS + release_apoapsis.
-    LOCAL target_period IS 2 * CONSTANT:PI * SQRT(target_radius^3 / SHIP:BODY:MU).
-    log_line("Jeblink: period error " + ROUND(SHIP:OBT:PERIOD - target_period, 2)
+    log_line("Jeblink: period error " + ROUND(circular_period_error(release_apoapsis), 2)
         + " s relative to a circular orbit at release apoapsis.").
     IF original_pack_distance >= 0 {
         SET SHIP:LOADDISTANCE:ORBIT:PACK TO original_pack_distance.
         log_line("Jeblink: restored probe orbital PACK to " + SHIP:LOADDISTANCE:ORBIT:PACK + " m.").
     }
-    transmit_log().
+    send_relay_report(success, cutoff_reason, release_apoapsis).
 }
 
 deploy_satellite().
