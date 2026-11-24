@@ -8,9 +8,10 @@ LOCAL next_display IS 0.
 LOCAL warp_buffer IS 20.
 LOCAL circularisation_ignition_delay IS 1.
 LOCAL gravity_turn_mid_altitude IS 20000.
+LOCAL abort_countdown_seconds IS 10.
 
 FUNCTION coast_display {
-    PARAMETER event_name, seconds_left, aligning IS FALSE.
+    PARAMETER event_name, seconds_left, aligning IS FALSE, can_abort IS FALSE.
     IF TIME:SECONDS < next_display { RETURN. }
     SET next_display TO TIME:SECONDS + 2.
     LOCAL seconds_remaining IS MAX(0, CEILING(seconds_left)).
@@ -24,7 +25,11 @@ FUNCTION coast_display {
     } ELSE {
         PRINT "Stay on the carrier. No input needed.".
     }
-    PRINT "The carrier acts automatically.".
+    IF can_abort {
+        PRINT "Press any key to abort this release.".
+    } ELSE {
+        PRINT "The carrier acts automatically.".
+    }
 }
 
 FUNCTION time_to_release {
@@ -56,6 +61,133 @@ FUNCTION wait_for_enter {
         checkpoint_log(phase).
         WAIT 0.
     }
+}
+
+FUNCTION proceed_unless_aborted {
+    PARAMETER action_label, summary IS "".
+    LOCAL deadline IS TIME:SECONDS + abort_countdown_seconds.
+    LOCAL next_status IS 0.
+    log_line(action_label + " scheduled after a " + abort_countdown_seconds + " s abort countdown.", FALSE).
+    transmit_log().
+    TERMINAL:INPUT:CLEAR().
+    UNTIL FALSE {
+        IF TERMINAL:INPUT:HASCHAR {
+            TERMINAL:INPUT:GETCHAR().
+            CLEARSCREEN.
+            log_line(action_label + " cancelled by operator before auto-warp. Restart the carrier script from orbit to replan.").
+            transmit_log().
+            RETURN FALSE.
+        }
+        IF TIME:SECONDS >= deadline { BREAK. }
+        IF TIME:SECONDS >= next_status {
+            SET next_status TO TIME:SECONDS + 1.
+            CLEARSCREEN.
+            PRINT "Press any key to abort.".
+            PRINT action_label + " starts in " + CEILING(deadline - TIME:SECONDS) + " s.".
+            IF summary <> "" { PRINT summary. }
+            PRINT "Stay on the carrier at 1x.".
+        }
+        checkpoint_log("Waiting for " + action_label + " abort countdown").
+        WAIT 0.
+    }
+    CLEARSCREEN.
+    RETURN TRUE.
+}
+
+FUNCTION release_abort_requested {
+    PARAMETER release_label.
+    IF NOT TERMINAL:INPUT:HASCHAR { RETURN FALSE. }
+    TERMINAL:INPUT:GETCHAR().
+    log_line("Operator cancelled " + release_label + " before separation at warp "
+        + ROUND(KUNIVERSE:TIMEWARP:RATE, 2) + "x.", FALSE).
+    KUNIVERSE:TIMEWARP:CANCELWARP().
+    CLEARSCREEN.
+    log_line("No relay released. Restart the carrier script from orbit to replan.").
+    transmit_log().
+    RETURN TRUE.
+}
+
+FUNCTION report_rejection_reason {
+    PARAMETER received, relay_name, relay_uid, vessel_name, released_at.
+    IF NOT received:HASSENDER { RETURN "sender vessel unavailable". }
+    IF received:SENDER:NAME <> vessel_name { RETURN "expected sender " + vessel_name. }
+    IF received:SENTAT:SECONDS < released_at { RETURN "sent before the current release". }
+
+    LOCAL report IS received:CONTENT.
+    IF NOT report:ISTYPE("Lexicon") { RETURN "payload is not a lexicon". }
+    FOR field_name IN LIST("type", "relay", "uid", "success", "reason",
+        "ap", "pe", "period_error", "dv", "ec") {
+        IF NOT report:HASKEY(field_name) { RETURN "missing field " + field_name. }
+    }
+    IF report["type"] <> "jeblink-relay-result"
+        OR report["relay"] <> relay_name OR report["uid"] <> relay_uid {
+        RETURN "report type, tag or QBE UID does not match the current release".
+    }
+    IF NOT report["success"]:ISTYPE("Boolean") OR NOT report["reason"]:ISTYPE("String") {
+        RETURN "invalid success or reason field".
+    }
+    FOR field_name IN LIST("ap", "pe", "period_error", "dv", "ec") {
+        IF NOT report[field_name]:ISTYPE("Scalar") { RETURN "invalid field " + field_name. }
+    }
+    IF received:SENDER:UNPACKED {
+        LOCAL sender_cores IS received:SENDER:PARTSNAMED("probeCoreCube").
+        IF sender_cores:LENGTH <> 1 OR sender_cores[0]:UID <> relay_uid
+            OR sender_cores[0]:TAG <> relay_name {
+            RETURN "sender's QBE does not match the released relay".
+        }
+    }
+    RETURN "".
+}
+
+FUNCTION wait_for_relay_report {
+    PARAMETER relay_name, relay_uid, vessel_name, released_at.
+    LOCAL report_deadline IS released_at + 90.
+    LOCAL next_status IS 0.
+    UNTIL TIME:SECONDS >= report_deadline {
+        IF NOT SHIP:MESSAGES:EMPTY {
+            LOCAL received IS SHIP:MESSAGES:POP().
+            LOCAL sender_label IS "unavailable".
+            IF received:HASSENDER { SET sender_label TO received:SENDER:NAME. }
+            log_line("Carrier received message from " + sender_label + ", sent UT "
+                + ROUND(received:SENTAT:SECONDS, 2) + " s, received UT "
+                + ROUND(received:RECEIVEDAT:SECONDS, 2) + " s: " + received:CONTENT, FALSE).
+            LOCAL rejection IS report_rejection_reason(received, relay_name, relay_uid, vessel_name, released_at).
+            IF rejection = "" {
+                LOCAL report IS received:CONTENT.
+                LOCAL outcome IS "circularisation failed".
+                IF report["success"] { SET outcome TO "circularisation complete". }
+                CLEARSCREEN.
+                log_line(relay_name + " reports " + outcome + ". " + report["reason"] + ".").
+                log_line("Ap " + ROUND(report["ap"] / 1000, 2) + " km, Pe "
+                    + ROUND(report["pe"] / 1000, 2) + " km, period error "
+                    + ROUND(report["period_error"], 2) + " s, " + ROUND(report["dv"], 1)
+                    + " m/s remaining, " + ROUND(report["ec"], 1) + " EC.").
+                IF NOT report["success"] {
+                    log_line("Check " + vessel_name + " manually, then return to the carrier.").
+                }
+                transmit_log().
+                IF report["success"] {
+                    RETURN relay_name + " circularised at " + ROUND(report["ap"] / 1000, 2)
+                        + " x " + ROUND(report["pe"] / 1000, 2) + " km.".
+                }
+                RETURN "".
+            }
+            log_line("Carrier rejected relay report: " + rejection + ".", FALSE).
+        }
+        IF TIME:SECONDS >= next_status {
+            SET next_status TO TIME:SECONDS + 2.
+            CLEARSCREEN.
+            PRINT "Stay on the carrier at 1x while " + relay_name + " circularises.".
+            PRINT "Waiting up to " + MAX(0, CEILING(report_deadline - TIME:SECONDS)) + " s for its report.".
+        }
+        checkpoint_log("Waiting for " + relay_name + " report").
+        WAIT 0.
+    }
+    CLEARSCREEN.
+    log_line("No report from " + relay_name + " within 90 s of release.").
+    log_line("Check " + vessel_name + " manually, then return to the carrier.").
+    transmit_log().
+    RETURN "".
 }
 
 FUNCTION parking_orbit_ready {
@@ -246,6 +378,7 @@ FUNCTION random_train_code {
 }
 
 FUNCTION deploy_constellation {
+    PARAMETER launched_from_pad.
     log_line("Jeblink carrier booted. Waiting for an active Kerbin parking orbit with Pe at least 75 km.").
     transmit_log().
     UNTIL parking_orbit_ready() {
@@ -254,9 +387,14 @@ FUNCTION deploy_constellation {
     }
     LOCAL armed IS FALSE.
     UNTIL armed {
-        log_line("Press Enter to begin phasing once the parking orbit is final and any ascent script has finished.").
-        transmit_log().
-        wait_for_enter("Waiting for phasing confirmation").
+        IF launched_from_pad {
+            IF NOT proceed_unless_aborted("Carrier phasing", "Carrier circularisation complete.") { RETURN. }
+            SET launched_from_pad TO FALSE.
+        } ELSE {
+            log_line("Press Enter to begin phasing once the parking orbit is final and any ascent script has finished.").
+            transmit_log().
+            wait_for_enter("Waiting for phasing confirmation").
+        }
         LOCAL active_carrier IS SHIP = KUNIVERSE:ACTIVEVESSEL.
         LOCAL warp_rate IS KUNIVERSE:TIMEWARP:RATE.
         SET armed TO parking_orbit_ready() AND warp_rate <= 1.01.
@@ -487,6 +625,8 @@ FUNCTION deploy_constellation {
     LOCAL release_lead IS 30.
     LOCAL earliest_release IS 0.
     LOCAL release_deadline IS 0.
+    LOCAL manual_check_required IS FALSE.
+    LOCAL relay_summary IS "".
     UNTIL remaining = 0 {
         IF NOT orbit_ready() {
             log_line("Carrier is outside the phasing orbit tolerance. Releases stopped.").
@@ -496,14 +636,17 @@ FUNCTION deploy_constellation {
         LOCAL relay_name IS satellites[0]:TAG.
         LOCAL relay_uid IS satellites[0]:UID.
         LOCAL release_label IS relay_name + " (" + satellite_number + " of " + constellation_size + ")".
-        IF earliest_release > 0 {
-            log_line("After confirming the previous probe's burn, press Enter to arm "
+        IF manual_check_required {
+            log_line("After checking the previous relay, press Enter to arm "
                 + release_label + " and auto-warp.").
+            transmit_log().
+            wait_for_enter("Waiting for release arming").
         } ELSE {
-            log_line("Press Enter to arm " + release_label + " and auto-warp.").
+            IF NOT proceed_unless_aborted("Auto-warp for " + release_label, relay_summary) {
+                log_line("No relay released.").
+                RETURN.
+            }
         }
-        transmit_log().
-        wait_for_enter("Waiting for release arming").
         IF SHIP <> KUNIVERSE:ACTIVEVESSEL OR NOT orbit_ready() {
             log_line("Cannot arm auto-warp: active="
                 + (SHIP = KUNIVERSE:ACTIVEVESSEL) + ", period error "
@@ -516,21 +659,28 @@ FUNCTION deploy_constellation {
             log_line("Scheduled release pass already missed. No warp started.").
             RETURN.
         }
+        IF earliest_release > 0 AND NOT manual_check_required {
+            log_line("Verified relay orbit. Automatically armed " + release_label + " for release. Stay on the carrier.").
+            transmit_log().
+        }
         warp_to_coast_end("release", seconds_until_release).
         SET next_display TO 0.
         IF earliest_release = 0 {
             UNTIL ETA:APOAPSIS > release_lead {
-                coast_display(release_label + " release", ETA:APOAPSIS + SHIP:OBT:PERIOD - release_lead).
+                IF release_abort_requested(release_label) { RETURN. }
+                coast_display(release_label + " release", ETA:APOAPSIS + SHIP:OBT:PERIOD - release_lead, FALSE, TRUE).
                 checkpoint_log("Waiting for current release window to pass").
                 WAIT 0.
             }
         }
         UNTIL (TIME:SECONDS >= earliest_release AND ETA:APOAPSIS <= release_lead)
             OR (release_deadline > 0 AND TIME:SECONDS >= release_deadline) {
-            coast_display(release_label + " release", time_to_release(earliest_release, release_lead)).
+            IF release_abort_requested(release_label) { RETURN. }
+            coast_display(release_label + " release", time_to_release(earliest_release, release_lead), FALSE, TRUE).
             checkpoint_log("Coasting to release").
             WAIT 0.
         }
+        IF release_abort_requested(release_label) { RETURN. }
         CLEARSCREEN.
         FOR fairing IN SHIP:MODULESNAMED("ModuleProceduralFairing") {
             IF fairing:HASEVENT("deploy") OR fairing:HASEVENT("deploy fairing") {
@@ -607,6 +757,8 @@ FUNCTION deploy_constellation {
         log_line("Releasing satellite at ETA Ap " + ROUND(ETA:APOAPSIS, 2)
             + " s, carrier period error " + ROUND(SHIP:OBT:PERIOD - target_period, 2) + " s.").
         log_line("Releasing relay " + relay_name + ", QBE UID " + relay_uid + ".").
+        log_line("Carrier message queues before release: vessel " + SHIP:MESSAGES:LENGTH
+            + ", processor " + CORE:MESSAGES:LENGTH + ".", FALSE).
         IF use_event {
             release_module:DOEVENT("Decouple").
         } ELSE {
@@ -628,15 +780,24 @@ FUNCTION deploy_constellation {
         SET SHIP:NAME TO carrier_name.
         SET SHIP:TYPE TO "Probe".
         log_line(release_label + " released. Stay on the carrier at 1x while the probe circularizes.").
+        log_line("Carrier message queues after release: vessel " + SHIP:MESSAGES:LENGTH
+            + ", processor " + CORE:MESSAGES:LENGTH + ".", FALSE).
         transmit_log().
         SET earliest_release TO release_time + (coast_laps - 0.5) * target_period.
         SET release_deadline TO earliest_release + target_period.
+        LOCAL relay_fields IS relay_name:SPLIT("-").
+        LOCAL relay_vessel_name IS "Jeblink JL-" + train_name + "-RELAY-" + relay_fields[1].
+        SET relay_summary TO wait_for_relay_report(relay_name, relay_uid, relay_vessel_name, release_time).
+        SET manual_check_required TO relay_summary = "".
     }
 }
 
 FUNCTION run_carrier {
     open_log("jeblink-carrier").
-    IF SHIP:STATUS = "PRELAUNCH" OR SHIP:STATUS = "LANDED" {
+    log_line("Carrier message queues at startup: vessel " + SHIP:MESSAGES:LENGTH
+        + ", processor " + CORE:MESSAGES:LENGTH + ".", FALSE).
+    LOCAL launched_from_pad IS SHIP:STATUS = "PRELAUNCH" OR SHIP:STATUS = "LANDED".
+    IF launched_from_pad {
         COPYPATH("0:/lib/launch.ks", "1:/lib/launch.ks").
         RUNONCEPATH(PATH("1:/lib/launch.ks")).
         IF NOT launch_carrier_from_pad() {
@@ -644,7 +805,7 @@ FUNCTION run_carrier {
             RETURN.
         }
     }
-    deploy_constellation().
+    deploy_constellation(launched_from_pad).
     transmit_log().
 }
 

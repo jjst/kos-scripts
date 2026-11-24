@@ -21,8 +21,16 @@ Disable staging for the fairing and all relay separators. In the pad tests, the
 Poodle stage delta-v reading agreed with the vessel reading after staging was
 disabled for the relay separators (see [issue #42](https://github.com/jjst/kos-scripts/issues/42)).
 On the pad, enter the launch heading and target altitude, then press Enter to
-arm launch. After circularisation the carrier prompts separately to begin phasing.
-Starting the script in orbit goes straight to the parking-orbit flow.
+arm launch. After circularisation, phasing starts after a 10-second countdown.
+Press any key in the carrier terminal during the countdown to abort. Starting
+the script in orbit still asks for Enter to begin phasing.
+
+The first release and each release following a verified relay report start
+their scheduled coast after a 10-second countdown. Press any key in the terminal
+during the countdown or coast to cancel the release. Stay on the carrier at 1x
+after separation until the relay reports. If it reports failure or no report
+arrives within 90 in-game seconds, check the named relay manually, return to the
+carrier, and press Enter to arm the next release.
 
 ## Installation
 
