@@ -5,3 +5,4 @@ node_modules/
 /telemetry/matched-provisional-predictor.json
 /telemetry/reentry_samples.csv
 /telemetry/airbrake-dashboard.html
+/test-runs/

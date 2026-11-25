@@ -73,6 +73,16 @@ FUNCTION transmit_log {
     RETURN FALSE.
 }
 
+// Finish an in-game test run started by scripts/kos-drive.js. The runner waits
+// for the TEST-DONE line, then reads the archive copy of this log.
+FUNCTION end_test {
+    PARAMETER run_token.
+    log_line("Test finished with " + log_failure_count() + " failed check(s).").
+    LOCAL copied IS transmit_log().
+    PRINT "TEST-DONE " + run_token + " " + telemetry_state["archive_path"]
+        + " failures=" + log_failure_count() + " copied=" + copied.
+}
+
 FUNCTION checkpoint_log {
     PARAMETER phase.
     // At higher warp, limit archive copies and samples by elapsed real time.

@@ -34,9 +34,11 @@ set DEST=%KSP_DIR%\Ships\Script
 
 if not exist "%DEST%\boot" mkdir "%DEST%\boot"
 if not exist "%DEST%\lib" mkdir "%DEST%\lib"
+if not exist "%DEST%\tests" mkdir "%DEST%\tests"
 
 copy /y "%SCRIPT_DIR%*.ks" "%DEST%\" >nul
 copy /y "%SCRIPT_DIR%boot\*.ks" "%DEST%\boot\" >nul
 copy /y "%SCRIPT_DIR%lib\*.ks" "%DEST%\lib\" >nul
+copy /y "%SCRIPT_DIR%tests\*.ks" "%DEST%\tests\" >nul
 
 echo Installed kOS scripts to: %DEST%

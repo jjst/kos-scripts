@@ -1,6 +1,9 @@
 {
   "scripts": {
     "lint": "node scripts/ks-lint.js",
+    "test": "node --test scripts/*.test.js",
+    "test:ingame": "node scripts/kos-drive.js run",
+    "test:save": "node scripts/kos-drive.js save",
     "telemetry:analyze": "node scripts/analyze-reentry-telemetry.js --out telemetry/reentry_samples.csv --matched-out telemetry/airbrake_pairs.csv --summary-out telemetry/report.json",
     "telemetry:fit": "node scripts/fit-airbrake-predictor.js --out telemetry/airbrake_predictor.json",
     "telemetry:corridor": "node scripts/entry-corridor.js",

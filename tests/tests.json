@@ -1,0 +1,27 @@
+{
+  "tests": {
+    "smoke": {
+      "description": "Quick check that the load, run and report loop works.",
+      "script": "tests/smoke.ks",
+      "save": "pad",
+      "cpu": { "tag": "test" },
+      "timeout_s": 120,
+      "options": {}
+    },
+    "pad-launch": {
+      "description": "launch_to_orbit from the pad, judged by its own checks. Edit the options for the craft in the pad save.",
+      "script": "tests/pad_launch.ks",
+      "save": "pad",
+      "cpu": { "tag": "test" },
+      "timeout_s": 1200,
+      "options": {
+        "heading": 90,
+        "target_altitude": 80000,
+        "minimum_pe": 75000,
+        "fairing_policy": "none",
+        "last_stage": 0,
+        "half_dv_timing": true
+      }
+    }
+  }
+}
