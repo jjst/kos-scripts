@@ -1,6 +1,6 @@
 @LAZYGLOBAL OFF.
 // In-game test: launch_to_orbit from the pad, judged by its own checks.
-// Run with: npm run test:ingame -- pad-launch
+// Run with: npm run test:ingame -- pad-launch-80km or pad-launch-120km
 // The craft-specific launch options come from tests/tests.json; the runner
 // writes them to 0:/tests/options/<test id>.json before loading the save.
 // #include "0:/lib/telemetry.ks"

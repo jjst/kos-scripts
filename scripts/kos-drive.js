@@ -21,6 +21,7 @@ const DEFAULT_TEST_LIST = path.join(REPO_ROOT, 'tests', 'tests.json');
 const DEFAULT_RUNS_DIR = path.join(REPO_ROOT, 'test-runs');
 const RESERVED_SAVES = new Set(['persistent', 'quicksave', 'kos-backup-quicksave']);
 const SAVE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+const TEST_SAVE_PREFIX = '__test_';
 
 const DEFAULTS = {
   host: '127.0.0.1',
@@ -183,6 +184,9 @@ const HELP = `Usage:
   npm run test:save -- <save-name> [--force] [--yes] [--cpu-tag TAG] [--vessel NAME]
   node scripts/kos-drive.js list
 
+Use the unprefixed name from tests/tests.json for test:save. In KSP, the save
+appears with the ${TEST_SAVE_PREFIX} prefix.
+
 Needs KSP running with kOS telnet on (SET CONFIG:TELNET TO TRUE.) and
 "Simulate in Background" enabled. See README "In-game tests".`;
 
@@ -340,7 +344,7 @@ async function commandReport(options, io) {
 function commandList(options, io) {
   const { tests } = loadTestList(options.testList);
   for (const [id, test] of Object.entries(tests)) {
-    io.stdout.write(`${id}: ${test.script} from save "${test.save}", CPU ${describeSelector(test.cpu)}, limit ${test.timeout_s} s\n`);
+    io.stdout.write(`${id}: ${test.script} from save "${TEST_SAVE_PREFIX}${test.save}", CPU ${describeSelector(test.cpu)}, limit ${test.timeout_s} s\n`);
   }
   return 0;
 }
@@ -352,6 +356,7 @@ async function commandRun(options, io, settings) {
   const { tests } = loadTestList(options.testList);
   const test = tests[testId];
   if (!test) throw new UsageError(`unknown test "${testId}". Known tests: ${Object.keys(tests).join(', ')}`);
+  const save = TEST_SAVE_PREFIX + test.save;
   const timeoutMs = (options.timeoutS || test.timeout_s) * 1000;
   const scriptDir = resolveScriptDir(options);
   const runsDir = options.runsDir || DEFAULT_RUNS_DIR;
@@ -373,28 +378,33 @@ async function commandRun(options, io, settings) {
       throw new Refusal('the CPU did not answer at the kOS prompt, so a script is probably running on it. Nothing was loaded. Stop the script and rerun.');
     }
     const saves = await session.saveList();
-    if (!saves.includes(test.save)) {
-      throw new Refusal(`save "${test.save}" is not in this game's saves (found: ${saves.join(', ') || 'none'}). Make it with npm run test:save -- ${test.save}. Nothing was loaded.`);
+    if (!saves.includes(save)) {
+      throw new Refusal(`save "${save}" is not in this game's saves (found: ${saves.join(', ') || 'none'}). Make it with npm run test:save -- ${test.save}. Nothing was loaded.`);
     }
-    say(`Loading save "${test.save}". kOS writes kos-backup-quicksave first.`);
+    say(`Loading save "${save}". kOS writes kos-backup-quicksave first.`);
     const loadMark = session.mark();
-    session.client.typeLine(`KUNIVERSE:QUICKLOADFROM("${test.save}").`);
+    session.client.typeLine(`KUNIVERSE:QUICKLOADFROM("${save}").`);
     await session.attach(test.cpu, { mark: loadMark, waitMs: settings.loadTimeoutMs, settleMs: settings.loadSettleMs });
     if (!(await session.probe('READY', settings.probeTimeoutMs, settings.probeAttempts))) {
-      throw new Refusal(`the test CPU did not answer after loading "${test.save}". Check that its boot file doesn't keep a script running.`);
+      throw new Refusal(`the test CPU did not answer after loading "${save}". Check that its boot file doesn't keep a script running.`);
     }
 
     say(`Running ${test.script} (limit ${Math.round(timeoutMs / 1000)} s).`);
     const runMark = session.mark();
-    const endId = nonce();
-    session.client.typeLine(`RUNPATH("0:/${test.script}", "${testId}", "${token}").`);
-    // Queued until the script ends (or crashes); the script never reads terminal input.
-    session.client.typeLine(markerPrint('END', endId));
+    const runCommand = `RUNPATH("0:/${test.script}", "${testId}", "${token}").`;
+    session.client.typeLine(runCommand);
     const done = (lines) => lines.map((line) => new RegExp(`TEST-DONE ${token} (\\S+) failures=(\\d+) copied=(\\w+)`).exec(line)).find(Boolean);
     let doneMatch = null;
     try {
-      doneMatch = await session.waitSince(runMark, (lines) => done(lines) || (findMarkers(lines, 'END', endId).length > 0 ? 'ended' : null), timeoutMs, `${testId} to finish`);
-      if (doneMatch === 'ended') doneMatch = done(session.client.screen.allLines().slice(runMark)) || null;
+      const completion = await session.waitSince(runMark, (lines) => {
+        const marker = done(lines);
+        if (marker) return marker;
+        // Ignore completion messages left over from earlier programs.
+        const command = lines.findIndex((line) => line.trim() === runCommand);
+        return command >= 0 && lines.slice(command + 1).some((line) => line.trim() === 'Program ended.')
+          ? 'ended' : null;
+      }, timeoutMs, `${testId} to finish`);
+      if (completion !== 'ended') doneMatch = completion;
     } catch (error) {
       if (session.client.closed) throw error;
       session.client.interrupt();
@@ -417,7 +427,7 @@ async function commandRun(options, io, settings) {
         const pass = logVerdict(summary) && failures === 0;
         outcome = {
           code: pass ? 0 : 1,
-          lines: [formatSummary(`${pass ? 'PASS' : 'FAIL'}  ${testId} (save "${test.save}")`, summary,
+          lines: [formatSummary(`${pass ? 'PASS' : 'FAIL'}  ${testId} (save "${save}")`, summary,
             [`Failures counted by the script: ${failures}`, `Log: ${archivePath} (copy: ${displayPath(kept)})`])],
         };
       }
@@ -447,6 +457,7 @@ async function commandSave(options, io, settings) {
   if (users.length === 0) {
     throw new Refusal(`no test in the test list uses save "${name}". Add the test entry first.`);
   }
+  const save = TEST_SAVE_PREFIX + name;
   let selector = { tag: options.cpuTag, vessel: options.vessel };
   if (!selector.tag && !selector.vessel) {
     const distinct = [...new Set(users.map(([, test]) => JSON.stringify(test.cpu)))];
@@ -468,8 +479,9 @@ async function commandSave(options, io, settings) {
       throw new Refusal('the CPU did not answer at the kOS prompt, so a script is probably running on it. Nothing was saved.');
     }
     const saves = await session.saveList();
-    if (saves.includes(name) && !options.force) {
-      throw new Refusal(`save "${name}" already exists. Pass --force to remake it deliberately. Nothing was saved.`);
+    const alreadyExists = saves.includes(save);
+    if (alreadyExists && !options.force) {
+      throw new Refusal(`save "${save}" already exists. Pass --force to remake it deliberately. Nothing was saved.`);
     }
     const state = await session.query({
       canquicksave: 'KUNIVERSE:CANQUICKSAVE',
@@ -489,10 +501,10 @@ async function commandSave(options, io, settings) {
     if (state.active !== 'True') problems.push(`"${cpu.vessel}" is not the active vessel`);
     if (problems.length > 0) throw new Refusal(`${problems.join('; ')}. Nothing was saved.`);
 
-    session.client.typeLine(`KUNIVERSE:QUICKSAVETO("${name}").`);
+    session.client.typeLine(`KUNIVERSE:QUICKSAVETO("${save}").`);
     const after = await session.saveList(settings.probeTimeoutMs * 2);
-    if (!after.includes(name)) throw new Error(`save "${name}" did not appear in KUNIVERSE:QUICKSAVELIST after saving`);
-    say(`Saved "${name}"${saves.includes(name) ? ' (replaced the old save)' : ''}: ${state.vessel}, ${state.status} at ${state.body}, UT ${state.ut} s, Ap ${state.ap} m, Pe ${state.pe} m.`);
+    if (!after.includes(save)) throw new Error(`save "${save}" did not appear in KUNIVERSE:QUICKSAVELIST after saving`);
+    say(`Saved "${save}"${alreadyExists ? ' (replaced the old save)' : ''}: ${state.vessel}, ${state.status} at ${state.body}, UT ${state.ut} s, Ap ${state.ap} m, Pe ${state.pe} m.`);
     say(`Used by: ${users.map(([id]) => id).join(', ')}.`);
     return 0;
   } catch (error) {

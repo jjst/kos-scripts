@@ -7,6 +7,7 @@ A bunch of [kOS](https://ksp-kos.github.io/KOS/) scripts for [Kerbal Space Progr
 - `boot/boomerang.ks` - boot script that copies scripts to local volume and prompts which phase to start
 - `launch.ks` - gravity-turn ascent to circular orbit
 - `lib/launch.ks` - reusable gravity-turn ascent and circularisation for the Jeblink carrier
+- `lib/jeblink.ks` - Jeblink carrier phasing and relay deployment functions
 - `deorbit.ks` - Trajectories-guided deorbit burn and handoff to `reentry.ks`
 - `reentry.ks` - atmospheric guidance; hands off to `land_guided.ks` when inside the descent envelope, otherwise `land_unguided.ks`
 - `land_guided.ks` - PID-guided descent and landing burn
@@ -26,6 +27,15 @@ On the pad, enter the launch heading and target altitude, then press Enter to
 arm launch. After circularisation, phasing starts after a 10-second countdown.
 Press any key in the carrier terminal during the countdown to abort. Starting
 the script in orbit still asks for Enter to begin phasing.
+
+A script that already owns a telemetry log can load `lib/jeblink.ks` and call
+`jeblink_deploy_constellation(count)` from parking orbit. It can also call
+`jeblink_carrier_phasing_plan(count)` to read the plan before deployment.
+Load `lib/telemetry.ks` first. Loading the Jeblink library leaves the vessel
+idle until a function is called. A positive third argument to
+`jeblink_deploy_constellation(count, launched_from_pad, unattended_releases)`
+arms phasing from a valid parking orbit and stops after that many verified
+releases. A failed or missing relay report ends the unattended run.
 
 The first release and each release following a verified relay report start
 their scheduled coast after a 10-second countdown. Press any key in the terminal
@@ -79,7 +89,9 @@ The runner works from the gaming PC while KSP is running. It:
 
 ```sh
 npm run test:ingame -- smoke                    # quick check that the loop works
-npm run test:ingame -- pad-launch               # launch_to_orbit from the pad save
+npm run test:ingame -- pad-launch-80km          # 80 km orbit from __test_pad_launch
+npm run test:ingame -- pad-launch-120km         # 120 km orbit from __test_pad_launch
+npm run test:ingame -- relay-deploy             # one verified relay release from __test_relay_parking
 npm run test:ingame -- --report-only <log-file> # summarise an existing log, no game needed
 node scripts/kos-drive.js list                  # tests in tests/tests.json
 ```
@@ -109,14 +121,26 @@ kOS error message.
 
 ### Making a test save
 
+Use the short name in `tests/tests.json` and on the command line. The runner
+adds `__test_` when saving or loading, so `npm run test:save -- pad` creates
+`__test_pad` in KSP's load menu. Both launch tests use `__test_pad_launch`
+so they start from the same state. Create it with `npm run test:save -- pad_launch`.
+
+To make the relay baseline, run `pad-launch-120km` on a carrier with four
+mounted relays. Once the carrier is coasting at 1x and its CPU is idle, run
+`npm run test:save -- relay_parking` before starting phasing or deployment.
+
 1. **Set up the starting state** in the test game. For `pad`, put the test
    rocket on the pad. For a later test such as `rdv-parking`, fly there, for
-   example by running `RUNPATH("0:/tests/pad_launch.ks", "pad-launch", "manual").`
-   after `npm run test:ingame -- pad-launch` has written its options once.
+   example by running `RUNPATH("0:/tests/pad_launch.ks", "pad-launch-80km", "manual").`
+   after `npm run test:ingame -- pad-launch-80km` has written its options once.
 2. **Settle at 1x, coasting,** and make sure no script is running on the test CPU.
 3. **List the save first:** a test in `tests/tests.json` must name the save
    before `test:save` will accept it. Put that entry's craft-specific settings
-   under `options`.
+   under `options`. The shared launch procedure targets 45° pitch at 16 km
+   by default. Set `turn_mid_altitude` in metres to override it. The ascent
+   throttle controller defaults to 2.2 TWR at local gravity. Set
+   `ascent_twr_limit` to override it.
 4. **Run `npm run test:save -- <save-name>`.** It asks you to confirm the CPU is
    idle (`--yes` skips the question). Then it checks the game state: saving
    allowed, 1x, the active vessel. It saves, and confirms the save exists. It
@@ -135,20 +159,21 @@ kOS error message.
   `READJSON`.
 - **Write checks as usual:** `check_line` for requirements, with actual value,
   limit and units, and `warn_line` for margins.
-- **The wrapper must not read terminal input.** The runner queues a probe line
-  behind the test so it notices straight away if the script stops on a kOS error.
+- **The wrapper runs unattended.** The runner waits for `TEST-DONE` and reports
+  an incomplete run if kOS prints `Program ended.` without the marker.
 
 ### Known limits
 
 - **The runner reads kOS's screen through telnet.** Anything typed while a script
   is running reaches that script as key presses. So the runner first checks that
   the CPU answers at the prompt. `test:save` also asks you to confirm.
-- **Some kOS and KSP behaviour hasn't been checked in-game yet:**
-  - telnet surviving a save load;
-  - the CPU reappearing in the telnet menu afterwards;
-  - load times.
-
-  The runner allows 3 minutes for a load and waits 5 s after the CPU reappears.
+- **Verified with kOS 1.6.0.1 in the sandbox pad scenario:** quickload completed
+  without a dialog, the tagged CPU reappeared in the telnet menu, and the runner
+  reattached, received `TEST-DONE`, and read the archived smoke log. The runner
+  allows 3 minutes for a load and waits 5 s after the CPU reappears.
+- Sending a second terminal command immediately after `RUNPATH` caused a kOS
+  interpreter error in the live test. The runner now waits for output before
+  sending any more commands.
 
 ## Airbrake predictor telemetry
 

@@ -163,8 +163,24 @@ function main() {
 
   function scheduleSettle() {
     clearTimeout(settleTimer);
-    // KLS debounces workspace initialization for 4 s before resolving includes.
     settleTimer = setTimeout(finish, 5000);
+  }
+
+  function openScripts() {
+    for (const f of files) {
+      send({
+        jsonrpc: '2.0',
+        method: 'textDocument/didOpen',
+        params: {
+          textDocument: {
+            uri: pathToFileURL(f).href,
+            languageId: 'kos',
+            version: 1,
+            text: readFileSync(f, 'utf8'),
+          },
+        },
+      });
+    }
   }
 
   let buf = Buffer.alloc(0);
@@ -191,20 +207,9 @@ function main() {
 
       if (msg.id === initializeId && msg.result) {
         send({ jsonrpc: '2.0', method: 'initialized', params: {} });
-        for (const f of files) {
-          send({
-            jsonrpc: '2.0',
-            method: 'textDocument/didOpen',
-            params: {
-              textDocument: {
-                uri: pathToFileURL(f).href,
-                languageId: 'kos',
-                version: 1,
-                text: readFileSync(f, 'utf8'),
-              },
-            },
-          });
-        }
+        // KLS sets the archive root after a 4 s initialization debounce.
+        // Wait before opening scripts so their first analysis can resolve imports.
+        setTimeout(openScripts, 4500);
       }
 
       if (msg.method === 'textDocument/publishDiagnostics') {

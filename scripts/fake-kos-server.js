@@ -283,6 +283,7 @@ class FakeKos {
 
   endProgram(session, cpu) {
     cpu.busy = false;
+    this.print(session, 'Program ended.');
     const queued = cpu.queue || [];
     cpu.queue = [];
     for (const line of queued) this.execute(session, line);

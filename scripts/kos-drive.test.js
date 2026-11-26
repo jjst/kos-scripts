@@ -41,7 +41,7 @@ function capture() {
   return stream;
 }
 
-function setup(t, { saves = ['pad'], cpus = [{ vessel: 'Test Rocket', tag: 'test' }], programs, values = {}, tests } = {}) {
+function setup(t, { saves = ['__test_pad'], cpus = [{ vessel: 'Test Rocket', tag: 'test' }], programs, values = {}, tests } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'kos-drive-'));
   const kspDir = path.join(root, 'KSP');
   const scriptDir = path.join(kspDir, 'Ships', 'Script');
@@ -176,10 +176,10 @@ test('run: syncs scripts, loads the save, runs the test and reports PASS', async
   const env = setup(t);
   const result = await drive(env, ['run', 'pad-launch']);
   assert.equal(result.code, 0, result.out + result.err);
-  assert.match(result.out, /PASS {2}pad-launch \(save "pad"\)/);
+  assert.match(result.out, /PASS {2}pad-launch \(save "__test_pad"\)/);
   assert.match(result.out, /\[PASS\] Periapsis - 80100\.0 m/);
   assert.match(result.out, /\[!\] Apoapsis/);
-  assert.deepEqual(env.fake.loads, ['pad']);
+  assert.deepEqual(env.fake.loads, ['__test_pad']);
   assert.ok(fs.existsSync(path.join(env.scriptDir, 'tests', 'pad_launch.ks')), 'tests synced');
   assert.ok(fs.existsSync(path.join(env.scriptDir, 'lib', 'telemetry.ks')), 'libs synced');
   const options = JSON.parse(fs.readFileSync(path.join(env.scriptDir, 'tests', 'options', 'pad-launch.json'), 'utf8'));
@@ -190,6 +190,7 @@ test('run: syncs scripts, loads the save, runs the test and reports PASS', async
   assert.ok(kept.some((name) => name.endsWith('-pad-launch.screen.txt')), 'screen transcript written');
   const runLine = env.fake.typed.find((line) => line.startsWith('RUNPATH('));
   assert.match(runLine, /^RUNPATH\("0:\/tests\/pad_launch\.ks", "pad-launch", "[0-9a-f]{8}"\)\.$/);
+  assert.equal(env.fake.typed.at(-1), runLine, 'no commands are queued behind RUNPATH');
 });
 
 test('run: a failed check fails the test', async (t) => {
@@ -224,11 +225,11 @@ test('run: a log that could not be copied to the archive fails', async (t) => {
   assert.match(result.out, /not copied to the archive/);
 });
 
-test('run: refuses when the save is missing, without loading anything', async (t) => {
-  const env = setup(t, { saves: ['other'] });
+test('run: refuses when only the unprefixed save exists', async (t) => {
+  const env = setup(t, { saves: ['rdv-parking'] });
   const result = await drive(env, ['run', 'orbit']);
   assert.equal(result.code, 2);
-  assert.match(result.out, /save "rdv-parking" is not in this game's saves/);
+  assert.match(result.out, /save "__test_rdv-parking" is not in this game's saves/);
   assert.deepEqual(env.fake.loads, []);
 });
 
@@ -259,17 +260,17 @@ test('run: unknown test ids are a usage error', async (t) => {
   assert.match(result.err, /unknown test "nope"/);
 });
 
-test('save: makes a listed save after checking the game state', async (t) => {
-  const env = setup(t, { saves: [] });
+test('save: makes the prefixed save even if the unprefixed save exists', async (t) => {
+  const env = setup(t, { saves: ['pad'] });
   const result = await drive(env, ['save', 'pad', '--yes']);
   assert.equal(result.code, 0, result.out + result.err);
-  assert.deepEqual(env.fake.savedTo, ['pad']);
-  assert.match(result.out, /Saved "pad": Test Rocket, PRELAUNCH at Kerbin, UT 12345\.6 s/);
+  assert.deepEqual(env.fake.savedTo, ['__test_pad']);
+  assert.match(result.out, /Saved "__test_pad": Test Rocket, PRELAUNCH at Kerbin, UT 12345\.6 s/);
   assert.match(result.out, /Used by: smoke, pad-launch/);
 });
 
 test('save: refuses to overwrite without --force, and replaces with it', async (t) => {
-  const env = setup(t, { saves: ['pad'] });
+  const env = setup(t);
   let result = await drive(env, ['save', 'pad', '--yes']);
   assert.equal(result.code, 2);
   assert.match(result.out, /already exists\. Pass --force/);

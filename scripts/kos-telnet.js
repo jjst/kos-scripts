@@ -390,7 +390,7 @@ class KosTelnet {
   }
 
   close() {
-    if (this.socket && !this.closed) this.socket.end();
+    if (this.socket && !this.closed) this.socket.destroySoon();
     this.closed = true;
   }
 
