@@ -1,0 +1,50 @@
+{
+  "tests": {
+    "smoke": {
+      "description": "Quick check that the load, run and report loop works.",
+      "script": "tests/smoke.ks",
+      "save": "pad",
+      "cpu": { "tag": "test" },
+      "timeout_s": 120,
+      "options": {}
+    },
+    "pad-launch-80km": {
+      "description": "Launch Jeblink Carrier from the pad to an 80 km orbit.",
+      "script": "tests/pad_launch.ks",
+      "save": "pad_launch",
+      "cpu": { "tag": "test" },
+      "timeout_s": 1200,
+      "options": {
+        "heading": 90,
+        "target_altitude": 80000,
+        "minimum_pe": 75000,
+        "fairing_policy": "atmosphere",
+        "last_stage": 2,
+        "half_dv_timing": true
+      }
+    },
+    "pad-launch-120km": {
+      "description": "Launch Jeblink Carrier from the pad to a 120 km orbit.",
+      "script": "tests/pad_launch.ks",
+      "save": "pad_launch",
+      "cpu": { "tag": "test" },
+      "timeout_s": 1200,
+      "options": {
+        "heading": 90,
+        "target_altitude": 120000,
+        "minimum_pe": 75000,
+        "fairing_policy": "atmosphere",
+        "last_stage": 2,
+        "half_dv_timing": true
+      }
+    },
+    "relay-deploy": {
+      "description": "Phase Jeblink Carrier from its parking orbit, release one relay, and verify its report.",
+      "script": "tests/relay_deploy.ks",
+      "save": "relay_parking",
+      "cpu": { "tag": "test" },
+      "timeout_s": 1200,
+      "options": {}
+    }
+  }
+}
