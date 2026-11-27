@@ -260,6 +260,32 @@ test('run: unknown test ids are a usage error', async (t) => {
   assert.match(result.err, /unknown test "nope"/);
 });
 
+test('run and save can use the only listed untagged CPU', async (t) => {
+  const env = setup(t, {
+    cpus: [{ vessel: 'Test Rocket', tag: '' }],
+    saves: [],
+    tests: { smoke: { script: 'tests/smoke.ks', save: 'pad', timeout_s: 5 } },
+  });
+  const saved = await drive(env, ['save', 'pad', '--yes']);
+  assert.equal(saved.code, 0, saved.out + saved.err);
+  const run = await drive(env, ['run', 'smoke']);
+  assert.equal(run.code, 0, run.out + run.err);
+});
+
+test('run requires a selector for multiple CPUs and accepts a tag override', async (t) => {
+  const smoke = { script: 'tests/smoke.ks', save: 'pad', timeout_s: 5 };
+  const env = setup(t, {
+    cpus: [{ vessel: 'Wrong CPU', tag: 'test', busy: true }, { vessel: 'Test Rocket', tag: 'chaser' }],
+    tests: { smoke, configured: { ...smoke, cpu: { tag: 'test' } } },
+  });
+  const refused = await drive(env, ['run', 'smoke']);
+  assert.equal(refused.code, 2, refused.out);
+  assert.match(refused.out, /2 CPUs are listed/);
+  assert.deepEqual(env.fake.loads, []);
+  const run = await drive(env, ['run', 'configured', '--cpu-tag', 'chaser']);
+  assert.equal(run.code, 0, run.out + run.err);
+});
+
 test('save: makes the prefixed save even if the unprefixed save exists', async (t) => {
   const env = setup(t, { saves: ['pad'] });
   const result = await drive(env, ['save', 'pad', '--yes']);
