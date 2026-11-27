@@ -22,6 +22,8 @@ FUNCTION open_log {
     GLOBAL telemetry_state IS LEXICON(
         "local_path", "1:/" + filename,
         "archive_path", "0:/" + filename,
+        "local_file", CREATE("1:/" + filename),
+        "dropped", 0,
         "failures", 0,
         "last_checkpoint", TIME:SECONDS,
         "last_checkpoint_realtime", KUNIVERSE:REALTIME
@@ -33,7 +35,17 @@ FUNCTION log_line {
     PARAMETER msg, show_in_terminal IS TRUE.
     LOCAL entry IS ROUND(TIME:SECONDS, 2) + " " + msg.
     IF show_in_terminal { PRINT entry. }
-    LOG entry TO telemetry_state["local_path"].
+    LOCAL local_file IS telemetry_state["local_file"].
+    IF local_file:WRITELN(entry) { RETURN. }
+    IF transmit_log() {
+        IF local_file:WRITELN(entry) { RETURN. }
+        LOCAL archive_file IS OPEN(telemetry_state["archive_path"]).
+        IF archive_file:WRITELN(entry) { RETURN. }
+    }
+    IF telemetry_state["dropped"] = 0 {
+        PRINT "Telemetry could not be stored. Flight control continues.".
+    }
+    SET telemetry_state["dropped"] TO telemetry_state["dropped"] + 1.
 }
 
 FUNCTION telemetry_has_log {
@@ -66,11 +78,28 @@ FUNCTION warn_line {
 }
 
 FUNCTION transmit_log {
-    IF telemetry_can_transmit() {
-        COPYPATH(telemetry_state["local_path"], telemetry_state["archive_path"]).
-        RETURN TRUE.
+    IF NOT telemetry_can_transmit() { RETURN FALSE. }
+    LOCAL local_file IS telemetry_state["local_file"].
+    LOCAL archive_path IS telemetry_state["archive_path"].
+    IF local_file:SIZE > 0 {
+        IF EXISTS(archive_path) {
+            LOCAL archive_file IS OPEN(archive_path).
+            IF NOT archive_file:WRITE(local_file:READALL()) { RETURN FALSE. }
+        } ELSE {
+            COPYPATH(telemetry_state["local_path"], archive_path).
+            IF NOT EXISTS(archive_path) { RETURN FALSE. }
+        }
+        // Clear only the records that were successfully archived.
+        local_file:CLEAR().
     }
-    RETURN FALSE.
+    IF telemetry_state["dropped"] > 0 {
+        LOCAL archive_file IS OPEN(archive_path).
+        IF archive_file = FALSE { SET archive_file TO CREATE(archive_path). }
+        IF NOT archive_file:WRITELN(ROUND(TIME:SECONDS, 2) + " [!] Telemetry storage - "
+            + telemetry_state["dropped"] + " entries could not be stored") { RETURN FALSE. }
+        SET telemetry_state["dropped"] TO 0.
+    }
+    RETURN EXISTS(archive_path).
 }
 
 // Finish an in-game test run started by scripts/kos-drive.js. The runner waits

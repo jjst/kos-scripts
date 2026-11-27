@@ -26,4 +26,6 @@ When you run on the gaming PC with KSP open, use the in-game test runner as your
 
 ## Known quirks and workarounds
 
+- `TRANSFER` is a reserved kOS built-in. Use a name such as `departure_window` for variables instead. The live compiler rejects it even when lint passes.
+
 - Stock SAS can stay in Stability Assist after a mode request, especially after warp. At settled 1x, enable SAS, allow it to settle, explicitly set `SASMODE` to `"STABILITYASSIST"`, then `WAIT 0.` before selecting the target mode. Verify the mode and measured alignment before applying thrust.

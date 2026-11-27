@@ -45,6 +45,30 @@
       "cpu": { "tag": "test" },
       "timeout_s": 1200,
       "options": {}
+    },
+    "burn-node": {
+      "description": "Raise apoapsis by 10 km using a manoeuvre node.",
+      "script": "tests/burn_apoapsis.ks",
+      "save": "relay_parking",
+      "cpu": { "tag": "test" },
+      "timeout_s": 180,
+      "options": { "use_node": true }
+    },
+    "burn-no-node": {
+      "description": "Raise apoapsis by 10 km with manoeuvre nodes disabled.",
+      "script": "tests/burn_apoapsis.ks",
+      "save": "relay_parking",
+      "cpu": { "tag": "test" },
+      "timeout_s": 180,
+      "options": { "use_node": false }
+    },
+    "rendezvous-transfer": {
+      "description": "Fly the outbound transfer from Docktopus Jr to Hope Station.",
+      "script": "tests/rendezvous_transfer.ks",
+      "save": "rendezvous_parking",
+      "cpu": { "vessel": "Docktopus Jr" },
+      "timeout_s": 900,
+      "options": { "station": "Hope Station" }
     }
   }
 }

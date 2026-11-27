@@ -1,6 +1,42 @@
 @LAZYGLOBAL OFF.
 // #include "0:/lib/telemetry.ks"
 
+// Describe an upcoming separator stage without igniting or staging anything.
+FUNCTION launch_booster_group {
+    PARAMETER stage_number.
+    LOCAL boosters IS LIST().
+    LOCAL separators IS LIST().
+    LOCAL retained_count IS 0.
+    FOR eng IN SHIP:ENGINES {
+        IF eng:DECOUPLEDIN = stage_number {
+            LOCAL separator IS eng:DECOUPLER.
+            IF NOT separator:ISTYPE("Separator") {
+                RETURN LEXICON("engines", LIST(), "reason", "engine " + eng:NAME + " lacks a permanent separator").
+            }
+            IF separator:STAGE <> stage_number OR NOT separator:STAGED OR separator:ISDECOUPLED {
+                RETURN LEXICON("engines", LIST(), "reason", "separator " + separator:NAME + " is not armed for this stage").
+            }
+            boosters:ADD(eng).
+            IF NOT separators:CONTAINS(separator:UID) { separators:ADD(separator:UID). }
+        } ELSE {
+            SET retained_count TO retained_count + 1.
+        }
+    }
+    IF boosters:LENGTH = 0 { RETURN LEXICON("engines", boosters, "reason", ""). }
+    IF retained_count = 0 {
+        RETURN LEXICON("engines", LIST(), "reason", "the stage would drop every engine").
+    }
+    FOR ship_part IN SHIP:PARTS {
+        IF ship_part:STAGE = stage_number AND NOT separators:CONTAINS(ship_part:UID) {
+            // Recovery hardware on a detached branch may fire with its separator.
+            IF ship_part:DECOUPLEDIN <> stage_number OR ship_part:ISTYPE("Decoupler") {
+                RETURN LEXICON("engines", LIST(), "reason", "stage also triggers unrelated part " + ship_part:NAME).
+            }
+        }
+    }
+    RETURN LEXICON("engines", boosters, "reason", "").
+}
+
 FUNCTION launch_to_orbit {
     PARAMETER options.
 
@@ -154,6 +190,15 @@ FUNCTION launch_to_orbit {
         RETURN FALSE.
     }
 
+    FUNCTION boosters_spent {
+        PARAMETER booster_engines.
+        IF booster_engines:LENGTH = 0 { RETURN FALSE. }
+        FOR eng IN booster_engines {
+            IF NOT eng:IGNITION OR NOT eng:FLAMEOUT OR eng:THRUST > 0 { RETURN FALSE. }
+        }
+        RETURN TRUE.
+    }
+
     FUNCTION ascent_sample {
         IF TIME:SECONDS < next_sample { RETURN. }
         SET next_sample TO TIME:SECONDS + 5.
@@ -173,7 +218,9 @@ FUNCTION launch_to_orbit {
             + " m, Ap " + ROUND(SHIP:APOAPSIS, 1) + " m, Pe " + ROUND(SHIP:PERIAPSIS, 1)
             + " m, surface speed " + ROUND(surface_speed_now, 1)
             + " m/s, pitch target " + ROUND(pitch, 1) + " deg, actual pitch " + ROUND(actual_pitch, 1)
-            + " deg, " + flight_path_detail + ", q " + ROUND(SHIP:Q * CONSTANT:ATMTOKPA, 2)
+            + " deg, yaw error " + ROUND(STEERINGMANAGER:YAWERROR, 1) + " deg, roll error "
+            + ROUND(STEERINGMANAGER:ROLLERROR, 1) + " deg, " + flight_path_detail
+            + ", q " + ROUND(SHIP:Q * CONSTANT:ATMTOKPA, 2)
             + " kPa, throttle " + ROUND(throttle_cmd, 2)
             + ", stage delta-v " + ROUND(STAGE:DELTAV:CURRENT, 1) + " m/s.", FALSE).
     }
@@ -219,11 +266,22 @@ FUNCTION launch_to_orbit {
     }
     transmit_log().
 
+    // Keep the pad's roll in the heading frame as pitch changes.
+    LOCAL pad_heading IS HEADING(azimuth, 90).
+    LOCAL pad_top IS VXCL(pad_heading:FOREVECTOR, SHIP:FACING:TOPVECTOR).
+    IF pad_top:MAG < 0.001 { SET pad_top TO pad_heading:TOPVECTOR. }
+    LOCAL pad_orientation IS LOOKDIRUP(pad_heading:FOREVECTOR, pad_top).
+    LOCAL pad_roll IS pad_heading:INVERSE * pad_orientation.
+    info_line("Liftoff roll", "preserving pad orientation, "
+        + ROUND(VANG(pad_heading:TOPVECTOR, pad_orientation:TOPVECTOR), 1)
+        + " deg from the default heading roll").
+    transmit_log().
+
     SAS OFF.
     RCS OFF.
     GEAR OFF.
     LOCK THROTTLE TO throttle_cmd.
-    LOCK STEERING TO HEADING(azimuth, pitch).
+    LOCK STEERING TO HEADING(azimuth, pitch) * pad_roll.
     IF fairing_policy = "before_ignition" AND NOT deploy_fairings() {
         RETURN stop_launch("fairing jettison could not be verified before ignition").
     }
@@ -235,6 +293,7 @@ FUNCTION launch_to_orbit {
     }
     CLEARSCREEN.
     IF NOT flight_ready() { RETURN stop_launch("lost flight controls during countdown"). }
+    LOCAL pad_altitude IS SHIP:ALTITUDE.
     SET throttle_cmd TO 1.
     IF NOT fire_next_stage("liftoff") { RETURN stop_launch("liftoff stage failed"). }
 
@@ -257,11 +316,36 @@ FUNCTION launch_to_orbit {
         + ROUND(turn_mid, 1) + " m, 0 deg at " + ROUND(turn_end, 1) + " m").
     LOCAL ascent_deadline IS TIME:SECONDS + 600.
     LOCAL liftoff_deadline IS TIME:SECONDS + 10.
+    // A stage command can succeed before the engine produces thrust or the
+    // vessel leaves the pad. Only arm subsequent automatic staging in flight.
+    UNTIL (SHIP:STATUS <> "LANDED" AND SHIP:STATUS <> "PRELAUNCH"
+        AND SHIP:ALTITUDE > pad_altitude + 1 AND SHIP:VERTICALSPEED > 0)
+        OR TIME:SECONDS >= liftoff_deadline OR NOT flight_ready() {
+        checkpoint_log("Waiting for liftoff").
+        WAIT 0.
+    }
+    IF NOT flight_ready() { RETURN stop_launch("lost flight controls while waiting for liftoff"). }
+    IF NOT check_line(SHIP:STATUS <> "LANDED" AND SHIP:STATUS <> "PRELAUNCH"
+        AND SHIP:ALTITUDE > pad_altitude + 1 AND SHIP:VERTICALSPEED > 0,
+        "Liftoff", SHIP:STATUS + ", altitude gain " + ROUND(SHIP:ALTITUDE - pad_altitude, 1)
+        + " m (required > 1 m), vertical speed " + ROUND(SHIP:VERTICALSPEED, 1)
+        + " m/s (required > 0 m/s), stage " + STAGE:NUMBER + ", thrust "
+        + ROUND(SHIP:THRUST, 1) + " kN, within 10 s") {
+        FOR eng IN SHIP:ENGINES {
+            log_line("Liftoff engine " + eng:NAME + ": stage " + eng:STAGE + ", ignition=" + eng:IGNITION
+                + ", flameout=" + eng:FLAMEOUT + ", thrust " + ROUND(eng:THRUST, 1)
+                + " kN, available " + ROUND(eng:AVAILABLETHRUST, 1) + " kN.").
+        }
+        RETURN stop_launch("still on the pad 10 s after ignition; no later stage fired").
+    }
+    transmit_log().
+    LOCAL inspected_stage IS -1.
+    LOCAL pending_boosters IS LIST().
     UNTIL SHIP:APOAPSIS >= target_ap - 100 {
         IF NOT flight_ready() { RETURN stop_launch("lost flight controls during ascent"). }
         IF TIME:SECONDS >= ascent_deadline { RETURN stop_launch("ascent exceeded 600 s"). }
-        IF TIME:SECONDS >= liftoff_deadline AND (SHIP:STATUS = "LANDED" OR SHIP:STATUS = "PRELAUNCH") {
-            RETURN stop_launch("still on the pad 10 s after ignition").
+        IF SHIP:STATUS = "LANDED" OR SHIP:STATUS = "PRELAUNCH" {
+            RETURN stop_launch("vessel returned to the ground during ascent").
         }
         IF fairing_policy = "atmosphere" AND fairings:LENGTH > 0 AND SHIP:ALTITUDE > atmosphere_top {
             SET throttle_cmd TO 0.
@@ -270,8 +354,46 @@ FUNCTION launch_to_orbit {
                 RETURN stop_launch("fairing jettison could not be verified during ascent").
             }
         }
-        IF NOT has_live_engine() AND NOT fire_next_stage("engine flameout or no active thrust") {
-            RETURN stop_launch("ascent ran out of thrust or allowed stages").
+        IF STAGE:NUMBER <> inspected_stage {
+            SET inspected_stage TO STAGE:NUMBER.
+            SET pending_boosters TO LIST().
+            IF inspected_stage > last_stage {
+                LOCAL next_group IS launch_booster_group(inspected_stage - 1).
+                SET pending_boosters TO next_group["engines"].
+                IF pending_boosters:LENGTH > 0 {
+                    info_line("Booster stage", "stage " + (inspected_stage - 1) + ", "
+                        + pending_boosters:LENGTH + " engines to detach after all flame out").
+                } ELSE IF next_group["reason"] <> "" {
+                    info_line("Booster stage skipped", "stage " + (inspected_stage - 1) + ", " + next_group["reason"]).
+                }
+            }
+        }
+        IF NOT has_live_engine() {
+            IF NOT fire_next_stage("engine flameout or no active thrust") {
+                RETURN stop_launch("ascent ran out of thrust or allowed stages").
+            }
+        } ELSE IF STAGE:READY AND boosters_spent(pending_boosters) {
+            // Re-read the stage in case its assignments changed since discovery.
+            LOCAL current_group IS launch_booster_group(STAGE:NUMBER - 1).
+            LOCAL current_boosters IS current_group["engines"].
+            SET pending_boosters TO current_boosters.
+            IF boosters_spent(current_boosters) {
+                LOCAL booster_ids IS LIST().
+                FOR eng IN current_boosters { booster_ids:ADD(eng:UID). }
+                IF NOT fire_next_stage("all " + booster_ids:LENGTH + " booster engines flamed out; retained thrust available") {
+                    RETURN stop_launch("spent booster stage failed").
+                }
+                LOCAL attached_count IS 0.
+                FOR eng IN SHIP:ENGINES {
+                    IF booster_ids:CONTAINS(eng:UID) { SET attached_count TO attached_count + 1. }
+                }
+                IF NOT check_line(attached_count = 0 AND has_live_engine(), "Booster separation",
+                    attached_count + " of " + booster_ids:LENGTH + " booster engines still attached (required 0), "
+                    + ROUND(SHIP:AVAILABLETHRUST, 1) + " kN available, retained engine live=" + has_live_engine()) {
+                    RETURN stop_launch("booster separation or retained thrust failed").
+                }
+                transmit_log().
+            }
         }
         LOCAL altitude_now IS SHIP:ALTITUDE.
         IF altitude_now <= turn_mid {
@@ -280,8 +402,9 @@ FUNCTION launch_to_orbit {
             SET pitch TO 45 * MAX(0, (turn_end - altitude_now) / (turn_end - turn_mid)).
         }
         LOCAL gravity_here IS SHIP:BODY:MU / (SHIP:BODY:RADIUS + SHIP:ALTITUDE)^2.
-        IF SHIP:AVAILABLETHRUST > 0 {
-            SET throttle_cmd TO MAX(0.2, MIN(1, ascent_twr_limit * SHIP:MASS * gravity_here / SHIP:AVAILABLETHRUST)).
+        LOCAL ascent_thrust IS SHIP:AVAILABLETHRUST.
+        IF ascent_thrust > 0 {
+            SET throttle_cmd TO MAX(0.2, MIN(1, ascent_twr_limit * SHIP:MASS * gravity_here / ascent_thrust)).
         }
         ascent_sample().
         checkpoint_log("").
@@ -320,6 +443,7 @@ FUNCTION launch_to_orbit {
     LOCAL circ_dv IS MAX(0, SQRT(mu_body / apo_radius) - apo_speed).
     LOCAL wet_mass IS SHIP:MASS.
     LOCAL available_thrust IS SHIP:AVAILABLETHRUST.
+    IF available_thrust <= 0 { RETURN stop_launch("no available thrust to plan circularisation"). }
     LOCAL burn_duration IS circ_dv * wet_mass / available_thrust.
     LOCAL original_lead IS burn_duration / 2.
     LOCAL ignition_lead IS original_lead.

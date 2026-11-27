@@ -94,8 +94,10 @@ function loadTestList(file = DEFAULT_TEST_LIST) {
     for (const field of ['script', 'save', 'timeout_s']) {
       if (test[field] === undefined) throw new UsageError(`test "${id}" in ${file} is missing "${field}"`);
     }
-    if (!test.cpu || (!test.cpu.tag && !test.cpu.vessel)) {
-      throw new UsageError(`test "${id}" in ${file} needs "cpu" with a "tag" and/or "vessel"`);
+    if (test.cpu !== undefined && (!test.cpu || typeof test.cpu !== 'object'
+        || (test.cpu.tag !== undefined && typeof test.cpu.tag !== 'string')
+        || (test.cpu.vessel !== undefined && typeof test.cpu.vessel !== 'string'))) {
+      throw new UsageError(`test "${id}" in ${file} has an invalid "cpu" selector`);
     }
     if (!SAVE_NAME.test(test.save)) throw new UsageError(`test "${id}" has an invalid save name "${test.save}"`);
   }
@@ -179,7 +181,7 @@ function parseArgs(argv) {
 }
 
 const HELP = `Usage:
-  npm run test:ingame -- <test-id> [--ksp-dir DIR] [--no-sync] [--timeout S]
+  npm run test:ingame -- <test-id> [--ksp-dir DIR] [--no-sync] [--timeout S] [--cpu-tag TAG] [--vessel NAME]
   npm run test:ingame -- --report-only <log-file>
   npm run test:save -- <save-name> [--force] [--yes] [--cpu-tag TAG] [--vessel NAME]
   node scripts/kos-drive.js list
@@ -203,8 +205,13 @@ function matchCpus(cpus, selector) {
     && (!selector.vessel || cpu.vessel === selector.vessel));
 }
 
-function describeSelector(selector) {
+function describeSelector(selector = {}) {
   return [selector.vessel && `vessel "${selector.vessel}"`, selector.tag && `processor tag "${selector.tag}"`].filter(Boolean).join(' and ');
+}
+
+function cpuOverride(options) {
+  if (!options.cpuTag && !options.vessel) return undefined;
+  return { tag: options.cpuTag, vessel: options.vessel };
 }
 
 class Session {
@@ -230,7 +237,8 @@ class Session {
   // With settleMs (after a load), wait that long once the CPU appears and use the
   // menu as it is then, so a CPU that is still being torn down isn't picked.
   async attach(selector, { mark = 0, waitMs = this.settings.menuTimeoutMs, settleMs = 0 } = {}) {
-    const description = `a kOS CPU with ${describeSelector(selector)} in the telnet menu`;
+    const selection = describeSelector(selector);
+    const description = selection ? `a kOS CPU with ${selection} in the telnet menu` : 'a kOS CPU in the telnet menu';
     const latestMatchingMenu = (lines) => {
       const parsed = parseCpuMenu(lines);
       return parsed && parsed.complete && matchCpus(parsed.cpus, selector).length > 0 ? parsed : null;
@@ -243,11 +251,12 @@ class Session {
     if (settleMs > 0) {
       await sleep(settleMs);
       menu = latestMatchingMenu(this.client.screen.allLines().slice(mark));
-      if (!menu) throw new Refusal(`the CPU with ${describeSelector(selector)} left the telnet menu again after the load`);
+      if (!menu) throw new Refusal(`the matching CPU left the telnet menu again after the load`);
     }
     const matches = matchCpus(menu.cpus, selector);
     if (matches.length > 1) {
-      throw new Refusal(`${matches.length} CPUs match ${describeSelector(selector)}. Give the test CPU a unique processor tag.`);
+      const detail = selection ? `match ${selection}` : 'are listed';
+      throw new Refusal(`${matches.length} CPUs ${detail}. Pass --cpu-tag or --vessel to select one.`);
     }
     const cpu = matches[0];
     if (cpu.telnets > 0) {
@@ -344,7 +353,7 @@ async function commandReport(options, io) {
 function commandList(options, io) {
   const { tests } = loadTestList(options.testList);
   for (const [id, test] of Object.entries(tests)) {
-    io.stdout.write(`${id}: ${test.script} from save "${TEST_SAVE_PREFIX}${test.save}", CPU ${describeSelector(test.cpu)}, limit ${test.timeout_s} s\n`);
+    io.stdout.write(`${id}: ${test.script} from save "${TEST_SAVE_PREFIX}${test.save}", CPU ${describeSelector(test.cpu) || 'only listed processor'}, limit ${test.timeout_s} s\n`);
   }
   return 0;
 }
@@ -356,6 +365,7 @@ async function commandRun(options, io, settings) {
   const { tests } = loadTestList(options.testList);
   const test = tests[testId];
   if (!test) throw new UsageError(`unknown test "${testId}". Known tests: ${Object.keys(tests).join(', ')}`);
+  const selector = cpuOverride(options) || test.cpu || {};
   const save = TEST_SAVE_PREFIX + test.save;
   const timeoutMs = (options.timeoutS || test.timeout_s) * 1000;
   const scriptDir = resolveScriptDir(options);
@@ -373,7 +383,7 @@ async function commandRun(options, io, settings) {
   let outcome = { code: 1, lines: [] };
   try {
     await session.open();
-    await session.attach(test.cpu);
+    await session.attach(selector);
     if (!(await session.probe('READY', settings.probeTimeoutMs, 2))) {
       throw new Refusal('the CPU did not answer at the kOS prompt, so a script is probably running on it. Nothing was loaded. Stop the script and rerun.');
     }
@@ -384,7 +394,7 @@ async function commandRun(options, io, settings) {
     say(`Loading save "${save}". kOS writes kos-backup-quicksave first.`);
     const loadMark = session.mark();
     session.client.typeLine(`KUNIVERSE:QUICKLOADFROM("${save}").`);
-    await session.attach(test.cpu, { mark: loadMark, waitMs: settings.loadTimeoutMs, settleMs: settings.loadSettleMs });
+    await session.attach(selector, { mark: loadMark, waitMs: settings.loadTimeoutMs, settleMs: settings.loadSettleMs });
     if (!(await session.probe('READY', settings.probeTimeoutMs, settings.probeAttempts))) {
       throw new Refusal(`the test CPU did not answer after loading "${save}". Check that its boot file doesn't keep a script running.`);
     }
@@ -458,16 +468,19 @@ async function commandSave(options, io, settings) {
     throw new Refusal(`no test in the test list uses save "${name}". Add the test entry first.`);
   }
   const save = TEST_SAVE_PREFIX + name;
-  let selector = { tag: options.cpuTag, vessel: options.vessel };
-  if (!selector.tag && !selector.vessel) {
-    const distinct = [...new Set(users.map(([, test]) => JSON.stringify(test.cpu)))];
-    if (distinct.length > 1) throw new Refusal(`tests using "${name}" name different CPUs. Pass --cpu-tag or --vessel.`);
-    selector = users[0][1].cpu;
+  let selector = cpuOverride(options);
+  if (!selector) {
+    const configured = users.map(([, test]) => test.cpu).filter(cpu => describeSelector(cpu));
+    const distinct = new Set(configured.map(describeSelector));
+    if (distinct.size > 1) throw new Refusal(`tests using "${name}" name different CPUs. Pass --cpu-tag or --vessel.`);
+    selector = configured[0] || {};
   }
   const say = (line) => io.stdout.write(`${line}\n`);
 
   if (!options.yes) {
-    const ok = await confirm(`Is the CPU with ${describeSelector(selector)} idle at the kOS prompt, with no script running, and the game at 1x?`, io);
+    const selection = describeSelector(selector);
+    const cpuDescription = selection ? `the CPU with ${selection}` : 'the only listed CPU';
+    const ok = await confirm(`Is ${cpuDescription} idle at the kOS prompt, with no script running, and the game at 1x?`, io);
     if (!ok) throw new Refusal('not confirmed. Anything typed while a script runs goes to that script as key presses. Stop it, then rerun (pass --yes to skip this question).');
   }
 

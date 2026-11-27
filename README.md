@@ -92,6 +92,8 @@ npm run test:ingame -- smoke                    # quick check that the loop work
 npm run test:ingame -- pad-launch-80km          # 80 km orbit from __test_pad_launch
 npm run test:ingame -- pad-launch-120km         # 120 km orbit from __test_pad_launch
 npm run test:ingame -- relay-deploy             # one verified relay release from __test_relay_parking
+npm run test:ingame -- burn-node                # raise Ap by 10 km with a manoeuvre node
+npm run test:ingame -- burn-no-node             # same burn with nodes disabled
 npm run test:ingame -- --report-only <log-file> # summarise an existing log, no game needed
 node scripts/kos-drive.js list                  # tests in tests/tests.json
 ```
@@ -110,8 +112,10 @@ kOS error message.
   password, so keep it on loopback.
 - **Turn on "Simulate in Background"** in KSP's main-menu settings. Otherwise KSP
   pauses when it loses focus, and the telnet server freezes with it.
-- **The test vessel's kOS processor needs the name tag `test`**, or whatever its
-  test entry names under `cpu`. Its tag must be unique among loaded vessels.
+- **Select the kOS processor by tag or vessel.** Both commands accept
+  `--cpu-tag TAG` or `--vessel NAME` to override the test entry's optional
+  `cpu` selector. With no selector, the runner uses the only listed processor.
+  The included Jeblink tests use the `test` tag because the vessel has several CPUs.
 - **The test processor needs no boot file**, or one that exits at once. The
   runner types commands at the kOS prompt.
 - **The test vessel needs a home connection**, so its log can be copied to the
@@ -129,6 +133,12 @@ so they start from the same state. Create it with `npm run test:save -- pad_laun
 To make the relay baseline, run `pad-launch-120km` on a carrier with four
 mounted relays. Once the carrier is coasting at 1x and its CPU is idle, run
 `npm run test:save -- relay_parking` before starting phasing or deployment.
+The burn tests use that same nearly circular parking orbit.
+
+`rendezvous-transfer` starts from `__test_rendezvous_parking`, with Docktopus Jr
+near 80 km and Hope Station near 120 km. The `__test_rendezvous_transfer`
+checkpoint captures both craft after the outbound burn so a future approach
+test can start on the transfer orbit.
 
 1. **Set up the starting state** in the test game. For `pad`, put the test
    rocket on the pad. For a later test such as `rdv-parking`, fly there, for
