@@ -49,6 +49,7 @@ FUNCTION launch_to_orbit {
     LOCAL ignition_delay IS 0.
     LOCAL half_dv_timing IS FALSE.
     LOCAL ascent_twr_limit IS 2.2.
+    LOCAL scheduled_launch_ut IS -1.
     IF options:HASKEY("heading") { SET azimuth TO options["heading"]. }
     IF options:HASKEY("target_altitude") { SET target_ap TO options["target_altitude"]. }
     IF options:HASKEY("fairing_policy") { SET fairing_policy TO options["fairing_policy"]. }
@@ -57,8 +58,13 @@ FUNCTION launch_to_orbit {
     IF options:HASKEY("ignition_delay") { SET ignition_delay TO options["ignition_delay"]. }
     IF options:HASKEY("half_dv_timing") { SET half_dv_timing TO options["half_dv_timing"]. }
     IF options:HASKEY("ascent_twr_limit") { SET ascent_twr_limit TO options["ascent_twr_limit"]. }
+    IF options:HASKEY("launch_ut") { SET scheduled_launch_ut TO options["launch_ut"]. }
 
     LOCAL throttle_cmd IS 0.
+    LOCAL liftoff_ut IS -1.
+    LOCAL liftoff_longitude IS 0.
+    LOCAL circularisation_end_ut IS -1.
+    LOCAL ascent_angle IS 0.
     LOCAL circularisation_taper_band IS 10000.
     LOCAL pitch IS 90.
     LOCAL next_sample IS 0.
@@ -112,7 +118,8 @@ FUNCTION launch_to_orbit {
         log_line("Launch result: success=" + success + ", " + result_reason + ".").
         transmit_log().
         RETURN LEXICON("success", success, "reason", result_reason, "ap", ap, "pe", pe,
-            "remaining_dv", remaining_dv).
+            "remaining_dv", remaining_dv, "liftoff_ut", liftoff_ut,
+            "circularisation_end_ut", circularisation_end_ut, "ascent_angle", ascent_angle).
     }
 
     FUNCTION stop_launch {
@@ -266,6 +273,41 @@ FUNCTION launch_to_orbit {
     }
     transmit_log().
 
+    IF options:HASKEY("launch_ut") {
+        IF scheduled_launch_ut < TIME:SECONDS + 5 {
+            RETURN finish_launch("scheduled launch window missed before ignition").
+        }
+        LOCAL countdown_ut IS scheduled_launch_ut - 5.
+        LOCAL warp_stop IS scheduled_launch_ut - 20.
+        IF TIME:SECONDS < warp_stop { KUNIVERSE:TIMEWARP:WARPTO(warp_stop). }
+        LOCAL next_pad_display IS 0.
+        UNTIL TIME:SECONDS >= countdown_ut AND flight_ready() {
+            IF TERMINAL:INPUT:HASCHAR OR SHIP <> KUNIVERSE:ACTIVEVESSEL
+                OR (SHIP:STATUS <> "PRELAUNCH" AND SHIP:STATUS <> "LANDED") {
+                KUNIVERSE:TIMEWARP:CANCELWARP().
+                RETURN finish_launch("scheduled launch cancelled before ignition").
+            }
+            IF TIME:SECONDS > countdown_ut + 1 {
+                KUNIVERSE:TIMEWARP:CANCELWARP().
+                RETURN finish_launch("warp did not settle for the scheduled countdown; no ignition").
+            }
+            IF KUNIVERSE:REALTIME >= next_pad_display {
+                SET next_pad_display TO KUNIVERSE:REALTIME + 1.
+                LOCAL pad_wait IS MAX(0, CEILING(scheduled_launch_ut - TIME:SECONDS)).
+                CLEARSCREEN.
+                PRINT "Launch in " + FLOOR(pad_wait / 60) + "m " + MOD(pad_wait, 60) + "s.".
+                IF TIME:SECONDS < warp_stop { PRINT "Auto-warping. Stay on this vessel.". }
+                ELSE { PRINT "Waiting on the pad. Stay on this vessel.". }
+                PRINT "Press any key to cancel before ignition.".
+            }
+            checkpoint_log("Waiting on the pad for the scheduled launch").
+            WAIT 0.
+        }
+        IF TIME:SECONDS > countdown_ut + 1 {
+            RETURN finish_launch("launch countdown window missed before ignition").
+        }
+    }
+
     // Keep the pad's roll in the heading frame as pitch changes.
     LOCAL pad_heading IS HEADING(azimuth, 90).
     LOCAL pad_top IS VXCL(pad_heading:FOREVECTOR, SHIP:FACING:TOPVECTOR).
@@ -289,11 +331,27 @@ FUNCTION launch_to_orbit {
         CLEARSCREEN.
         PRINT "Launch in " + count + " s. Stay on this vessel.".
         log_line("Launch countdown T-" + count + " s.", FALSE).
-        WAIT 1.
+        IF scheduled_launch_ut >= 0 {
+            PRINT "Press any key to cancel before ignition.".
+            UNTIL TIME:SECONDS >= scheduled_launch_ut - count + 1 {
+                IF TERMINAL:INPUT:HASCHAR {
+                    RETURN stop_launch("scheduled launch cancelled during countdown before ignition").
+                }
+                IF NOT flight_ready() { RETURN stop_launch("lost pad controls before ignition"). }
+                WAIT 0.
+            }
+        } ELSE { WAIT 1. }
     }
     CLEARSCREEN.
     IF NOT flight_ready() { RETURN stop_launch("lost flight controls during countdown"). }
+    IF scheduled_launch_ut >= 0 AND TERMINAL:INPUT:HASCHAR {
+        RETURN stop_launch("scheduled launch cancelled before ignition").
+    }
+    IF scheduled_launch_ut >= 0 AND TIME:SECONDS > scheduled_launch_ut + 1 {
+        RETURN stop_launch("scheduled launch window missed before ignition").
+    }
     LOCAL pad_altitude IS SHIP:ALTITUDE.
+    SET liftoff_longitude TO SHIP:LONGITUDE.
     SET throttle_cmd TO 1.
     IF NOT fire_next_stage("liftoff") { RETURN stop_launch("liftoff stage failed"). }
 
@@ -337,6 +395,11 @@ FUNCTION launch_to_orbit {
                 + " kN, available " + ROUND(eng:AVAILABLETHRUST, 1) + " kN.").
         }
         RETURN stop_launch("still on the pad 10 s after ignition; no later stage fired").
+    }
+    SET liftoff_ut TO TIME:SECONDS.
+    IF scheduled_launch_ut >= 0 {
+        info_line("Scheduled liftoff", "observed UT " + ROUND(liftoff_ut, 2) + " s, scheduled ignition UT "
+            + ROUND(scheduled_launch_ut, 2) + " s, difference " + ROUND(liftoff_ut - scheduled_launch_ut, 2) + " s").
     }
     transmit_log().
     LOCAL inspected_stage IS -1.
@@ -555,6 +618,14 @@ FUNCTION launch_to_orbit {
         + " to " + ROUND(current_eccentricity, 8) + " at throttle " + ROUND(throttle_cmd, 2)
         + ", Ap " + ROUND(SHIP:APOAPSIS, 1) + " m, Pe " + ROUND(SHIP:PERIAPSIS, 1) + " m.").
     SET throttle_cmd TO 0.
+    SET circularisation_end_ut TO TIME:SECONDS.
+    // Longitude is body-fixed. Add the body's sidereal rotation to recover eastward inertial advance.
+    LOCAL measured_ascent IS circularisation_end_ut - liftoff_ut.
+    SET ascent_angle TO MOD(SHIP:LONGITUDE - liftoff_longitude
+        + 360 * measured_ascent / SHIP:BODY:ROTATIONPERIOD + 540, 360) - 180.
+    info_line("Ascent calibration", "liftoff UT " + ROUND(liftoff_ut, 2)
+        + " s, circularisation cutoff UT " + ROUND(circularisation_end_ut, 2)
+        + " s, ascent " + ROUND(measured_ascent, 2) + " s, inertial advance " + ROUND(ascent_angle, 3) + " deg").
     WAIT 0.
     UNLOCK THROTTLE.
     UNLOCK STEERING.

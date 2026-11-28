@@ -69,6 +69,30 @@
       "cpu": { "vessel": "Docktopus Jr" },
       "timeout_s": 900,
       "options": { "station": "Hope Station" }
+    },
+    "rendezvous-approach": {
+      "description": "Intercept Hope Station and stop within 100 m without docking.",
+      "script": "tests/rendezvous_approach.ks",
+      "save": "rendezvous_transfer",
+      "cpu": { "vessel": "Docktopus Jr" },
+      "timeout_s": 1200,
+      "options": { "station": "Hope Station" }
+    },
+    "rendezvous-dock": {
+      "description": "Fly the approach to Hope Station and verify both Junior ports dock.",
+      "script": "tests/rendezvous_approach.ks",
+      "save": "rendezvous_transfer",
+      "cpu": { "vessel": "Docktopus Jr" },
+      "timeout_s": 1400,
+      "options": { "station": "Hope Station", "dock": true, "open_chaser_shield": true }
+    },
+    "dock-from-100m": {
+      "description": "Dock to Hope Station from the saved pass within 100 m.",
+      "script": "tests/dock.ks",
+      "save": "docking_100m",
+      "cpu": { "vessel": "Docktopus Jr" },
+      "timeout_s": 900,
+      "options": { "station": "Hope Station", "open_chaser_shield": true }
     }
   }
 }

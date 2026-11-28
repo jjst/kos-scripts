@@ -137,8 +137,22 @@ The burn tests use that same nearly circular parking orbit.
 
 `rendezvous-transfer` starts from `__test_rendezvous_parking`, with Docktopus Jr
 near 80 km and Hope Station near 120 km. The `__test_rendezvous_transfer`
-checkpoint captures both craft after the outbound burn so a future approach
-test can start on the transfer orbit.
+checkpoint captures both craft after the outbound burn. Run
+`npm run test:ingame -- rendezvous-approach` to load it and fly the intercept
+and braking burns with at most two main-engine starts. The probe then holds
+its attitude and uses RCS to finish within 100 m at less than 0.5 m/s relative
+speed.
+
+`npm run test:ingame -- rendezvous-dock` continues from the same transfer save
+to docking. For a chaser already within 210 m, run `dock.ks` with the station's
+name. Optional arguments select the chaser and station ports by tag and allow
+the script to open the chaser's shield. The station port should already be ready.
+
+For a docking-only checkpoint, run `rendezvous-approach` and make
+`__test_docking_100m` with `npm run test:save -- docking_100m` at the handoff.
+Then `npm run test:ingame -- dock-from-100m` starts with the RCS docking phase.
+After docking, load the checkpoint in KSP before rerunning the test. KSP lists
+the chaser's CPU under the merged station's name.
 
 1. **Set up the starting state** in the test game. For `pad`, put the test
    rocket on the pad. For a later test such as `rdv-parking`, fly there, for
@@ -157,6 +171,17 @@ test can start on the transfer orbit.
    refuses to replace an existing save unless you pass `--force`.
 5. **Leave the save alone** unless the craft or scenario changes, then remake it
    deliberately with `--force`. Tests never create or change saves.
+
+### Docktopus Jr. pad-to-docking mission
+
+Assign `boot/docktopus_jr.ks` to the Docktopus Jr. processor on the Kerbin pad.
+Hope Station should be in its near-equatorial 120 km orbit with a free, deployed
+Junior port. Press Enter once in the kOS terminal to arm. The script warps on
+the pad to the calculated launch time and counts down at 1×. It targets an
+80 km parking orbit about one minute before the predicted transfer window.
+The script checks the actual orbit before planning the transfer, flies the
+approach and docks on RCS. The mission writes a single
+`docktopus-mission-*.log`.
 
 ### Writing a test
 
