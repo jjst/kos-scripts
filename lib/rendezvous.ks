@@ -7,25 +7,53 @@ FUNCTION rendezvous_plane_error {
         VCRS(station:POSITION - origin, station:VELOCITY:ORBIT)).
 }
 
-// Estimate the first usable departure window for two nearly circular orbits.
-FUNCTION plan_hohmann_to {
-    PARAMETER station, minimum_wait IS 90.
-    LOCAL radius_from IS SHIP:OBT:SEMIMAJORAXIS.
+LOCAL FUNCTION hohmann_timing {
+    PARAMETER station, radius_from, parking_period.
     LOCAL radius_to IS station:OBT:SEMIMAJORAXIS.
     LOCAL mu_body IS SHIP:BODY:MU.
     LOCAL transfer_axis IS (radius_from + radius_to) / 2.
     LOCAL flight_time IS CONSTANT:PI * SQRT(transfer_axis^3 / mu_body).
     LOCAL station_rate IS 360 / station:OBT:PERIOD.
-    LOCAL relative_rate IS 360 / SHIP:OBT:PERIOD - station_rate.
-    LOCAL lead_angle IS 180 - station_rate * flight_time.
+    RETURN LEXICON("flight_time", flight_time, "station_rate", station_rate,
+        "relative_rate", 360 / parking_period - station_rate, "lead", 180 - station_rate * flight_time).
+}
+
+// Estimate the first usable departure window for two nearly circular orbits.
+FUNCTION plan_hohmann_to {
+    PARAMETER station, minimum_wait IS 90.
+    LOCAL timing IS hohmann_timing(station, SHIP:OBT:SEMIMAJORAXIS, SHIP:OBT:PERIOD).
     LOCAL radial IS (SHIP:POSITION - SHIP:BODY:POSITION):NORMALIZED.
     LOCAL tangential IS VXCL(radial, SHIP:VELOCITY:ORBIT):NORMALIZED.
     LOCAL station_position IS station:POSITION - SHIP:BODY:POSITION.
     LOCAL phase_angle IS MOD(360 + ARCTAN2(VDOT(station_position, tangential), VDOT(station_position, radial)), 360).
-    LOCAL wait_time IS MOD(phase_angle - lead_angle + 360, 360) / relative_rate.
-    IF wait_time < minimum_wait { SET wait_time TO wait_time + 360 / relative_rate. }
-    RETURN LEXICON("ut", TIME:SECONDS + wait_time, "phase", phase_angle, "lead", lead_angle,
-        "wait", wait_time, "flight_time", flight_time).
+    LOCAL wait_time IS MOD(phase_angle - timing["lead"] + 360, 360) / timing["relative_rate"].
+    IF wait_time < minimum_wait { SET wait_time TO wait_time + 360 / timing["relative_rate"]. }
+    RETURN LEXICON("ut", TIME:SECONDS + wait_time, "phase", phase_angle, "lead", timing["lead"],
+        "wait", wait_time, "flight_time", timing["flight_time"]).
+}
+
+// The station advances relative to the rotating pad while we wait.
+FUNCTION plan_rendezvous_launch {
+    PARAMETER station, parking_altitude, ascent_time, ascent_angle, parking_wait IS 60.
+    LOCAL radius_from IS SHIP:BODY:RADIUS + parking_altitude.
+    LOCAL parking_period IS 2 * CONSTANT:PI * SQRT(radius_from^3 / SHIP:BODY:MU).
+    LOCAL timing IS hohmann_timing(station, radius_from, parking_period).
+    LOCAL pad_rate IS 360 / SHIP:BODY:ROTATIONPERIOD.
+    LOCAL station_over_pad IS timing["station_rate"] - pad_rate.
+    IF station_over_pad <= 0 OR timing["relative_rate"] <= 0 { RETURN LEXICON(). }
+    LOCAL body_position IS SHIP:BODY:POSITION.
+    LOCAL pad_radial IS (SHIP:POSITION - body_position):NORMALIZED.
+    LOCAL east_direction IS HEADING(90, 0):FOREVECTOR.
+    LOCAL station_position IS station:POSITION - body_position.
+    LOCAL phase_now IS ARCTAN2(VDOT(station_position, east_direction), VDOT(station_position, pad_radial)).
+    LOCAL target_phase IS timing["lead"] + parking_wait * timing["relative_rate"].
+    LOCAL earliest_wait IS 35.
+    LOCAL earliest_phase IS phase_now + station_over_pad * earliest_wait
+        + timing["station_rate"] * ascent_time - ascent_angle.
+    LOCAL delay_angle IS MOD(MOD(target_phase - earliest_phase, 360) + 360, 360).
+    LOCAL pad_wait IS earliest_wait + delay_angle / station_over_pad.
+    RETURN LEXICON("ut", TIME:SECONDS + pad_wait, "wait", pad_wait,
+        "cutoff_phase", target_phase, "lead", timing["lead"], "parking_wait", parking_wait).
 }
 
 // The circular-orbit estimate seeds the live node preview.
